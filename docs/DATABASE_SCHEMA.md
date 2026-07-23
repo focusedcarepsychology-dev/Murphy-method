@@ -1,9 +1,12 @@
 # Database Schema
 
 Status: authoritative for this phase. PostgreSQL (Supabase). Derived from
-[`MASTER_SPEC.md`](MASTER_SPEC.md) § Data Model and cross-checked against
-every domain section of that document. No migration exists yet — this is
-the design that `IMPLEMENTATION_PLAN.md` Phase 2 will implement.
+[`MASTER_SPEC.md`](MASTER_SPEC.md) and cross-checked against every domain
+section of that document (MASTER_SPEC.md has no single "Data Model"
+section — the data model is distributed across its per-domain sections, so
+this schema is cross-checked against all of them, not one). No migration
+exists yet — this is the design that `IMPLEMENTATION_PLAN.md` Phase 2 will
+implement.
 
 ## Conventions
 
@@ -27,6 +30,21 @@ the design that `IMPLEMENTATION_PLAN.md` Phase 2 will implement.
 - All FKs use `on delete cascade` unless a different behaviour is specified
   (e.g. audit/version tables use `on delete restrict` or nullable FKs to
   preserve history after a referenced row's lifecycle ends).
+- **Canonical units and time.** All stored measurements use a single
+  canonical unit regardless of the user's display preference: weight in
+  kilograms (`weight_kg`/`*_kg` columns), body measurements in centimetres
+  (`body_measurements.value` per its `metric`), and duration in minutes or
+  seconds as typed per column. `profiles.unit_preference` (kg/lb, cm/in) is
+  a display-layer concern only — conversion happens client-side at render
+  time, never by storing a second unit-specific column. All instant-in-time
+  columns are `timestamptz` (stored UTC, per the Conventions above); the
+  handful of calendar-date columns (`workouts.scheduled_for`,
+  `body_measurements.measured_on`, `health_screenings`/consent dates where
+  applicable) are plain `date` and are always interpreted in the owning
+  profile's `timezone` (§1), not server UTC — this is what keeps "today" or
+  "this week" consistent with the user's actual calendar day regardless of
+  where the server runs, and is what `training_blocks.starts_on`/`ends_on`
+  and stability-window calculations (`PROGRAMME_ENGINE.md` §8) rely on.
 
 ---
 
@@ -36,19 +54,21 @@ the design that `IMPLEMENTATION_PLAN.md` Phase 2 will implement.
 
 1:1 extension of `auth.users`.
 
-| Column                     | Type         | Notes                                                                       |
-| -------------------------- | ------------ | --------------------------------------------------------------------------- |
-| `id`                       | uuid, PK     | `references auth.users(id) on delete cascade`                               |
-| `display_name`             | text         | nullable                                                                    |
-| `date_of_birth`            | date         | required for physiological calculations                                     |
-| `biological_sex`           | text         | constrained enum; see `OPEN_QUESTIONS.md` for exact field framing           |
-| `height_cm`                | numeric(5,1) | stored canonically in metric; unit preference is a display concern          |
-| `unit_preference`          | text         | `metric` \| `imperial`                                                      |
-| `training_experience`      | text         | `beginner` \| `recreational` \| `intermediate`                              |
-| `coaching_style`           | text         | `supportive` \| `direct` \| `analytical` \| `competitive` \| `calm_minimal` |
-| `onboarding_completed_at`  | timestamptz  | null until onboarding finishes                                              |
-| `timezone`                 | text         | IANA tz name                                                                |
-| `created_at`, `updated_at` | timestamptz  |                                                                             |
+| Column                               | Type         | Notes                                                                                                                                                                                                            |
+| ------------------------------------ | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                 | uuid, PK     | `references auth.users(id) on delete cascade`                                                                                                                                                                    |
+| `display_name`                       | text         | nullable                                                                                                                                                                                                         |
+| `date_of_birth`                      | date         | required for physiological calculations                                                                                                                                                                          |
+| `biological_sex`                     | text         | constrained enum; see `OPEN_QUESTIONS.md` for exact field framing                                                                                                                                                |
+| `height_cm`                          | numeric(5,1) | stored canonically in metric; unit preference is a display concern                                                                                                                                               |
+| `unit_preference`                    | text         | `metric` \| `imperial`                                                                                                                                                                                           |
+| `training_experience`                | text         | `beginner` \| `recreational` \| `intermediate`                                                                                                                                                                   |
+| `available_training_days`            | text[]       | weekday keys (e.g. `mon`, `wed`, `fri`) captured by Training Availability (`MASTER_SPEC.md` §6, `SCREEN_SPECIFICATIONS.md` §2); drives the Programme Engine's target weekly frequency (`PROGRAMME_ENGINE.md` §4) |
+| `preferred_session_duration_minutes` | smallint     | captured by Preferred Workout Duration (`MASTER_SPEC.md` §6); feeds session-duration estimation (`PROGRAMME_ENGINE.md` §6)                                                                                       |
+| `coaching_style`                     | text         | `supportive` \| `direct` \| `analytical` \| `competitive` \| `calm_minimal`                                                                                                                                      |
+| `onboarding_completed_at`            | timestamptz  | null until onboarding finishes                                                                                                                                                                                   |
+| `timezone`                           | text         | IANA tz name                                                                                                                                                                                                     |
+| `created_at`, `updated_at`           | timestamptz  |                                                                                                                                                                                                                  |
 
 **Indexes:** PK only (1:1, no additional lookup pattern).
 **Ownership:** `id = auth.uid()`.
@@ -61,7 +81,11 @@ age-relevant physiological calculations; `biological_sex` — reserved only
 because specific physiological calculations genuinely benefit from it, with
 the exact field shape still an open product/clinical decision, not assumed
 here (`OPEN_QUESTIONS.md` #1); `height_cm`/`weight` (via
-`body_measurements`) — required for programme/load estimation. No other
+`body_measurements`) — required for programme/load estimation;
+`available_training_days`/`preferred_session_duration_minutes` — required
+directly by the Programme Engine's session-assembly and duration-estimation
+steps (`PROGRAMME_ENGINE.md` §4, §6); without them the engine has no basis
+for weekly frequency or session length and would have to guess. No other
 demographic field (e.g. ethnicity, income, relationship status) is
 collected — this phase does not add a field to `profiles` without a stated
 product, safety, or legal purpose tied to it.
@@ -812,6 +836,32 @@ tables above.
 
 ## 13. Notifications
 
+### `notification_preferences` — P0
+
+Backs `listNotificationPreferences`/`updateNotificationPreferences`
+(`API_CONTRACTS.md` §19) and the Notifications/Accountability Settings
+screens (`SCREEN_SPECIFICATIONS.md` §7–8). One row per profile, created with
+default values at profile creation.
+
+| Column                           | Type                             | Notes                                                                               |
+| -------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------- |
+| `id`                             | uuid, PK                         |                                                                                     |
+| `profile_id`                     | uuid, FK → `profiles.id`, unique |                                                                                     |
+| `workout_reminders_enabled`      | boolean                          | default `true`                                                                      |
+| `missed_start_nudges_enabled`    | boolean                          | default `true`                                                                      |
+| `progress_notifications_enabled` | boolean                          | default `true`                                                                      |
+| `bodyscan_reminders_enabled`     | boolean                          | default `true`; irrelevant (never sent) if BodyScan consent was never granted       |
+| `quiet_hours_start`              | time                             | nullable                                                                            |
+| `quiet_hours_end`                | time                             | nullable                                                                            |
+| `preferred_reminder_time`        | time                             | nullable — used to schedule `workout_reminder` notifications (`MASTER_SPEC.md` §28) |
+| `created_at`, `updated_at`       | timestamptz                      |                                                                                     |
+
+**Ownership:** `profile_id = auth.uid()`.
+**Note:** this table is user-editable preference state, distinct from
+`notifications` (scheduled/sent instances) and `notification_responses`
+(engagement log) below — scheduling jobs read this table but never write to
+it.
+
 ### `notifications` — P0
 
 | Column              | Type                     | Notes                                                                       |
@@ -924,10 +974,10 @@ Postgres grants, not just application discipline.
 
 ## 17. P0 vs. later scope summary
 
-| Table                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Scope                                                                                                                                                                          |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `profiles`, `consent_records`, `goals`, `user_goals`, `body_area_goals`, `body_area_muscle_map`, `equipment`, `user_equipment`, `health_screenings`, `muscles`, `movement_patterns`, `exercises`, `exercise_muscles`, `exercise_equipment`, `exercise_substitutions`, `exercise_restrictions`, `programmes`, `programme_versions`, `training_blocks`, `programme_decisions`, `decision_evidence`, `workouts`, `workout_exercises`, `set_logs`, `exercise_feedback`, `workout_feedback`, `pain_reports`, `body_measurements`, `performance_metrics`, `personal_records`, `body_scans`, `body_scan_images`, `personal_response_models`, `preference_signals`, `coach_threads`, `coach_messages`, `notifications`, `notification_responses`, `subscriptions`, `audit_logs` | **P0**                                                                                                                                                                         |
-| `readiness_entries`, `scan_quality`, `motivation_profiles`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | **P1** — schema reserved now per `ARCHITECTURE.md` §9 and `MASTER_SPEC.md` §29.2 so later work does not require a breaking migration, but not populated/used until their phase |
+| Table                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Scope                                                                                                                                                                          |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `profiles`, `consent_records`, `goals`, `user_goals`, `body_area_goals`, `body_area_muscle_map`, `equipment`, `user_equipment`, `health_screenings`, `muscles`, `movement_patterns`, `exercises`, `exercise_muscles`, `exercise_equipment`, `exercise_substitutions`, `exercise_restrictions`, `programmes`, `programme_versions`, `training_blocks`, `programme_decisions`, `decision_evidence`, `workouts`, `workout_exercises`, `set_logs`, `exercise_feedback`, `workout_feedback`, `pain_reports`, `body_measurements`, `performance_metrics`, `personal_records`, `body_scans`, `body_scan_images`, `personal_response_models`, `preference_signals`, `coach_threads`, `coach_messages`, `notification_preferences`, `notifications`, `notification_responses`, `subscriptions`, `audit_logs` | **P0**                                                                                                                                                                         |
+| `readiness_entries`, `scan_quality`, `motivation_profiles`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | **P1** — schema reserved now per `ARCHITECTURE.md` §9 and `MASTER_SPEC.md` §29.2 so later work does not require a breaking migration, but not populated/used until their phase |
 
 No P2/Research-scope tables are specified in this phase; when that work is
 scheduled (`DEFERRED.md`), it is expected to add tables rather than change

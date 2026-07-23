@@ -162,3 +162,65 @@ deliberately did **not** change.
   infrastructure vendors, or begin Phase 1 implementation — all out of
   scope for a documentation/architecture correction pass per its own
   brief and `CLAUDE.md`'s "work one phase at a time."
+
+## 2026-07-23 — Final pre-merge quality-gate pass
+
+A second, independent verification pass over the same specification set
+before this branch was allowed to merge, re-checking (not assuming) the
+findings above. Confirmed `npm run typecheck`/`lint`/`format:check` all
+pass on a bare `npm install`-only checkout, and reproduced the
+`expo-env.d.ts`-missing failure directly (removing the generated file and
+re-running `tsc` reliably reproduces the exact `TS2307`/`TS2882` errors the
+`pretypecheck` script fixes) — the prior root-cause finding holds under
+independent reproduction, not just re-reading.
+
+Found and fixed four genuine cross-document gaps a documentation-only
+re-read had not surfaced:
+
+- **Missing data model for two onboarding fields the Programme Engine
+  already depended on.** `PROGRAMME_ENGINE.md` §4 read "target weekly
+  frequency (from `training_availability`)" and §6 depended on a preferred
+  session-duration input, but no such table or `profiles` column existed
+  in `DATABASE_SCHEMA.md` — `MASTER_SPEC.md` §6, the Training Availability
+  and Preferred Workout Duration onboarding screens
+  (`SCREEN_SPECIFICATIONS.md` §2), and their routes (`ROUTES.md`) all
+  assumed this data was captured and stored somewhere, and it was not.
+  Added `profiles.available_training_days` (`text[]`) and
+  `profiles.preferred_session_duration_minutes` (`smallint`), and corrected
+  `PROGRAMME_ENGINE.md` §4's reference accordingly.
+- **Missing `notification_preferences` table.** `API_CONTRACTS.md` §19's
+  `listNotificationPreferences`/`updateNotificationPreferences` and the
+  Notifications/Accountability Settings screens referenced a structured
+  preferences object (frequency toggles, quiet hours) with no backing
+  table. Added `notification_preferences` (P0) to `DATABASE_SCHEMA.md` §13.
+- **Two dangling section references.** `DATABASE_SCHEMA.md`'s header cited
+  a `MASTER_SPEC.md` "§ Data Model" section that does not exist (the data
+  model is distributed across MASTER_SPEC's domain sections, not one
+  section) — reworded to say so rather than pointing at a fake anchor.
+  `ACCEPTANCE_CRITERIA.md` #36 cited a `MASTER_SPEC.md` "§ Health /
+  Regulatory Claim Boundary" that also did not exist as a named section,
+  even though the underlying constraints were scattered across §3, §8.2,
+  and §23.5. Rather than just fixing the reference, added an explicit
+  `MASTER_SPEC.md` §3.1 "Health / Regulatory Claim Boundary" consolidating
+  those constraints under one citable heading, per the review brief's
+  explicit request for this boundary to be unambiguous.
+- **Canonical units/time convention stated explicitly, not just
+  per-field.** Individual columns already said "stored canonically in
+  metric," but `DATABASE_SCHEMA.md`'s Conventions section never stated the
+  policy once, or addressed how `date`-only columns (`workouts.scheduled_for`
+  etc.) relate to `profiles.timezone` — added an explicit Conventions
+  entry so this is a stated rule, not an inference from scattered examples.
+
+**What this pass confirmed was already correct** (verified, not just
+re-read): the observation→signal→inference→confidence→decision hierarchy,
+Decision Minimalism/N-of-1 principle and its documented exceptions, the
+offline/sync scenario matrix and idempotency strategy, exercise-data
+governance fields, versioning columns on `programme_decisions`/
+`personal_response_models`, abstention as a first-class outcome across
+Layers 2/4/6, the data-minimisation review on `profiles`, the GDPR
+deletion-vs-auditability category split, the BodyScan security acceptance
+criteria, the RLS test matrix, the AI coach tool-permission classes, the
+failure/degradation-mode table, and the `OPEN_QUESTIONS.md` A/B/C
+classification (finding upheld: no item blocks Phase 1). No product code
+was written or modified; no `OPEN_QUESTIONS.md` item was resolved by
+guessing.

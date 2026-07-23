@@ -92,8 +92,10 @@ score(exercise) =
 
 ## 4. Session assembly
 
-Given a target weekly frequency (from `training_availability`) and per-
-session duration target (§6), the engine:
+Given a target weekly frequency (derived from the count of
+`profiles.available_training_days`, `DATABASE_SCHEMA.md` §1) and per-session
+duration target (`profiles.preferred_session_duration_minutes`, feeding §6
+below), the engine:
 
 1. Selects a split structure appropriate to frequency and experience
    (e.g. full-body for 2–3 days/week beginners; upper/lower or push/pull/

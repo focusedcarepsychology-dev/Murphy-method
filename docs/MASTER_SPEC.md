@@ -130,6 +130,42 @@ exercise supervision may require exclusion, modification of the programme,
 or a requirement to obtain professional clearance before proceeding (see
 Safety Screening, §8.1, and Layer 1 in §21).
 
+### 3.1 Health / Regulatory Claim Boundary
+
+Murphy Method is **fitness/wellness software**, not a medical device and
+not a clinical service. This is a binding boundary on product claims,
+copy, and AI-generated output, not just a positioning statement — the
+individual behaviours below are specified elsewhere in this document
+(§8.2, §23, §23.5) and are consolidated here as a single named claim
+boundary, since several of them are enforced together as one release gate
+(`ACCEPTANCE_CRITERIA.md` #36).
+
+The product, and everything it generates, must never claim or imply that it:
+
+- **Diagnoses** an injury, medical condition, or disease. Pain handling
+  (§8.2) is a non-diagnostic, conservative-action flow — it pauses/
+  modifies training and, where warranted, suggests consulting a qualified
+  professional; it never names or asserts a medical diagnosis.
+- **Diagnoses** a psychiatric condition or eating disorder. Body-image-risk
+  patterns (§23.5) receive supportive guidance and, where warranted,
+  escalation messaging — never a diagnostic claim.
+- **Medically measures** body composition or produces a clinically valid
+  measurement from BodyScan imagery. MVP BodyScan is comparison imagery
+  only (§23); any future measurement-adjacent feature requires validation
+  and regulatory review before it ships, not just an engineering change.
+- **Provides clinical treatment or rehabilitation.** Users whose screening
+  indicates a need for clinical supervision are routed to exclusion,
+  modification, or a professional-clearance requirement (§8.1) — the
+  product adapts around that need, it does not attempt to meet it.
+
+**Pre-release gate:** app-store review and regional regulatory review
+(health-data handling, biometric-data statutes where applicable, subscription
+mechanics) must be completed before public beta — this is a release
+gate tracked explicitly, not assumed satisfied by architecture alone
+(`RISKS.md` #11, `OPEN_QUESTIONS.md` #6, `ACCEPTANCE_CRITERIA.md` #36).
+This document does not resolve those regulatory questions itself — see
+[`OPEN_QUESTIONS.md`](OPEN_QUESTIONS.md).
+
 ## 4. Product Language & Body Image Safety
 
 This is a binding constraint on every screen, notification, and AI-generated
