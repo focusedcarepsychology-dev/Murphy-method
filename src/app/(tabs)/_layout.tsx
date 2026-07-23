@@ -1,7 +1,18 @@
 import { Tabs } from 'expo-router';
+import { Text, type ColorValue } from 'react-native';
 
-import { Icon } from '@/components/ui/icon';
+import { TabBarIcon } from '@/components/ui/tab-bar-icon';
 import { useTheme } from '@/hooks/use-theme';
+
+type TabBarLabelProps = { color: ColorValue; focused: boolean };
+
+/**
+ * Active tabs are also distinguished by a bolder label — not colour alone —
+ * per docs/DESIGN_SYSTEM.md accessibility requirements.
+ */
+function TabBarLabel({ title, color, focused }: TabBarLabelProps & { title: string }) {
+  return <Text style={{ fontSize: 12, fontWeight: focused ? '700' : '500', color }}>{title}</Text>;
+}
 
 // Guard (authenticated + onboarding complete, docs/ROUTES.md §3) is Phase 2 —
 // there is no session/profile state yet for it to check.
@@ -18,42 +29,66 @@ export default function TabsLayout() {
           backgroundColor: colors.surface.raised,
           borderTopColor: colors.border.subtle,
         },
-        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
       }}
     >
       <Tabs.Screen
         name="today"
         options={{
           title: 'Today',
-          tabBarIcon: ({ color, size }) => <Icon name="today" color={color} size={size} />,
+          tabBarLabel: ({ color, focused }: TabBarLabelProps) => (
+            <TabBarLabel title="Today" color={color} focused={focused} />
+          ),
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabBarIcon name="today" color={color} size={size} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="plan"
         options={{
           title: 'Plan',
-          tabBarIcon: ({ color, size }) => <Icon name="plan" color={color} size={size} />,
+          tabBarLabel: ({ color, focused }: TabBarLabelProps) => (
+            <TabBarLabel title="Plan" color={color} focused={focused} />
+          ),
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabBarIcon name="plan" color={color} size={size} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="progress"
         options={{
           title: 'Progress',
-          tabBarIcon: ({ color, size }) => <Icon name="progress" color={color} size={size} />,
+          tabBarLabel: ({ color, focused }: TabBarLabelProps) => (
+            <TabBarLabel title="Progress" color={color} focused={focused} />
+          ),
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabBarIcon name="progress" color={color} size={size} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="coach"
         options={{
           title: 'Coach',
-          tabBarIcon: ({ color, size }) => <Icon name="coach" color={color} size={size} />,
+          tabBarLabel: ({ color, focused }: TabBarLabelProps) => (
+            <TabBarLabel title="Coach" color={color} focused={focused} />
+          ),
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabBarIcon name="coach" color={color} size={size} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color, size }) => <Icon name="profile" color={color} size={size} />,
+          tabBarLabel: ({ color, focused }: TabBarLabelProps) => (
+            <TabBarLabel title="Profile" color={color} focused={focused} />
+          ),
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabBarIcon name="profile" color={color} size={size} focused={focused} />
+          ),
         }}
       />
     </Tabs>

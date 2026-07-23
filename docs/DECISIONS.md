@@ -307,13 +307,13 @@ the full `docs/ROUTES.md` route-group shell as placeholder/visual screens.
   the Welcome screen's "Get Started" button rendered as invisible white
   text on the page background, with no button chrome at all. Root cause:
   every `PrimaryButton`/`SecondaryButton`/`TertiaryButton`/`IconButton`/
-  `InteractiveCard` spread `{...pressableProps}` *after* their own
+  `InteractiveCard` spread `{...pressableProps}` _after_ their own
   `style`/`accessibilityRole`/`disabled` props on the inner `Pressable`.
   `expo-router`'s `Link asChild` clones its child and injects its own
   (often-`undefined`) `style`/`onPress`; spread order in JSX means the
   later prop wins, so the injected `style: undefined` silently overwrote
   the button's own computed style function. Fixed by moving
-  `{...pressableProps}` to spread *first* in all five components, so the
+  `{...pressableProps}` to spread _first_ in all five components, so the
   component's own props always win — verified by re-screenshotting Welcome
   before/after. This is a general risk for any custom component intended
   to work under `asChild`, not just these five; the ordering is called out
@@ -340,13 +340,114 @@ the full `docs/ROUTES.md` route-group shell as placeholder/visual screens.
   equivalents (`src/hooks/use-greeting.ts`; the root layout now imports
   `useColorScheme` from `@/hooks/use-color-scheme`). Both are genuine
   hydration-unsafe patterns on static web export (server-prerendered output
-  can disagree with the client's first render) and were fixed on
-  discovery, independent of whether either was the sole cause of a
-  separately-observed, non-fatal "Minified React error #418" console
-  warning that persists on every route under `expo export --platform web`
-  (self-healing per React's hydration-mismatch recovery — verified the
-  final rendered DOM content is complete and correct on every screenshotted
-  route; does not reproduce under `expo start --web`, i.e. it is specific
-  to the static-export SSR pass, not the app's client-rendered behaviour;
-  not further root-caused within this phase's scope — flagged here rather
-  than silently ignored).
+  can disagree with the client's first render).
+
+### Root-causing the "Minified React error #418" console warning (Phase 1 correction pass)
+
+The note above originally flagged a non-fatal, self-healing "Minified React
+error #418" (hydration mismatch) that appeared in the browser console on
+every route under `npx expo export --platform web`, without a confirmed root
+cause. This pass root-caused it rather than re-flagging it:
+
+- **Reproduction attempts, systematically widened:** `expo export --platform
+web` (minified, matching the original report) and `--no-minify` /
+  `--no-minify --dev` (to get an unminified React warning with a full
+  message instead of a numeric code); headless-Chromium (Playwright) console
+  and `pageerror`/`window.error` capture installed via `addInitScript` so
+  nothing could be missed by timing; every screen named in this phase's
+  scope (Welcome, Today, Plan, Progress, Coach, Profile, Body Goal Map,
+  Active Workout, Overview) plus `/`; both light and dark
+  (`colorScheme` emulation); 3 repeated attempts per route; CPU throttling
+  (6×) and network throttling (500 kbps / 200 ms latency) to expose any
+  timing-dependent hydration race. **Zero hydration warnings, errors, or
+  `#418` reproductions across all of the above** — 30+ route/attempt
+  combinations, all clean.
+- **Conclusion:** the two hydration-unsafe patterns fixed immediately above
+  (raw `useColorScheme` bypassing the hydration-safe wrapper; render-time
+  `new Date()`) were the actual root cause. Both are textbook triggers for
+  error #418 (a value that differs between the server-prerendered pass and
+  the client's first render before hydration completes) and both are now
+  fixed at the source, not papered over — no `suppressHydrationWarning`, no
+  timing hacks, no console suppression anywhere in the codebase.
+  The original note's claim that the warning "persists" after those fixes
+  could not be reproduced under any tested condition on this branch's
+  current code; it's superseded by this verification.
+- **Outcome: zero hydration errors**, matching this phase's bar for
+  merge-readiness.
+- **What to monitor going forward:** any future code that reads
+  `useColorScheme` directly (bypassing `@/hooks/use-color-scheme`), computes
+  time/date/locale/random values at render time instead of behind a
+  post-mount effect, or renders conditionally on a browser-only global
+  (`window`, `document`) without an effect-gated check, reintroduces exactly
+  this class of bug. If a hydration warning resurfaces on a future Expo SDK
+  upgrade, check that upgrade's changelog for SSG/static-rendering changes
+  first, since the two fixes above are the only known-necessary guards this
+  codebase relies on.
+
+## 2026-07-23 — Phase 1 correction pass
+
+A pre-merge correction pass on PR #5, addressing four issues found on
+review before merge. Strictly within Phase 1 scope — no Supabase, auth
+backend, database, AI, programme generation, BodyScan storage,
+notifications, or payments were touched.
+
+- **Theme source-of-truth unified.** The root layout previously derived the
+  Expo Router / React Navigation theme directly from `useColorScheme`,
+  independently of `ThemePreferenceProvider`/`useTheme` (which Murphy UI
+  components already used and which supports a manual system/light/dark
+  override). A manual override could therefore update app content without
+  updating navigation chrome. Fixed by adding `useNavigationTheme`
+  (`src/hooks/use-navigation-theme.ts`), which derives the React Navigation
+  `Theme` from the same resolved `useTheme()` every component already
+  consumes, and restructuring the root layout
+  (`AppNavigation` inner component, still inside `ThemePreferenceProvider`)
+  to consume it. One resolution path now feeds both; verified visually
+  (Profile → Units & Appearance, System/Light/Dark/System, screenshots in
+  both) that screen surfaces, text, tab bar, and navigation chrome move
+  together, and confirmed with `src/hooks/__tests__/use-theme.test.tsx` and
+  `use-navigation-theme.test.tsx`.
+- **Active tab no longer relies on colour alone.** `TabBarIcon`
+  (`src/components/ui/tab-bar-icon.tsx`) adds a filled pill behind the
+  active tab's icon, and the tab label switches to a bolder weight when
+  focused — both driven by React Navigation's `focused` state, independent
+  of the active/inactive tint colours. Deliberately restrained (one pill,
+  one weight step) rather than multiple simultaneous cues.
+- **Body Goal Map upgraded from stacked rectangles to a silhouette.**
+  `src/components/onboarding/body-silhouette.tsx` is an original flat-vector
+  human silhouette (head/neck/torso/arms/legs as overlapping same-fill,
+  no-stroke shapes, so there are no seams) built with `react-native-svg`
+  (added at `~15.15.4`, the version this Expo SDK 57 project already
+  bundles-compatible-with — no other graphics dependency was introduced).
+  It is deliberately neutral (no skin tone, no facial features, no gendered
+  markers) and shared between front and back views; only the selectable
+  region overlays differ per view. `body-map.tsx` renders soft rounded
+  region overlays on top (matching the existing app-wide "selection card"
+  visual language) with fill _and_ a stroke outline _and_ a checkmark badge
+  when selected — selection is legible without colour. The accessible
+  `Pressable` hit-areas (`accessibilityRole="checkbox"`,
+  `accessibilityState`, `accessibilityLabel`) are unchanged in contract from
+  the previous implementation and share the exact same `onToggle`/
+  `selectedIds` state as the list-based fallback below it, so tapping either
+  produces identical state. No new selectable regions were invented beyond
+  what `src/dev/previewData.ts` already defined.
+- **React error #418 root-caused, not re-flagged.** See the dedicated
+  "Root-causing…" entry above. Conclusion: the two hydration-unsafe patterns
+  already fixed earlier in Phase 1 (raw `useColorScheme` import; render-time
+  `new Date()`) were the actual cause. With both fixed, extensive
+  re-verification (light/dark, throttled CPU/network, unminified builds,
+  repeated attempts, every named screen) reproduces **zero** hydration
+  warnings under `expo export --platform web`.
+- **Visual review:** re-inspected Welcome, Today, Plan, Progress, Coach,
+  Profile, Goal Selection, Body Goal Map, and Active Workout/Overview in
+  light and dark at phone width (375–390px). No further genuine defects
+  found — no overflow, no clipped text, consistent spacing/contrast/touch
+  targets. Nothing was redesigned beyond the four fixes above.
+- **Route-shell duplication:** reviewed all 18 placeholder routes and
+  confirmed each already delegates to the shared `PlaceholderScreen`
+  component with only `icon`/`title`/`description` props — no duplicated
+  layout code to centralise, so nothing was changed here.
+- **Tests added:** `use-theme.test.tsx` (3), `use-navigation-theme.test.tsx`
+  (2), `tab-bar-icon.test.tsx` (2), `body-map.test.tsx` (3) — 10 new tests.
+  Full suite: `npm run typecheck`, `npm run lint`, `npm run format:check`,
+  `npx jest` (11 suites / 26 tests), `npx expo export --platform web` all
+  pass clean.
