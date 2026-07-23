@@ -47,6 +47,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "pretypecheck": "node ./scripts/ensure-expo-env-types.js",
     "typecheck": "tsc --noEmit"
   },
   "private": true

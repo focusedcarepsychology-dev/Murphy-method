@@ -61,10 +61,12 @@ guidance shown in the UI, not to any exercise-selection change.
 
 An exercise is eligible only if: (a) Layer 1 verdict is not `excluded`; (b)
 required equipment (`exercise_equipment.required = true`) is available per
-`user_equipment`; (c) `exercises.active = true`; (d) `difficulty` is
-appropriate for `profiles.training_experience` (a beginner is not served an
-`advanced`-only exercise as a primary selection, though it may appear as a
-long-term progression target, §7).
+`user_equipment`; (c) `exercises.active = true` and
+`exercises.review_status = 'published'` (`DATABASE_SCHEMA.md` §5 — an
+unreviewed/draft row is never selected into a real user's programme); (d)
+`difficulty` is appropriate for `profiles.training_experience` (a beginner
+is not served an `advanced`-only exercise as a primary selection, though it
+may appear as a long-term progression target, §7).
 
 ### 3.2 Scoring (ranking within eligible set)
 
@@ -180,6 +182,66 @@ from thrashing the programme on weak automated signals, not to obstruct a
 user's own explicit control (`MASTER_SPEC.md` §21.3) or a genuine safety
 need (§8.2). Window values are configuration, reviewed post-launch against
 real adherence/outcome data, not fixed forever by this document.
+
+## 8a. Decision Minimalism (N-of-1 learning)
+
+**Change as little as necessary, then observe.** This is a binding
+algorithmic principle, not just a stability-window side effect (§8). When
+evidence justifies a Level 2+ change, the engine selects the **smallest
+evidence-supported intervention** that addresses the triggering signal,
+rather than changing several independent programme variables at once.
+
+Example: chest progress reads as slow. The engine does **not**
+simultaneously replace multiple chest exercises, materially raise volume,
+change training frequency, and change rep ranges in the same decision. It
+identifies the single highest-leverage variable the evidence actually
+points to (e.g. reported effort has consistently been below the progression
+ceiling — a rep-range/load issue, not a volume or exercise-selection issue)
+and changes that one variable, then waits through the relevant stability
+window (§8) to observe the effect before considering a further change.
+
+This is a product and algorithmic requirement, not a stylistic preference,
+because compound changes make it impossible to attribute a subsequent
+outcome to any one variable — the exact failure mode the Evidence &
+Confidence Engine and PRM (`MASTER_SPEC.md` §14–15) exist to avoid. Changing
+one variable at a time is what makes individual response learning possible
+at all: it preserves:
+
+- **Programme stability** — the user experiences a coherent, trackable
+  programme rather than one that feels different every week.
+- **Causal interpretability** — the next round of feedback can actually be
+  attributed to the change that was made.
+- **Individual response learning** — the PRM can only learn "this user
+  responds well to X" if X was isolated when it was tried.
+- **User trust** — a programme that visibly overreacts to a single data
+  point reads as unreliable, independent of whether any individual change
+  was technically defensible.
+
+**Documented exceptions** — cases where minimalism is deliberately
+overridden because a broader or immediate change is the correct response:
+
+- **Safety** — a Layer 1 exclusion always applies immediately and in full,
+  regardless of how many exercises/prescriptions it touches.
+- **Pain** — `reportPain` (`API_CONTRACTS.md` §11) acts immediately on the
+  affected exercise(s); minimalism governs adaptation width, never delays a
+  safety response.
+- **Equipment loss** — if a gym change removes access to equipment
+  underpinning multiple prescriptions, all affected prescriptions are
+  updated together in one Level 3 change rather than incrementally
+  breaking across sessions.
+- **Explicit user request** — Reset/Restructure Plan (Level 4,
+  `MASTER_SPEC.md` §21.3) is exactly the case where the user is asking for
+  a broad change; minimalism does not second-guess an explicit request.
+- **Severe schedule incompatibility** — a material availability change
+  (e.g. days/week drops from 5 to 2) requires restructuring the split, not
+  a single-variable patch that no longer fits the available time.
+
+Outside these exceptions, a candidate decision that would touch more than
+one independent variable is either narrowed to the single highest-evidence
+variable or, if the evidence genuinely supports several changes at once
+with no safe way to sequence them, escalated to a Level 4 restructure
+(§8) — which is itself a deliberate, larger-scope decision, not an
+accumulation of small ones happening to land together.
 
 ## 9. Substitution ranking
 

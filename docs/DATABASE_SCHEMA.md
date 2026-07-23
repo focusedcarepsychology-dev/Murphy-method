@@ -54,6 +54,17 @@ the design that `IMPLEMENTATION_PLAN.md` Phase 2 will implement.
 **Ownership:** `id = auth.uid()`.
 **Retention:** deleted on account deletion (cascades from `auth.users`); see
 Privacy in `MASTER_SPEC.md` §25.
+**Data minimisation:** every field above is collected for a specific,
+named purpose, not because conventional fitness apps typically collect it:
+`date_of_birth` — required for 18+ eligibility (`MASTER_SPEC.md` §3) and
+age-relevant physiological calculations; `biological_sex` — reserved only
+because specific physiological calculations genuinely benefit from it, with
+the exact field shape still an open product/clinical decision, not assumed
+here (`OPEN_QUESTIONS.md` #1); `height_cm`/`weight` (via
+`body_measurements`) — required for programme/load estimation. No other
+demographic field (e.g. ethnicity, income, relationship status) is
+collected — this phase does not add a field to `profiles` without a stated
+product, safety, or legal purpose tied to it.
 
 ### `consent_records` — P0
 
@@ -222,27 +233,47 @@ improvises it.
 
 ### `exercises`
 
-| Column                       | Type                              | Notes                                                                                                |
-| ---------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `id`                         | uuid, PK                          |                                                                                                      |
-| `name`                       | text                              |                                                                                                      |
-| `slug`                       | text, unique                      |                                                                                                      |
-| `description`                | text                              |                                                                                                      |
-| `movement_pattern_id`        | uuid, FK → `movement_patterns.id` |                                                                                                      |
-| `skill_requirement`          | text                              | `low` \| `moderate` \| `high`                                                                        |
-| `difficulty`                 | text                              | `beginner` \| `intermediate` \| `advanced`                                                           |
-| `stability_requirement`      | text                              | `low` \| `moderate` \| `high`                                                                        |
-| `loading_potential`          | text                              | `low` \| `moderate` \| `high` — ceiling on progressive overload                                      |
-| `fatigue_profile`            | text                              | `low` \| `moderate` \| `high` — systemic fatigue cost                                                |
-| `recommended_rep_range_low`  | smallint                          |                                                                                                      |
-| `recommended_rep_range_high` | smallint                          |                                                                                                      |
-| `setup_time_seconds`         | integer                           | approximate                                                                                          |
-| `media_url`                  | text                              | nullable, instructional media reference                                                              |
-| `active`                     | boolean                           | default `true`; retired exercises are deactivated, not deleted, to preserve history referencing them |
-| `created_at`, `updated_at`   | timestamptz                       |                                                                                                      |
+| Column                              | Type                              | Notes                                                                                                                                                                                                                 |
+| ----------------------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                | uuid, PK                          |                                                                                                                                                                                                                       |
+| `name`                              | text                              |                                                                                                                                                                                                                       |
+| `slug`                              | text, unique                      |                                                                                                                                                                                                                       |
+| `aliases`                           | text[]                            | alternate names the same exercise is commonly known by (e.g. equipment-brand or regional naming), used for search/import matching, never for eligibility logic                                                        |
+| `description`                       | text                              |                                                                                                                                                                                                                       |
+| `movement_pattern_id`               | uuid, FK → `movement_patterns.id` |                                                                                                                                                                                                                       |
+| `skill_requirement`                 | text                              | `low` \| `moderate` \| `high`                                                                                                                                                                                         |
+| `difficulty`                        | text                              | `beginner` \| `intermediate` \| `advanced`                                                                                                                                                                            |
+| `stability_requirement`             | text                              | `low` \| `moderate` \| `high`                                                                                                                                                                                         |
+| `loading_potential`                 | text                              | `low` \| `moderate` \| `high` — ceiling on progressive overload                                                                                                                                                       |
+| `fatigue_profile`                   | text                              | `low` \| `moderate` \| `high` — systemic fatigue cost                                                                                                                                                                 |
+| `recommended_rep_range_low`         | smallint                          |                                                                                                                                                                                                                       |
+| `recommended_rep_range_high`        | smallint                          |                                                                                                                                                                                                                       |
+| `setup_time_seconds`                | integer                           | approximate                                                                                                                                                                                                           |
+| `media_url`                         | text                              | nullable, instructional media reference                                                                                                                                                                               |
+| `content_version`                   | text                              | version of this specific row's content (bumped on any material edit), independent of the dataset-wide version below                                                                                                   |
+| `dataset_version`                   | text                              | version of the exercise dataset this row was last imported/reviewed as part of — referenced by `programme_versions.exercise_dataset_version` (§18) so a historic decision remains interpretable after content changes |
+| `source`                            | text                              | provenance of this row's content, e.g. `internal_authoring` \| `licensed_dataset_import` \| `content_partner`; never a fabricated or unverified literature citation (`CLAUDE.md` — no invented medical evidence)      |
+| `review_status`                     | text                              | `draft` \| `reviewed` \| `published`; gates whether the row is eligible for selection (§3.1 adds `review_status = 'published'` as an eligibility condition once Phase 4 content review is live)                       |
+| `reviewed_at`                       | timestamptz                       | nullable, set when `review_status` moves to `reviewed`/`published`                                                                                                                                                    |
+| `contraindication_metadata_version` | text                              | version of the contraindication/restriction tagging methodology applied to this row's `exercise_restrictions` links — allows re-review to be scoped to rows tagged under an outdated methodology version              |
+| `locale_ready`                      | boolean                           | default `false`; whether `name`/`description`/media have been reviewed for localisation — MVP ships English-only content but the column exists so future localisation work is additive, not a schema change           |
+| `active`                            | boolean                           | default `true`; retired exercises are deactivated, not deleted, to preserve history referencing them                                                                                                                  |
+| `created_at`, `updated_at`          | timestamptz                       |                                                                                                                                                                                                                       |
 
-**Indexes:** `(movement_pattern_id)`, `(active)`, GIN on `name`/`description`
-for search if needed.
+**Indexes:** `(movement_pattern_id)`, `(active)`, `(review_status)`, GIN on
+`name`/`description`/`aliases` for search if needed.
+
+**Content governance:** the exercise ontology is a governed dataset, not
+freely user-editable content — writable only by the service role/content
+pipeline (§ intro to this section), with the `review_status`/`reviewed_at`/
+`source`/`dataset_version` fields existing specifically so seed and later
+corrections go through a traceable review process rather than an
+unreviewed bulk import. None of these fields need to be exposed to end
+users — their purpose is internal traceability and safe maintenance
+(`RISKS.md` #12), not a user-facing feature. The actual review process
+(who reviews, against what checklist) is a Phase 4 content-authoring
+deliverable (`IMPLEMENTATION_PLAN.md` Phase 4), not designed further here;
+this schema only ensures the process has somewhere to record its outcome.
 
 ### `exercise_muscles`
 
@@ -325,17 +356,19 @@ The stable "container" for a user's training programme across versions.
 Every Level 2+ change (`MASTER_SPEC.md` §16) creates a new row here rather
 than mutating the previous one. This is the auditable core of the product.
 
-| Column                | Type                                          | Notes                                                                                                                |
-| --------------------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `id`                  | uuid, PK                                      |                                                                                                                      |
-| `programme_id`        | uuid, FK → `programmes.id`                    |                                                                                                                      |
-| `previous_version_id` | uuid, FK → `programme_versions.id`, nullable  | null for the first version                                                                                           |
-| `version_number`      | integer                                       | monotonically increasing per programme                                                                               |
-| `structure`           | jsonb                                         | full denormalised programme structure for this version (split, sessions, exercise prescriptions) — see note below    |
-| `change_level`        | smallint                                      | 0–4 per `MASTER_SPEC.md` §16                                                                                         |
-| `change_reason`       | text                                          | plain-language summary, shown on "Why did my programme change?"                                                      |
-| `decision_id`         | uuid, FK → `programme_decisions.id`, nullable | links to the decision/evidence record that produced this version, where applicable (null for the initial generation) |
-| `created_at`          | timestamptz                                   |                                                                                                                      |
+| Column                     | Type                                          | Notes                                                                                                                        |
+| -------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `id`                       | uuid, PK                                      |                                                                                                                              |
+| `programme_id`             | uuid, FK → `programmes.id`                    |                                                                                                                              |
+| `previous_version_id`      | uuid, FK → `programme_versions.id`, nullable  | null for the first version                                                                                                   |
+| `version_number`           | integer                                       | monotonically increasing per programme                                                                                       |
+| `structure`                | jsonb                                         | full denormalised programme structure for this version (split, sessions, exercise prescriptions) — see note below            |
+| `change_level`             | smallint                                      | 0–4 per `MASTER_SPEC.md` §16                                                                                                 |
+| `change_reason`            | text                                          | plain-language summary, shown on "Why did my programme change?"                                                              |
+| `decision_id`              | uuid, FK → `programme_decisions.id`, nullable | links to the decision/evidence record that produced this version, where applicable (null for the initial generation)         |
+| `engine_version`           | text                                          | version identifier of the Programme Engine (`PROGRAMME_ENGINE.md`) build that produced this version — see § Versioning below |
+| `exercise_dataset_version` | text                                          | version identifier of the exercise ontology dataset (`DATABASE_SCHEMA.md` §5) active when this version was generated         |
+| `created_at`               | timestamptz                                   |                                                                                                                              |
 
 **Why `structure` is denormalised jsonb, not fully relational:** a
 programme version must be reconstructable exactly as it was shown to the
@@ -379,16 +412,22 @@ requests), independent of whether it resulted in a new `programme_versions`
 row (a Level 0/1 decision may still be logged for the Coach's "why" answers,
 but only Level 2+ decisions attach a version).
 
-| Column          | Type                     | Notes                                                                                                        |
-| --------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| `id`            | uuid, PK                 |                                                                                                              |
-| `profile_id`    | uuid, FK → `profiles.id` |                                                                                                              |
-| `change_level`  | smallint                 | 0–4                                                                                                          |
-| `decision_type` | text                     | e.g. `load_progression`, `exercise_substitution`, `deload`, `programme_restructure`, `user_requested_change` |
-| `summary`       | text                     | user-facing explanation (Explainable AI, `MASTER_SPEC.md` §21.2)                                             |
-| `confidence`    | numeric(3,2)             | nullable — from the Evidence & Confidence Engine, where applicable                                           |
-| `triggered_by`  | text                     | `system` \| `user`                                                                                           |
-| `created_at`    | timestamptz              |                                                                                                              |
+| Column                          | Type                     | Notes                                                                                                                                                                                                          |
+| ------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                            | uuid, PK                 |                                                                                                                                                                                                                |
+| `profile_id`                    | uuid, FK → `profiles.id` |                                                                                                                                                                                                                |
+| `change_level`                  | smallint                 | 0–4                                                                                                                                                                                                            |
+| `decision_type`                 | text                     | e.g. `load_progression`, `exercise_substitution`, `deload`, `programme_restructure`, `user_requested_change`                                                                                                   |
+| `summary`                       | text                     | user-facing explanation (Explainable AI, `MASTER_SPEC.md` §21.2)                                                                                                                                               |
+| `confidence`                    | numeric(3,2)             | nullable — from the Evidence & Confidence Engine, where applicable                                                                                                                                             |
+| `triggered_by`                  | text                     | `system` \| `user`                                                                                                                                                                                             |
+| `outcome`                       | text                     | `applied` \| `abstained` — see § Abstention below; `abstained` decisions are still logged with `change_level = 0` and a `summary` explaining what evidence was missing/conflicting                             |
+| `engine_version`                | text                     | Programme Engine version (Layer 2) that evaluated this decision                                                                                                                                                |
+| `safety_rules_version`          | text                     | Layer 1 deterministic safety rules version in effect                                                                                                                                                           |
+| `personalisation_rules_version` | text                     | nullable — Layer 3 Personalisation Engine rules version, where the decision drew on `personal_response_models`                                                                                                 |
+| `evidence_engine_version`       | text                     | nullable — Layer 4 Evidence & Confidence Engine version, where a threshold determination was made                                                                                                              |
+| `llm_model_version`             | text                     | nullable — provider/model identifier, only set where an LLM materially contributed to the user-facing explanation (Layer 6 rephrasing per `AI_ARCHITECTURE.md` §2.6), never for the underlying decision itself |
+| `created_at`                    | timestamptz              |                                                                                                                                                                                                                |
 
 **Indexes:** `(profile_id, created_at desc)`.
 **Ownership:** `profile_id = auth.uid()`, insert-only.
@@ -678,17 +717,18 @@ migration touching `body_scans`/`body_scan_images` (`ARCHITECTURE.md` §9).
 One row per (profile, attribute) — an inferred attribute with its evidence
 metadata, per `MASTER_SPEC.md` §14.
 
-| Column            | Type                     | Notes                                                                                         |
-| ----------------- | ------------------------ | --------------------------------------------------------------------------------------------- |
-| `id`              | uuid, PK                 |                                                                                               |
-| `profile_id`      | uuid, FK → `profiles.id` |                                                                                               |
-| `domain`          | text                     | `physical` \| `training` \| `preference` \| `behavioural` \| `motivation`                     |
-| `attribute_key`   | text                     | e.g. `volume_tolerance_upper_body`, `preferred_session_length`, `notification_responsiveness` |
-| `estimate`        | jsonb                    | shape depends on `attribute_key` (scalar, category, or distribution)                          |
-| `confidence`      | numeric(3,2)             | 0–1                                                                                           |
-| `evidence_count`  | integer                  |                                                                                               |
-| `last_updated_at` | timestamptz              |                                                                                               |
-| `created_at`      | timestamptz              |                                                                                               |
+| Column                          | Type                     | Notes                                                                                                                |
+| ------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `id`                            | uuid, PK                 |                                                                                                                      |
+| `profile_id`                    | uuid, FK → `profiles.id` |                                                                                                                      |
+| `domain`                        | text                     | `physical` \| `training` \| `preference` \| `behavioural` \| `motivation`                                            |
+| `attribute_key`                 | text                     | e.g. `volume_tolerance_upper_body`, `preferred_session_length`, `notification_responsiveness`                        |
+| `estimate`                      | jsonb                    | shape depends on `attribute_key` (scalar, category, or distribution)                                                 |
+| `confidence`                    | numeric(3,2)             | 0–1                                                                                                                  |
+| `evidence_count`                | integer                  |                                                                                                                      |
+| `personalisation_rules_version` | text                     | version of the Layer 3 Personalisation Engine aggregation rules that produced this estimate — see § Versioning below |
+| `last_updated_at`               | timestamptz              |                                                                                                                      |
+| `created_at`                    | timestamptz              |                                                                                                                      |
 
 **Constraints:** `unique (profile_id, attribute_key)`.
 **Indexes:** `(profile_id, domain)`.
@@ -758,6 +798,7 @@ always re-derivable and auditable.
 | `role`                        | text                          | `user` \| `assistant` \| `system_context`                                                                                                                                          |
 | `content`                     | text                          |                                                                                                                                                                                    |
 | `structured_context_snapshot` | jsonb                         | nullable — the structured application-data context assembled for this reply, kept for auditability of what the LLM was actually given (`MASTER_SPEC.md` §20, `AI_ARCHITECTURE.md`) |
+| `model_version`               | text                          | nullable — provider/model identifier for `role = 'assistant'` rows, e.g. `claude-sonnet-5`; null for `user`/`system_context` rows                                                  |
 | `created_at`                  | timestamptz                   |                                                                                                                                                                                    |
 
 **Indexes:** `(thread_id, created_at)`.
@@ -891,3 +932,107 @@ Postgres grants, not just application discipline.
 No P2/Research-scope tables are specified in this phase; when that work is
 scheduled (`DEFERRED.md`), it is expected to add tables rather than change
 the shape of the ones above.
+
+## 18. Versioning of decision systems
+
+Per `CLAUDE.md`'s "significant programme changes must be auditable"
+requirement, the system must be able to answer **"what rules and data
+produced this recommendation at that time?"** for any significant decision
+— not just what the decision was. `programme_decisions` and
+`personal_response_models` (§6, §11 above) carry version identifiers for
+every engine/dataset that materially contributed:
+
+- `engine_version` — Programme Engine (Layer 2) build version.
+- `safety_rules_version` — Layer 1 deterministic safety rules version.
+- `exercise_dataset_version` — exercise ontology content version (§5,
+  `exercises.dataset_version`), so a decision remains interpretable even
+  after exercise content is later corrected or re-tagged.
+- `personalisation_rules_version` — Layer 3 Personalisation Engine
+  aggregation rules version.
+- `evidence_engine_version` — Layer 4 Evidence & Confidence Engine version.
+- `llm_model_version` — provider/model identifier, set only where an LLM
+  materially contributed to the user-facing explanation text (Layer 6
+  rephrasing), never for the underlying decision logic itself, per
+  `AI_ARCHITECTURE.md` §8 ("the LLM may only smooth phrasing, never
+  originate the justification").
+
+These are simple text identifiers (e.g. a semver string or a content-hash
+short ID), not a versioning _system_ to build now — the requirement this
+phase resolves is that the **columns exist and are populated at write
+time**, so a later audit or support investigation is not reconstructing
+"which rules were active on that date" from deploy history. Implementation
+of how each version identifier is generated (semver bump, git SHA, content
+hash) is an implementation-time decision, recorded in `DECISIONS.md` when
+Phase 5/7 build the engines that populate these columns.
+
+## 19. RLS test matrix
+
+`RISKS.md` #5 and `ACCEPTANCE_CRITERIA.md` #1 require RLS to be verified,
+not just declared. Every domain below requires, at minimum, the four test
+roles in this matrix (Phase 2 establishes the baseline suite; Phase 11
+re-runs it as a full audit per `IMPLEMENTATION_PLAN.md`):
+
+| Role                           | Required assertion                                                                                                                                                                                                                                                                                |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Owner**                      | Can perform every operation the table's policy allows (`select`, and `insert`/`update`/`delete` where the table isn't immutable/insert-only, §16).                                                                                                                                                |
+| **Other authenticated user**   | Cannot `select`, `insert`, `update`, or `delete` any row it does not own — asserted as an explicit negative test per table, not inferred from the owner test passing.                                                                                                                             |
+| **Unauthenticated**            | Cannot access any private row at all (no session ⇒ `auth.uid()` is null ⇒ every ownership policy above denies by construction) — asserted directly against the anon key, not assumed.                                                                                                             |
+| **Privileged server function** | Can perform the specific privileged operation it needs (service-role key, used only inside Edge Functions) — asserted only where a function genuinely requires it (e.g. writing `personal_response_models`, finalising a BodyScan upload); the client role must never have the equivalent access. |
+
+**Domains requiring this matrix at minimum** (one negative test per role
+per table, per `IMPLEMENTATION_PLAN.md` Phase 2's "one negative test per
+user-owned table minimum"):
+
+- **Profiles** — `profiles`, `consent_records`.
+- **Goals** — `user_goals`, `body_area_goals`.
+- **Health/safety data** — `health_screenings`, `pain_reports`,
+  `exercise_restrictions` (reference-table read path only).
+- **Workouts** — `workouts`, `workout_exercises`, `set_logs`.
+- **Feedback** — `exercise_feedback`, `workout_feedback`.
+- **Measurements** — `body_measurements`, `performance_metrics`,
+  `personal_records`.
+- **Personal Response Model** — `personal_response_models`,
+  `preference_signals`.
+- **Coach history** — `coach_threads`, `coach_messages`.
+- **BodyScans** — `body_scans`, `body_scan_images`, **plus the underlying
+  Storage objects** — object-level access (not just the row) must be
+  tested directly: an authenticated other-user request for another user's
+  `storage_path`, and an unauthenticated request for the same path, must
+  both be denied, mirroring `ACCEPTANCE_CRITERIA.md` #2. Storage-object
+  paths are namespaced by owner and by random `scan_id`/`image_id` (not a
+  guessable sequential ID), so enumeration does not reduce to guessing
+  short integers even if the private-bucket/signed-URL boundary were
+  somehow bypassed — this is defence in depth, not a substitute for the
+  access-control test itself.
+
+Reference tables (`exercises`, `muscles`, `movement_patterns`, `equipment`,
+`goals`, `exercise_*`, `body_area_muscle_map`) only require the
+**unauthenticated cannot read** and **service-role can write** halves of
+the matrix — any authenticated user is expected to read them (§16), so an
+"other authenticated user" negative-read test does not apply.
+
+## 20. Deletion vs. auditability
+
+`CLAUDE.md` requires significant programme changes to be auditable; GDPR-
+style deletion rights require personal data to be removable on request.
+These are handled by treating retained data as one of four categories,
+each with a different deletion behaviour, rather than applying one deletion
+rule to the whole account:
+
+| Category                            | Examples                                                                                                | On deletion request                                                                                                                                                                                                                                                                                                               |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Personally identifiable content** | `profiles`, `body_measurements`, `personal_records`, `coach_messages` content                           | Deleted outright (cascades from `auth.users` deletion, §1) or, where a linked row must be preserved for a legal/security reason, irreversibly de-identified (the personal payload is scrubbed, a non-identifying placeholder row remains only if something else still references it).                                             |
+| **Health/body data**                | `health_screenings`, `pain_reports`, `body_scans`/`body_scan_images` (row + storage object)             | Deleted outright, including the underlying storage object — no de-identified retention, since there is no operational/legal reason to keep sensitive body data past a deletion request (§10 `body_scan_images` "deleted immediately... on account deletion").                                                                     |
+| **Operational audit records**       | `programme_versions`, `programme_decisions`, `decision_evidence`, `audit_logs`                          | Retained, but with any directly identifying fields already minimal by design (these tables store decision structure/evidence references and IDs, not free-text personal content) — kept as the auditable history `CLAUDE.md` requires, scoped to what's operationally justified, not the account owner's personal content itself. |
+| **Legal/security records**          | `consent_records`, the `account_deletion_requested`/`data_export_requested` rows in `audit_logs` itself | Retained as the compliance record that consent was given/withdrawn and that the deletion/export request was made and honoured — this is the minimum legally/operationally justified exception to "delete everything," not a loophole for retaining unrelated personal data.                                                       |
+
+This is an architectural strategy, not a specific retention-period
+commitment — **exact retention durations are a legal-review question**
+(`OPEN_QUESTIONS.md` #4, #6), not asserted here. What this phase does
+commit to: deletion always removes or de-identifies the personal
+payload categories above; it never silently also deletes the operational
+audit trail (which would violate `CLAUDE.md`'s auditability requirement)
+and never silently retains health/body data past a deletion request
+(which would violate the privacy requirement). `ACCEPTANCE_CRITERIA.md` #5
+requires both halves to be verified by the same automated post-deletion
+sweep.

@@ -105,6 +105,12 @@ evaluateAdaptation(trigger: {
   type: 'pain_report' | 'equipment_change' | 'evidence_threshold' | 'user_request';
   referenceId?: string;               // e.g. pain_reports.id
 }): {
+  // decision.outcome distinguishes an ordinary "evaluated, no change
+  // needed" (change_level 0, outcome 'applied') from an explicit abstain
+  // (change_level 0, outcome 'abstained' — evidence conflicted or no safe
+  // option existed; see AI_ARCHITECTURE.md §2.4.1). Both are logged; only
+  // the latter surfaces "not enough reliable information" framing to the
+  // user where relevant (e.g. via Coach).
   decision: ProgrammeDecision;        // may be change_level 0 (no-op, still logged)
   newVersion?: ProgrammeVersion;      // present only if change_level >= 2
 };
@@ -208,12 +214,19 @@ suggestExerciseSubstitution(input: {
   workoutExerciseId: string;
   reason: 'dislike' | 'equipment_unavailable' | 'pain' | 'user_request';
 }): {
+  // An empty array is a valid, explicit response — "no suitable
+  // alternative exists within your current equipment/restrictions" — not
+  // an error and not a bug to paper over client-side. See
+  // AI_ARCHITECTURE.md §2.4.1 (Abstention).
   candidates: { exercise: Exercise; score: number; explanation: string }[];
 };
 ```
 
 Ranking per `MASTER_SPEC.md` §18 / `PROGRAMME_ENGINE.md`. Accepting a
-candidate goes through `respondToSubstitution` (§7).
+candidate goes through `respondToSubstitution` (§7). An empty
+`candidates` array is rendered by Exercise Substitution
+(`SCREEN_SPECIFICATIONS.md` §3) with an explanatory message and the
+"keep current exercise" fallback, never as a loading/error state.
 
 ## 14. Personal Response Model — **[table]** read, **[fn]** write
 
@@ -237,7 +250,16 @@ assessEvidence(input: {
   profileId: string;
   evidenceType: string;
   subjectId?: string;
-}): { sufficientToAct: boolean; confidence: number; evidenceCount: number };
+}): {
+  sufficientToAct: boolean;
+  confidence: number;
+  evidenceCount: number;
+  // Present when sufficientToAct is false. Distinguishes "not enough
+  // evidence yet" (ordinary, expected pre-decision state) from "abstain"
+  // (evidence conflicts, or no safe/eligible option exists) — see
+  // AI_ARCHITECTURE.md §2.4.1. Absent when sufficientToAct is true.
+  insufficiencyReason?: 'not_enough_evidence' | 'conflicting_evidence' | 'no_eligible_option';
+};
 ```
 
 ## 16. Progress — **[table]** for reads, **[fn]** for computed reviews

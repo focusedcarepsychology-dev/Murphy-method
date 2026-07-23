@@ -64,6 +64,20 @@ entirely as TypeScript/SQL in Edge Functions. This is what makes
 `generateProgramme`/`evaluateAdaptation` (`API_CONTRACTS.md` §6–7) work
 with zero LLM calls.
 
+### 2.2a Decision Minimalism (N-of-1 learning)
+
+A cross-cutting constraint on Layers 2 and 4, not a separate layer: **change
+as little as necessary, then observe.** Full principle and worked example:
+[`PROGRAMME_ENGINE.md`](PROGRAMME_ENGINE.md) §8a. When the Evidence &
+Confidence Engine (§2.4) determines a decision is sufficiently supported,
+the Programme Engine (§2.2) applies the smallest evidence-supported
+intervention rather than bundling several independent changes into one
+decision, except under the documented exceptions (safety, pain, equipment
+loss, explicit user request, severe schedule incompatibility). This is what
+makes the Personal Response Model's per-attribute learning
+(`MASTER_SPEC.md` §14) valid: attributing an observed outcome to a specific
+variable requires that variable to have been changed in isolation.
+
 ### 2.3 Layer 3 — Personalisation Engine
 
 Aggregates `preference_signals`, adherence patterns
@@ -72,6 +86,35 @@ Aggregates `preference_signals`, adherence patterns
 scheduled/triggered Edge Function jobs, deterministic aggregation (weighted
 recency-favoured averages, categorical counts) — not an LLM call. Its output
 feeds Layer 2 (e.g. down-weighting a disliked exercise in scoring) and Layer 4.
+
+#### 2.3.1 Data hierarchy: observation → signal → inference → confidence → decision
+
+The PRM (`MASTER_SPEC.md` §14) and the Evidence & Confidence Engine (§2.4)
+only work correctly if four genuinely different kinds of data are never
+conflated into one. Each stage below has its own storage location so the
+distinction is structural, not just conceptual:
+
+| Stage                        | Definition                                                                                                                                       | Storage                                                                                                            | Example                                                                                |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| **Observation**              | A raw, factual, directly-recorded user event or input — not yet interpreted.                                                                     | `exercise_feedback`, `workout_feedback`, `pain_reports`, `set_logs`, `notification_responses`, `body_measurements` | "User rated this exercise's enjoyment 1/5."                                            |
+| **Signal**                   | One observation, extracted and tagged as evidentially relevant to a specific question, with traceability back to its source observation.         | `preference_signals` (`signal_type`, `source_table`, `source_id`)                                                  | "`exercise_dislike` signal, sourced from that `exercise_feedback` row."                |
+| **Inference**                | An aggregated estimate over multiple signals, carrying its own uncertainty — never a single signal treated as settled fact.                      | `personal_response_models` (`estimate`, `confidence`, `evidence_count`, `personalisation_rules_version`)           | "Repeated low-enjoyment pattern for this exercise (confidence 0.8, evidence_count 4)." |
+| **Confidence → sufficiency** | Whether an inference (or a combination of inferences) clears the bar to justify a decision — a distinct determination from the inference itself. | Computed at decision time by the Evidence & Confidence Engine (§2.4), not stored as its own row                    | "This confidence level, for a Level 3 change, is/isn't sufficient to act."             |
+| **Decision**                 | The resulting action (or explicit abstention, §2.4.1), with the evidence and versions that produced it.                                          | `programme_decisions` + `decision_evidence` (`DATABASE_SCHEMA.md` §6)                                              | "Offer a substitution for this exercise."                                              |
+
+The chain runs strictly one direction — **observation → signal →
+inference → confidence → decision** — and a lower stage is never skipped
+or inferred backwards from a higher one (e.g. a decision is never used to
+retroactively imply what the original observation must have been). A
+single observation only ever reaches the _signal_ stage on its own (§2.4's
+"one dislike rating" example); it takes multiple signals, aggregated with
+recorded confidence, to reach _inference_; and it takes an inference
+clearing a `change_level`-appropriate threshold to reach _decision_.
+**An uncertain inference is never stored or displayed as if it were a
+verified observation** — `personal_response_models` rows are always shown
+(where surfaced to the user at all, e.g. via Coach) with their confidence
+qualified in the language used, never phrased as settled fact
+(`ACCEPTANCE_CRITERIA.md` § Personal Response Model integrity).
 
 ### 2.4 Layer 4 — Evidence & Confidence Engine
 
@@ -92,6 +135,63 @@ without any AI dependency — the "confidence" it produces is a computed
 statistic, not an LLM's self-reported confidence. See §7 for the concrete
 worked example from `MASTER_SPEC.md` §15 (one dislike rating vs. repeated
 dislike + falling completion).
+
+#### 2.4.1 Abstention
+
+**The system is not required to produce a decision.** `sufficientToAct`
+is not the only outcome of an evidence assessment — three genuinely
+different states exist, and must not be collapsed into one:
+
+| State                             | Meaning                                                                | Example                                                                                                                                                                                                |
+| --------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Sufficient evidence to act        | `score >= threshold` for the relevant `decision_type`/`change_level`   | Repeated dislike + falling completion → substitution                                                                                                                                                   |
+| Insufficient evidence — no change | `score < threshold`, and nothing is unsafe or contradictory            | One dislike rating → logged as a signal only, no decision                                                                                                                                              |
+| **Abstain**                       | Evidence is conflicting, unreliable, or no safe/eligible option exists | Conflicting pain signals; no exercise satisfies all active restrictions and equipment; Scan Reliability is `low` (`MASTER_SPEC.md` §23.4); a BodyScan-derived trend has too few comparable data points |
+
+Abstention is distinct from "no change" (Level 0): "no change" means the
+engine evaluated the evidence and correctly concluded nothing should move;
+**abstain** means the engine cannot respect the request/goal at all with
+the confidence the product requires, and says so rather than guessing. It
+applies wherever a layer would otherwise be forced to fabricate an answer:
+
+- **Programme Engine (Layer 2):** if no eligible exercise exists for a
+  required movement-pattern slot after Layer 1 filtering (e.g. every
+  candidate is excluded by a restriction and unavailable equipment
+  eliminates the rest), the engine abstains from filling that slot rather
+  than silently relaxing eligibility — the resulting programme surfaces the
+  gap explicitly (`PROGRAMME_ENGINE.md` § What this engine deliberately
+  does not claim) rather than shipping an unsafe or incomplete-looking
+  programme without explanation.
+- **Substitution (Layer 2/4):** `suggestExerciseSubstitution`
+  (`API_CONTRACTS.md` §13) may return zero candidates; this is a valid,
+  explicit response ("no suitable alternative within your current
+  equipment/restrictions"), not an empty-array bug to paper over client-side.
+- **Evidence & Confidence Engine (Layer 4):** `assessEvidence`
+  (`API_CONTRACTS.md` §15) can return `sufficientToAct: false` with a
+  `reason` distinguishing "not enough evidence yet" from "evidence
+  conflicts" — the latter is logged as an abstained `programme_decisions`
+  row (`outcome = 'abstained'`, `DATABASE_SCHEMA.md` §6), not silently
+  dropped, so the Coach can still answer "why didn't anything change?".
+- **BodyScan / Progress (Layer 4/5):** `generateProgressReview`
+  (`API_CONTRACTS.md` §16) already returns `insufficient_evidence` as a
+  trajectory state (`MASTER_SPEC.md` §26.1); a `low`-reliability BodyScan
+  (future, Layer 5) must not drive a major automated programme change
+  (`MASTER_SPEC.md` §23.4) — reliability gating is the same abstention
+  principle applied to computer-vision input.
+- **Coach (Layer 6):** where the LLM is asked a question the structured
+  context genuinely cannot answer, the required response is an honest "I
+  don't have enough reliable information to make that change safely" (or
+  the non-safety equivalent for a non-safety question), never a fabricated
+  answer to avoid an unhelpful-seeming reply — enforced by the same
+  groundedness check in §10 (an ungrounded claim is a "never"-list
+  violation regardless of how well-intentioned the language is).
+
+**Escalation/fallback:** an abstained outcome is always paired with a
+plain-language reason (why, not just that) and, where relevant, a concrete
+next step the user can take (e.g. "add equipment", "relax a restriction",
+"try again once you've logged a few more sessions", "consult a qualified
+professional" for safety-adjacent abstention). Abstaining is never a dead
+end presented as a bug or a blank state.
 
 ### 2.5 Layer 5 — Computer Vision (future)
 
@@ -210,6 +310,29 @@ because the tool implementation _is_ that deterministic logic. This is the
 mechanism that makes "the LLM never overrides deterministic safety rules"
 true even when the coach is empowered to take action, not just talk.
 
+The conceptual flow this boundary enforces is always: **LLM identifies/
+requests intent → typed tool/domain request → deterministic validation →
+safety check → authorised domain operation → audit record → result
+returned → LLM explains result.** The LLM never has a write path that
+skips the middle of that chain.
+
+### 6.1 Tool permission classification
+
+Every tool the coach can invoke falls into exactly one of three permission
+classes — this is what decides whether a Coach action needs explicit user
+confirmation before it takes effect:
+
+| Class                          | Meaning                                                                                                                               | Examples                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Automatic execution**        | Read-only, or a low-stakes/easily-reversible generated result the user explicitly asked for.                                          | Explaining a workout (read-only); `generateQuickWorkout` for a requested Quick/Minimum session (`API_CONTRACTS.md` §12) — generates through the deterministic engine, does not touch the standing programme.                                                                                                                                                                                                     |
+| **User confirmation required** | Materially changes standing programme state; reversible, but not silently.                                                            | `respondToSubstitution` accepting a suggested swap (§7); Level 3/4 `evaluateAdaptation`/`generateProgramme` restructures (`PROGRAMME_ENGINE.md` §8) — the Coach may _propose_ these via conversation, but the write only happens after the user confirms in the relevant screen (Exercise Substitution, Reset/Restructure Plan, `SCREEN_SPECIFICATIONS.md` §3/§5), never as a side effect of a chat reply alone. |
+| **Refusal / escalation**       | The LLM has no path to perform this at all — it is Layer 1–4's exclusively, or requires human judgement the product doesn't automate. | Any safety-relevant override (a Layer 1 exclusion, a `significant` pain report's deterministic action, §11 `reportPain`) — the Coach can _explain_ why, never override it; requests implying medical diagnosis or clearance decisions are refused with a suggestion to consult a qualified professional (`MASTER_SPEC.md` §8.2).                                                                                 |
+
+A tool's class is a property of the tool/operation itself (defined once,
+where the operation is implemented), not something the LLM decides
+per-conversation — this is what keeps the boundary enforceable rather than
+advisory.
+
 ## 7. Evidence & Confidence Engine — worked example
 
 Directly implements the example in `MASTER_SPEC.md` §15:
@@ -251,6 +374,14 @@ plain-language summary is (`MASTER_SPEC.md` §21.2).
   `exercise_restrictions` rows that produced it, via the `restriction_code`
   join — sufficient to answer "why is this exercise not being suggested?"
   without guesswork.
+- Every `programme_decisions` and `personal_response_models` row records the
+  version of every engine/dataset that materially contributed to it
+  (`engine_version`, `safety_rules_version`, `exercise_dataset_version`,
+  `personalisation_rules_version`, `evidence_engine_version`, and
+  `llm_model_version` where Layer 6 contributed phrasing) — see
+  `DATABASE_SCHEMA.md` § Versioning. This is what lets a later audit answer
+  "what rules and data produced this recommendation at that time?" even
+  after the engine, dataset, or rules have since changed.
 
 ## 10. Evaluation
 

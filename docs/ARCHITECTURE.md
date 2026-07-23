@@ -165,7 +165,51 @@ of a dropped connection or interrupted app session (`MASTER_SPEC.md` §13,
   Summary screens show a lightweight "saved on this device" vs. "synced"
   indicator so the user is never misled about durability.
 
-### 5.2 What is explicitly not offline-first
+### 5.2 Idempotency strategy
+
+Every offline-originated mutation (`logSet`, exercise substitution
+response, `submitWorkout`) carries a **client-generated UUID**
+(`client_generated_id` on `workouts`/`workout_exercises`/`set_logs`,
+`DATABASE_SCHEMA.md` §7) assigned at the moment the action is taken on
+device, before any network attempt. This is the sync queue's idempotency
+key: the server-side write is an `upsert` keyed on that UUID (unique
+constraint), so replaying the same queued mutation any number of times
+produces the row once. A `client_generated_id` is a mutation identity, not
+a database primary key that changes across retries — the same ID is reused
+for every retry attempt of the same logical action, which is what makes
+retries safe rather than merely idempotent-looking.
+
+### 5.3 MVP offline/sync scenario matrix
+
+Exact required behaviour for the scenarios this phase must specify, per
+`MASTER_SPEC.md` §22:
+
+| Scenario                                       | Required MVP behaviour                                                                                                                                                                                                                                                                                                                                                                         |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Set logged while offline                       | Written to local durable storage immediately with a `client_generated_id`; appended to the outbox; UI reflects it as logged with a "saved on this device" indicator.                                                                                                                                                                                                                           |
+| Set edited while offline                       | The local row is updated in place (same `client_generated_id`); the outbox entry for that ID is replaced/coalesced, not appended as a second mutation, so sync sends the latest value once.                                                                                                                                                                                                    |
+| Workout completed while offline                | `submitWorkout`'s effects (status → `completed`, PR computation) are computed and applied to local state immediately using the same offline-first path as set logging; the server-side computation re-runs on sync and must be idempotent against an already-applied local completion (§5.4).                                                                                                  |
+| Application killed mid-workout                 | No data loss: every set already logged is durably on-device (not just in memory) at the moment `logSet` returns locally, per §5.1 — a kill event loses nothing already logged, only unsaved in-flight UI state (e.g. a weight value not yet submitted).                                                                                                                                        |
+| Application restarted                          | On relaunch, the domain layer reads the persisted `ActiveWorkout`/outbox from local storage and resumes exactly where it left off — the workout is not re-fetched from the server as the source of truth (§5.1).                                                                                                                                                                               |
+| Network reconnect                              | The write-behind sync process drains the outbox in order, per workout, automatically — no user action required; sync status indicator updates from "saved on this device" to "synced" per row as each confirms.                                                                                                                                                                                |
+| Duplicate sync attempt (same mutation retried) | No-op beyond the first successful write — the `client_generated_id` upsert makes a retried write idempotent by construction (§5.2); this covers both client-side retry logic and any server-side at-least-once delivery.                                                                                                                                                                       |
+| Stale server response                          | Sync responses are correlated to their originating `client_generated_id`; a response for a mutation that has since been superseded locally (e.g. the set was edited again before the first sync confirmed) is applied only if it matches the outbox entry's current expected state, otherwise discarded in favour of the newer local value — local state is authoritative until synced (§5.4). |
+| User reopens an active workout                 | The persisted `ActiveWorkout` is the source of truth for "is a workout in progress"; reopening (from the resume affordance, `ROUTES.md` §6, or a relaunch) restores the same local state, never creates a second concurrent `ActiveWorkout`.                                                                                                                                                   |
+| Duplicate completion requests                  | `submitWorkout` is idempotent per `workouts.id`/`client_generated_id`: a second completion request for an already-`completed` workout returns the existing result rather than recomputing personal records or re-triggering evidence evaluation a second time.                                                                                                                                 |
+
+### 5.4 Source of truth rules (MVP, single-device)
+
+- **During an active workout, the device is the source of truth.** The
+  server does not overwrite local workout state; it only receives synced
+  copies of it. This is what §5.3's "stale server response" and "app
+  restart" rows depend on.
+- **Once synced, the server is the source of truth** for that data going
+  forward (e.g. Progress screens, Coach context always read server state).
+- **MVP is single-device per workout** (§5.5) — these rules describe one
+  device's local state reconciling with the server, not multi-device
+  merge, which is explicitly out of scope.
+
+### 5.5 What is explicitly not offline-first
 
 Programme generation/adaptation, coach conversation, and BodyScan upload
 require connectivity — these are read/compose-online experiences with
@@ -249,6 +293,48 @@ model, or privacy boundary:
   `scan_quality`, independent of the synchronous capture path — so it can
   ship later without changing MVP capture latency or UX.
 
+### 9.1 BodyScan security acceptance criteria
+
+Restated explicitly here, beyond §8's general security table, because
+BodyScan is the product's most sensitive data category:
+
+- Every `body_scan_images.storage_path` lives under a private bucket only
+  (`bodyscans/{user_id}/{scan_id}/{image_id}.jpg`) — never a public bucket,
+  never a permanent public URL.
+- Access requires either (a) an authenticated request scoped to the
+  requesting user's own `user_id` path segment, enforced by storage policy,
+  or (b) a short-lived signed URL issued only to the owning user
+  (`getBodyScanComparison`, `API_CONTRACTS.md` §17).
+- **Anti-enumeration:** `scan_id`/`image_id` are random UUIDs, not
+  sequential IDs — even a leaked/guessed path segment does not let an
+  attacker iterate other users' scans, and the owner-scoped policy denies
+  cross-user access regardless.
+- The original captured image is conceptually and architecturally separate
+  from any future derived/processed artifact (e.g. a future alignment
+  overlay or extracted measurement) — derived artifacts are additional
+  rows/objects referencing the original, never an in-place mutation of it,
+  so deletion of the original (below) does not require reasoning about
+  what else might be entangled with it.
+- **Deletion semantics:** `deleteBodyScan` (`API_CONTRACTS.md` §17) and
+  `requestDeleteBodyScanData` (§22) delete the storage object and its row
+  together, immediately, not just the row (`DATABASE_SCHEMA.md` §10
+  Retention) — an orphaned storage object is treated as a bug, not an
+  acceptable byproduct.
+- **Metadata deletion:** `capture_metadata` is deleted with its parent
+  `body_scan_images` row — no metadata is retained past image deletion for
+  analytics or debugging purposes.
+- **Logging/monitoring:** access to BodyScan storage objects (signed-URL
+  issuance, upload, deletion) is logged at the same structured-logging
+  level as other sensitive operations (§12), scoped to IDs and event type
+  only — never logging image bytes or derived visual content — so
+  anomalous access patterns (e.g. an unexpectedly high signed-URL issuance
+  rate for one account) are visible to the same observability/rate-limiting
+  path as any other abuse signal (§12, `AI_ARCHITECTURE.md` §11).
+
+These map directly to `ACCEPTANCE_CRITERIA.md` #2 (no public/unauthenticated
+access) and the BodyScan row of `DATABASE_SCHEMA.md` § RLS Test Matrix
+(storage-object access testing, not just row-level RLS).
+
 ## 10. Recommended folder structure
 
 ```
@@ -314,7 +400,29 @@ completed", not "user weighs 68kg").
   operation class (especially AI-calling operations and BodyScan upload),
   to bound both abuse and AI cost.
 
-## 13. Non-functional requirements, mapped to architecture
+## 13. Failure & degradation modes
+
+Core workout functionality must degrade gracefully — an outage in one
+dependency must not take down the parts of the product that don't
+genuinely need it (`MASTER_SPEC.md` §35). Required behaviour per
+dependency:
+
+| Dependency unavailable                   | Required degraded behaviour                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Supabase (Postgres/Auth) down**        | Already-authenticated sessions continue to work against locally cached data (already-synced programme, exercise library, profile); Active Workout logging continues fully offline per §5; reads that require a fresh network round-trip show the standard offline/cached-content state (`SCREEN_SPECIFICATIONS.md` §0), never a crash. New sign-in/sign-up is unavailable and says so plainly.                                                                                                                                      |
+| **AI provider unavailable/rate-limited** | Programme generation, adaptation, and all of Layers 1–4 continue to work with zero degradation — they have no AI dependency by design (`MASTER_SPEC.md` §10). Only Coach conversation (Layer 6) and LLM-rephrased explanation text degrade: Coach shows a plain retry state (`SCREEN_SPECIFICATIONS.md` §7); deterministic, template-generated explanations (`AI_ARCHITECTURE.md` §8) are still shown even when the optional Layer 6 rephrasing step fails — the underlying explanation does not depend on the LLM call succeeding. |
+| **BodyScan upload fails**                | The capture flow surfaces a retry-capable error state (`SCREEN_SPECIFICATIONS.md` §0); a partially uploaded scan does not create a visible/comparable `body_scans` row until `completeBodyScanUpload` confirms all images — no broken/partial scan is ever shown in the Timeline. Onboarding/Progress otherwise remain fully usable (`MASTER_SPEC.md` §38).                                                                                                                                                                         |
+| **Notification service fails**           | Silent, logged failure from the user's perspective beyond simply not receiving the notification — no in-app functionality depends on notification delivery succeeding; workout scheduling/logging is entirely independent of whether reminders were sent.                                                                                                                                                                                                                                                                           |
+| **Analytics unavailable**                | `trackEvent` (`API_CONTRACTS.md` §21) is fire-and-forget and never blocks or fails a user-facing action; dropped events are an acceptable, silent loss (product telemetry, not user data).                                                                                                                                                                                                                                                                                                                                          |
+
+The unifying rule: **an AI outage specifically must never prevent a user
+from** viewing an already-synced programme, completing/logging a workout,
+or viewing locally available workout information — these three are called
+out explicitly because they are the core loop the product cannot function
+without, and none of them have an AI dependency in the first place
+(`MASTER_SPEC.md` §10, §21).
+
+## 14. Non-functional requirements, mapped to architecture
 
 | Requirement (`MASTER_SPEC.md` §35)     | Architectural approach                                                                                        |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
