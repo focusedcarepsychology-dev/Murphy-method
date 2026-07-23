@@ -1,9 +1,12 @@
 # Database Schema
 
 Status: authoritative for this phase. PostgreSQL (Supabase). Derived from
-[`MASTER_SPEC.md`](MASTER_SPEC.md) § Data Model and cross-checked against
-every domain section of that document. No migration exists yet — this is
-the design that `IMPLEMENTATION_PLAN.md` Phase 2 will implement.
+the data-model requirements scattered across every domain section of
+[`MASTER_SPEC.md`](MASTER_SPEC.md) (goals §7, exercise ontology §9,
+programme versioning §16, PRM §14, BodyScan §23, etc. — there is no single
+"data model" section to point to) and cross-checked against all of them. No
+migration exists yet — this is the design that `IMPLEMENTATION_PLAN.md`
+Phase 2 will implement.
 
 ## Conventions
 
@@ -27,6 +30,34 @@ the design that `IMPLEMENTATION_PLAN.md` Phase 2 will implement.
 - All FKs use `on delete cascade` unless a different behaviour is specified
   (e.g. audit/version tables use `on delete restrict` or nullable FKs to
   preserve history after a referenced row's lifecycle ends).
+- **Canonical units.** Every stored physical quantity has exactly one
+  canonical internal representation, independent of what the user sees:
+  weights in kilograms (`weight_kg`, `suggested_load_kg`, `body_measurements.value`
+  for the `weight` metric), lengths/circumferences in centimetres
+  (`height_cm`, `body_measurements.value` for `waist`/`chest`/`hips`/`arm`/
+  `thigh`/`calf`), and durations in whole minutes or seconds as noted per
+  column (`estimated_duration_minutes`, `setup_time_seconds`). `unit_preference`
+  (`metric` \| `imperial`, §1) is a display-layer concern only — conversion
+  happens at render time in the client (`ARCHITECTURE.md` §3.3), never by
+  storing a second unit system or a user-specific stored value. This is a
+  hard rule, not a per-table judgement call: a future field storing a
+  physical quantity follows this convention rather than introducing a new
+  unit choice.
+- **Canonical timestamps.** Every instant-in-time column is `timestamptz`
+  (stored as UTC, per Postgres convention), never a naive/timezone-less
+  timestamp — this is what makes `created_at`/`completed_at`/etc. comparable
+  and sortable regardless of which timezone a client or server process is
+  running in. `profiles.timezone` (IANA name, §1) is the one exception by
+  design: a workout's `scheduled_for` (§7) is intentionally a plain `date`,
+  interpreted against the owning user's `profiles.timezone` at read/display
+  time, not converted to/from UTC — this is what keeps "today's workout"
+  meaning the same calendar day to the user regardless of what UTC offset
+  their device or the server happens to be in, so a user's local
+  date/timezone can never corrupt which day a workout is shown as scheduled
+  for. A user changing `timezone` re-interprets existing `scheduled_for`
+  dates against the new timezone going forward; it does not rewrite
+  historical `completed_at`/`created_at` instants, which remain the actual
+  UTC instant they occurred.
 
 ---
 

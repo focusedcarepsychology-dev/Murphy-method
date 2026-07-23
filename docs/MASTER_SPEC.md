@@ -124,11 +124,35 @@ body areas.
 
 **MVP focus:** beginners, recreational exercisers, and intermediate lifters.
 
-**Explicitly out of positioning for MVP:** Murphy Method is **not** marketed
-or built as medically supervised rehabilitation. Users who need clinical
-exercise supervision may require exclusion, modification of the programme,
-or a requirement to obtain professional clearance before proceeding (see
-Safety Screening, §8.1, and Layer 1 in §21).
+### 3.1 Health / Regulatory Claim Boundary
+
+Murphy Method is positioned, marketed, and built as **fitness/wellness
+software** — never as a medical device, a diagnostic tool, or a clinical
+treatment/rehabilitation service. This is a binding boundary on product
+copy, AI output, and feature design, not a disclaimer bolted on afterward:
+
+- **Not medically supervised rehabilitation.** Users whose safety-screening
+  responses indicate a need for clinical exercise supervision may require
+  exclusion, programme modification, or a requirement to obtain
+  professional clearance before certain content unlocks (Safety Screening,
+  §8.1; Layer 1, §21) — the product routes them toward that clearance, it
+  never attempts to supervise or clear them itself.
+- **Not a diagnostic tool.** The system never claims to diagnose an injury,
+  a disease, a psychiatric condition, or an eating disorder (§8.2, §23.5);
+  concerning patterns produce supportive, non-diagnostic guidance and, where
+  warranted, escalation messaging pointing to a qualified professional —
+  never a diagnostic conclusion presented as fact.
+- **Not a medical measurement device.** BodyScan is progress-comparison
+  imagery, not a validated body-composition measurement instrument (§23);
+  no scan-derived number is shown with more precision than the underlying
+  method actually supports (§23.2, §26).
+- **Pre-release regulatory gate.** App-store review (Apple/Google health-
+  content policies) and applicable regional health-data/biometric-data
+  regulation are a required gate before public beta, tracked explicitly as
+  its own acceptance criterion (`ACCEPTANCE_CRITERIA.md` #36) and risk
+  (`RISKS.md` #11) rather than assumed satisfied by architecture alone. The
+  exact regional legal requirements are a genuinely open question, not
+  resolved here (`OPEN_QUESTIONS.md` #6).
 
 ## 4. Product Language & Body Image Safety
 
