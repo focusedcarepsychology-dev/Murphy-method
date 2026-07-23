@@ -58,6 +58,9 @@ const iconRegistry = {
   share: { ios: 'square.and.arrow.up', android: 'share' },
   verified: { ios: 'checkmark.seal.fill', android: 'verified' },
   reorder: { ios: 'arrow.up.arrow.down', android: 'swap_vert' },
+  eye: { ios: 'eye', android: 'visibility' },
+  eyeOff: { ios: 'eye.slash', android: 'visibility_off' },
+  signOut: { ios: 'rectangle.portrait.and.arrow.right', android: 'logout' },
 } as const;
 
 export type IconName = keyof typeof iconRegistry;

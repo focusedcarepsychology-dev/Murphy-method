@@ -6,7 +6,8 @@ import { useTheme } from '@/hooks/use-theme';
  * Independent stack outside (tabs) so an active workout survives tab
  * navigation away and back (docs/ROUTES.md §6). State itself will live in
  * the client-side domain layer from Phase 6 onward — this phase only
- * builds the route/visual shell.
+ * builds the route/visual shell. Guarded (authenticated + onboarding
+ * complete) by the central guard in src/hooks/use-protected-route.ts.
  */
 export default function WorkoutLayout() {
   const { colors } = useTheme();

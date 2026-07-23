@@ -451,3 +451,182 @@ notifications, or payments were touched.
   Full suite: `npm run typecheck`, `npm run lint`, `npm run format:check`,
   `npx jest` (11 suites / 26 tests), `npx expo export --platform web` all
   pass clean.
+
+## 2026-07-23 — Phase 2A: Supabase / Auth / Database / RLS
+
+Full context: `docs/IMPLEMENTATION_PLAN.md` Phase 2. First phase to touch a
+real backend — Supabase client foundation, real Supabase Auth screens,
+every P0 migration + RLS policy from `docs/DATABASE_SCHEMA.md`, and an
+automated RLS test suite. No remote Supabase project was connected (no
+credentials were supplied this phase, per its own brief) — see
+`docs/SUPABASE_SETUP.md` §6 for the Phase 2B plan.
+
+- **Session storage architecture: `@react-native-async-storage/async-storage`
+  as the Supabase Auth `storage` adapter**, with `autoRefreshToken: true`,
+  `persistSession: true`, `detectSessionInUrl: false`, and an `AppState`
+  listener calling `auth.startAutoRefresh()`/`stopAutoRefresh()` on
+  foreground/background — the current official Supabase Expo/React Native
+  guidance. Chosen over `expo-secure-store` because Supabase's session
+  payload (access + refresh token, user metadata) can exceed SecureStore's
+  ~2KB per-item limit on some platforms, and AsyncStorage already has a
+  working web implementation (`localStorage`), giving one storage strategy
+  across iOS/Android/web rather than a platform-specific split. The
+  Supabase client itself is a lazily-created module-level singleton
+  (`src/services/supabase/client.ts`) — created once, never per-render —
+  with the `AppState` listener attached exactly once via a module-level
+  guard.
+- **`AuthProvider` accepts an injectable `client` prop** (defaulting to the
+  real singleton), and a parallel `src/test-utils/mock-supabase-client.ts`
+  factory — the test/mocking boundary the phase brief requires. Every
+  auth-adjacent Jest test (AuthProvider state machine, route guards, the
+  tab-shell smoke test) runs against this mock, never real Supabase
+  configuration or a network call.
+- **Central route guard, not one per route-group.** `src/hooks/use-protected-route.ts`
+  is the single place that decides where a session should be routed
+  (`docs/ROUTES.md` §3), wired once at `src/app/_layout.tsx`. Considered
+  duplicating guard logic into each of `(auth)`/`(onboarding)`/`(tabs)`/
+  `workout`'s own `_layout.tsx` (matching their existing stub comments from
+  Phase 1) and rejected it — four independent guards checking the same
+  state is exactly how redirect loops and disagreements get introduced;
+  one `useEffect` keyed on `(status, segments)` cannot loop against itself.
+  Blocking states (initial session load, a boot-time auth error, a
+  profile-loading failure) render as an opaque overlay on top of the
+  `Stack` rather than replacing it, so `useSegments()`/`useRouter()` always
+  have a real navigator to operate against.
+- **`profileStatus` tracked separately from top-level auth `status`.**
+  `AuthState`'s `signed_in` variant carries its own
+  `profileStatus: 'loading' | 'ready' | 'error'` for the
+  `profiles.onboarding_completed_at` read the route guard needs
+  (`docs/ROUTES.md` §3 rule 2). A same-user re-emission of
+  `onAuthStateChange` (e.g. `TOKEN_REFRESHED`, which fires roughly hourly)
+  updates the session object in place without resetting `profileStatus`/
+  `onboardingCompletedAt` — resetting it every refresh would flicker
+  already-visible private content back to a loading state, which the phase
+  brief explicitly calls out to avoid. A profile-loading failure renders a
+  retry-capable error overlay rather than guessing a redirect (routing an
+  already-onboarded user back into onboarding on a transient network blip
+  would be a worse failure mode than a visible retry prompt).
+- **Phase 1's `__DEV__` "preview app shell" shortcut on Welcome was
+  removed, not gated further.** It bypassed onboarding by routing straight
+  to `(tabs)/today`; now that real guards exist, keeping it would either
+  (a) still bypass the guard if special-cased, which the phase brief
+  explicitly forbids, or (b) immediately bounce back to Welcome if not
+  special-cased, making it dead/confusing UI. Welcome's primary CTA now
+  points at Sign Up per `docs/SCREEN_SPECIFICATIONS.md` §1 (Phase 1 had
+  wired it directly to onboarding since no auth existed yet).
+- **Deep-link redirect-target preservation (`docs/ROUTES.md` §7) is not
+  implemented this phase.** The route guard redirects an unauthenticated
+  deep link to Welcome but does not yet carry the original target through
+  sign-in and back. No notification-originated deep links exist yet
+  (notifications are a later phase per `docs/IMPLEMENTATION_PLAN.md`), so
+  there is nothing exercising this path yet; recorded here rather than
+  silently assumed done, and worth revisiting once Phase 8+ adds real
+  notification deep links.
+- **RLS grants are deliberately stricter than "RLS alone": no table grants
+  `anon` any privilege at all on a private table.** `docs/DATABASE_SCHEMA.md`'s
+  RLS Policy Pattern reference relies on policies to deny cross-user/
+  unauthenticated access; this phase additionally omits the underlying
+  Postgres `GRANT` for `anon` on every private table, so an unauthenticated
+  request fails at the privilege-check level (`insufficient_privilege`)
+  before RLS is even evaluated — verified directly in the pgTAP suite.
+  Reference tables grant `select` to `authenticated` only (not `anon`
+  either) — nothing in this product is meant to be readable without
+  signing in, so there was no reason to follow the common example pattern
+  of granting `anon` broad read access "just in case."
+- **`personal_records` and `performance_metrics` grants are tighter than
+  `docs/DATABASE_SCHEMA.md`'s literal per-table ownership line.**
+  `performance_metrics` is explicitly documented as server-job-written —
+  implemented as `select`-only for `authenticated`. `personal_records` is
+  documented only as `profile_id = auth.uid()` (the schema doc's default
+  CRUD pattern would technically apply), but this phase grants `select` +
+  `insert` only, deliberately omitting `update`/`delete` — an achieved
+  personal record is app-computed history (`submitWorkout`,
+  `docs/API_CONTRACTS.md` §8), not something a client should be able to
+  quietly edit or remove after the fact. Recorded here as a deliberate
+  tightening beyond the schema doc's terse wording, not a silent
+  reinterpretation of it.
+- **`biological_sex` left as unconstrained nullable text in the `profiles`
+  migration**, not a guessed enum. `docs/OPEN_QUESTIONS.md` #1 classifies
+  the exact field shape as an open product/clinical decision blocking
+  Phase 3, not this phase — inventing a specific constraint now would
+  silently resolve that open question by guessing, which `CLAUDE.md`
+  and `docs/DECISIONS.md`'s own precedent both rule out. Phase 3 adds the
+  real constraint alongside the Basic Profile screen once that decision is
+  made.
+- **Reference-table content seeding was split by whether the source
+  document gives a closed enumeration.** `goals` (`docs/MASTER_SPEC.md` §7)
+  and `movement_patterns` (§9) are fixed, closed lists explicitly spelled
+  out in the spec — seeded directly by migration, since they're structural
+  taxonomy, not authored content. `equipment`, `muscles`,
+  `body_area_muscle_map`, and `exercises` all use "e.g." / illustrative
+  examples in the spec, not closed lists — populating them meaningfully
+  requires the same exercise-science content judgement as the exercise
+  library itself (`docs/IMPLEMENTATION_PLAN.md` Phase 4), so this phase
+  leaves those tables empty (structure only) rather than inventing a
+  partial dataset Phase 4 would then have to reconcile with.
+- **`minimum_password_length` raised from Supabase's default 6 to 8**
+  (`supabase/config.toml`), matched by the client-side minimum in
+  `src/domain/auth/validation.ts` — a low-effort, uncontroversial security
+  baseline for a consumer app handling health-adjacent data, applied
+  consistently at both layers so validation never disagrees between them.
+- **`supabase/config.toml auth.email.enable_confirmations = true`, even for
+  local dev** — the product requires email verification
+  (`docs/SCREEN_SPECIFICATIONS.md` §1 Verify Email), so local dev matches
+  production behaviour rather than diverging from it and leaving the
+  Verify Email screen's real behaviour untested until a remote project
+  exists.
+- **Local Postgres RLS-verification harness** (`scripts/local-pg-harness/`,
+  not part of `supabase/migrations/`): Docker is unavailable in the Claude
+  Code cloud sandbox this phase was developed in, so the real
+  `supabase start`/`supabase test db` stack could not run there. A bare
+  PostgreSQL 16 instance was available, so this harness reproduces the
+  minimal `auth`/`storage` schema primitives (`auth.users`, `auth.uid()`,
+  `storage.buckets`/`objects`/`foldername()`) a real Supabase project
+  already provisions, letting the exact same migration SQL run against
+  plain PostgreSQL with its RLS policies genuinely exercised — every
+  migration was confirmed to rebuild cleanly from an empty database, and
+  the full 145-assertion pgTAP suite was run against it with `pg_prove`
+  and passed. This is explicitly a supplementary, already-executed
+  verification for an environment without Docker, not a replacement for
+  `.github/workflows/ci.yml`'s `database` job, which runs the same suite
+  against the real local Supabase stack on GitHub-hosted runners as the
+  independent, authoritative source of truth. Two genuine bugs were found
+  and fixed by actually running this harness rather than only reading the
+  SQL: a data-modifying CTE nested inside a pgTAP assertion's argument list
+  (`WITH ... SELECT ...` must be the top-level query, not a subquery
+  argument — Postgres rejects the nested form) and a missing default
+  privilege grant for `service_role` on `public`-schema tables (`bypassrls`
+  only bypasses RLS policies, not ordinary `GRANT`-based permission
+  checks — a real Supabase project provisions `service_role`'s full-table
+  access as a platform default outside application migrations, which the
+  harness had to reproduce explicitly).
+- **`src/types/database.ts` generated by direct `information_schema`
+  introspection against the verified local-harness schema, not hand-typed
+  from the migration SQL by inspection.** `supabase gen types typescript`
+  (both `--local` and `--db-url` forms) itself requires Docker in this CLI
+  version, which also isn't available in this sandbox. Introspecting the
+  already-migrated, already-RLS-tested harness database directly and
+  mechanically generating `Row`/`Insert`/`Update` shapes (nullability and
+  optionality derived from each column's actual `is_nullable`/
+  `column_default`) is a closer match to "prefer generation from the
+  actual local schema when the environment permits" than hand-transcribing
+  the schema a second time would have been — enum-like `text` columns were
+  then annotated with literal union types matching each migration's
+  `CHECK` constraint. Regenerate with the real CLI command once Docker is
+  available (`docs/SUPABASE_SETUP.md` §2); do not hand-edit table shapes
+  without updating the owning migration.
+- **Secret-leak prevention (`scripts/check-no-secrets.js`) checks for
+  patterns, not one exact string**: any `EXPO_PUBLIC_*` variable name that
+  looks privileged (contains SERVICE/SECRET/PRIVATE/ADMIN/PASSWORD/TOKEN),
+  any JWT-shaped string that decodes to a non-`anon` role claim, any
+  literal `sb_secret_`-prefixed value, and confirmation that only
+  `.env.example` (never a real `.env`) is committed. Deliberately does
+  _not_ grep for the literal string "service_role" in `src/`, since that
+  phrase legitimately appears in this codebase's own explanatory comments
+  (e.g. "never a service-role key") and in `supabase/`'s SQL comments
+  about the real Postgres role of that name — a naive substring check
+  would either false-positive on those or need per-file exceptions that
+  quietly weaken the check over time. Run locally against source only, and
+  in CI additionally against the `npx expo export --platform web` output
+  directory, matching `docs/ACCEPTANCE_CRITERIA.md` #3's "verified by an
+  automated build-artifact check."

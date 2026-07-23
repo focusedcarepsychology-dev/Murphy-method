@@ -1,12 +1,15 @@
 import { useRouter } from 'expo-router';
-import { View } from 'react-native';
+import { useState } from 'react';
+import { Alert, View } from 'react-native';
 
 import { Caption, Heading } from '@/components/ui/app-text';
 import { Card } from '@/components/ui/card';
+import { SecondaryButton } from '@/components/ui/button';
 import { SettingRow } from '@/components/ui/list-row';
 import { ScrollScreen } from '@/components/ui/scroll-screen';
 import { previewUser } from '@/dev/previewData';
 import { useTheme } from '@/hooks/use-theme';
+import { useAuth } from '@/state/auth/auth-context';
 import type { Href } from 'expo-router';
 import type { IconName } from '@/components/ui/icon';
 
@@ -58,6 +61,33 @@ function RowGroup({ title, rows }: { title: string; rows: Row[] }) {
 
 export default function ProfileScreen() {
   const { spacing } = useTheme();
+  const { signOut } = useAuth();
+  const [signingOut, setSigningOut] = useState(false);
+
+  function handleSignOutPress() {
+    Alert.alert('Sign out?', 'You can sign back in any time.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          setSigningOut(true);
+          try {
+            const result = await signOut();
+            if (result.error) {
+              Alert.alert('Couldn’t sign out', result.error);
+            }
+            // On success, AuthProvider's state flips to signed_out and the
+            // route guard (src/hooks/use-protected-route.ts) redirects to
+            // Welcome automatically — no stale private screen remains
+            // visible since the whole (tabs) stack unmounts with it.
+          } finally {
+            setSigningOut(false);
+          }
+        },
+      },
+    ]);
+  }
 
   return (
     <ScrollScreen>
@@ -70,6 +100,14 @@ export default function ProfileScreen() {
       <RowGroup title="TRAINING" rows={training} />
       <RowGroup title="PREFERENCES" rows={preferences} />
       <RowGroup title="PRIVACY & DATA" rows={privacy} />
+
+      <SecondaryButton
+        label="Sign Out"
+        tone="critical"
+        icon="signOut"
+        loading={signingOut}
+        onPress={handleSignOutPress}
+      />
     </ScrollScreen>
   );
 }

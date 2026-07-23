@@ -2,8 +2,9 @@ import { Stack } from 'expo-router';
 
 import { useTheme } from '@/hooks/use-theme';
 
-// Forward-redirect-if-authenticated guard (docs/ROUTES.md §3) is Phase 2 —
-// there is no session state yet for it to check.
+// The forward-redirect-if-authenticated guard (docs/ROUTES.md §3) lives
+// centrally in src/hooks/use-protected-route.ts (wired at the app root),
+// not per-group, so there is a single source of truth for routing decisions.
 export default function AuthLayout() {
   const { colors } = useTheme();
 
