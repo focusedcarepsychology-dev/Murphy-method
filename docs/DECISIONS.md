@@ -224,3 +224,230 @@ failure/degradation-mode table, and the `OPEN_QUESTIONS.md` A/B/C
 classification (finding upheld: no item blocks Phase 1). No product code
 was written or modified; no `OPEN_QUESTIONS.md` item was resolved by
 guessing.
+
+## 2026-07-23 — Phase 1: Design system / application shell
+
+Full context: `docs/IMPLEMENTATION_PLAN.md` Phase 1. First product-code
+phase — implements the semantic design tokens, shared UI primitives, and
+the full `docs/ROUTES.md` route-group shell as placeholder/visual screens.
+
+- **Test runner: Jest via `jest-expo`, with `@testing-library/react-native`
+  for component tests and `expo-router/testing-library` for the tab-shell
+  smoke test.** This is the "first real domain logic" test-runner decision
+  `CLAUDE.md`/`IMPLEMENTATION_PLAN.md` call for. Chosen because it's Expo's
+  own supported preset (correct RN/Metro transform handling out of the box)
+  and pairs with `expo-router`'s own testing helpers for route-level tests,
+  avoiding a second, differently-configured test runner later.
+  **Pinned to `@testing-library/react-native@^14.0.1`** (not the newer
+  default) deliberately — that version still matches this project's
+  `expo-router@~57.0.8`, whose bundled `renderRouter` helper calls the
+  library's `render()` without awaiting it. Testing-library v14 made
+  `render()`/`fireEvent` asynchronous (supporting React 19 concurrent
+  rendering); an un-awaited `renderRouter()` call under v14 leaves the
+  `screen` singleton unbound and every query fails with "render function
+  has not been called". Fixed by explicitly `await`-ing `renderRouter(...)`
+  in the smoke test (the extra `getPathname`/`getSegments` helpers
+  `renderRouter` attaches to its return value are lost once awaited, since
+  they're assigned onto the pending Promise object rather than its resolved
+  value — not needed for this phase's tests, so not worked around further).
+  A same-version downgrade to `^13.x` (the version range `expo-router`
+  actually declares as its peer/dev dependency) was considered and rejected
+  — it collides with this project's exact-pinned `react@19.2.3` via
+  `react-test-renderer`'s peer requirements and would need a broader
+  dependency change outside this phase's scope for a problem the `await`
+  fix already solves cleanly.
+- **`jest`'s own `transformIgnorePatterns` left unset, deferring entirely to
+  `jest-expo`'s default.** An initial attempt hand-rolled a narrower
+  pattern, which silently dropped `standard-navigation` (an `expo-router`
+  dependency) from the transform allowlist and broke every route-level
+  test with an ESM parse error. `jest-expo`'s own default pattern already
+  covers every Expo/React Navigation package this project depends on, so
+  overriding it was unnecessary risk for no benefit.
+- **CSS imports (`src/global.css`, via `src/constants/theme.ts`) mapped to
+  an empty stub (`jest/cssMock.js`) under Jest**, since Jest's transform
+  pipeline (unlike Metro/webpack) has no built-in CSS loader and the import
+  exists only for web-platform CSS custom properties consumed by the
+  `Fonts.web` token, which the token module still needs to import
+  unconditionally for a single source of truth across platforms.
+- **Theme/manual-override state is in-memory only for this phase**
+  (`src/hooks/use-theme-preference.tsx`) — there is no persistence layer
+  until Phase 2, so a manual light/dark override in Profile → Units resets
+  on relaunch rather than being backed by a fake persisted preference.
+- **Icon vocabulary implemented via `expo-symbols`** (SF Symbols on iOS,
+  Material Symbols on Android/web) rather than adding an icon font
+  dependency — it was already a project dependency, and every icon name
+  used in this phase's registry (`src/components/ui/icon.tsx`) was verified
+  to exist in both platforms' underlying symbol sets before use, rather
+  than assumed.
+- **Route-group shell built to match `docs/ROUTES.md` exactly, including
+  every P1/P2-adjacent route** (e.g. `coach/motivation-profile`,
+  `progress/bodyscan/*`), per `IMPLEMENTATION_PLAN.md` Phase 1's "placeholder
+  screens (no real data)" deliverable — not just the screens this phase's
+  task brief calls out for full visual polish (Welcome, Today, Plan,
+  Progress, Coach, Profile, Workout Overview/Active/Summary, Goal
+  Selection, Body Goal Map). Screens outside that explicit list render a
+  themed `PlaceholderScreen` naming which later phase wires them up, so the
+  full navigation graph is real and inspectable without any dead links,
+  while effort concentrates on the screens actually specified in detail.
+- **No auth/onboarding route guards wired yet.** `docs/ROUTES.md` §3's
+  three guard conditions all depend on session/profile state that doesn't
+  exist until Phase 2 (Supabase Auth) and Phase 3 (onboarding writes).
+  Building guard logic against fake/hardcoded session state was rejected as
+  exactly the kind of hack `docs/IMPLEMENTATION_PLAN.md`'s task brief warns
+  against ("do not fake logged-in state architecture with hacks that will
+  need rewriting"). Instead, the root route (`src/app/index.tsx`) redirects
+  unconditionally to Welcome, and Welcome carries a `__DEV__`-only shortcut
+  straight into the tab shell — satisfying the brief's explicit ask for "an
+  appropriate development-preview entry strategy" without pretending
+  authentication exists.
+
+### Bugs found and fixed during visual verification (`npx expo export --platform web` + headless-Chromium screenshots)
+
+- **`Link asChild`-wrapped buttons silently lost all background styling** —
+  the Welcome screen's "Get Started" button rendered as invisible white
+  text on the page background, with no button chrome at all. Root cause:
+  every `PrimaryButton`/`SecondaryButton`/`TertiaryButton`/`IconButton`/
+  `InteractiveCard` spread `{...pressableProps}` _after_ their own
+  `style`/`accessibilityRole`/`disabled` props on the inner `Pressable`.
+  `expo-router`'s `Link asChild` clones its child and injects its own
+  (often-`undefined`) `style`/`onPress`; spread order in JSX means the
+  later prop wins, so the injected `style: undefined` silently overwrote
+  the button's own computed style function. Fixed by moving
+  `{...pressableProps}` to spread _first_ in all five components, so the
+  component's own props always win — verified by re-screenshotting Welcome
+  before/after. This is a general risk for any custom component intended
+  to work under `asChild`, not just these five; the ordering is called out
+  in a comment at the top of `button.tsx` so it isn't silently reintroduced.
+- **Today screen's Quick/Minimum buttons overflowed their card** on a
+  360–390px-wide viewport — two `fullWidth` `SecondaryButton`s in a row
+  size to content, not to available space, so their combined width exceeded
+  the card. Fixed by wrapping each in a `flex: 1` `View`.
+- **Active Workout's weight/reps steppers overlapped** on the same
+  viewport width — two large-touch-target (56px) steppers side by side
+  need more width than a phone screen provides once card/screen padding is
+  subtracted. Fixed by stacking the two steppers vertically, each spanning
+  full width with its +/- controls pushed to the row's edges
+  (`justifyContent: 'space-between'`) — arguably better one-handed
+  ergonomics than the side-by-side layout it replaced, not just a narrower
+  fit.
+- **Active Workout's Exercise Info / Swap / Report Discomfort row**
+  overflowed similarly (`justifyContent: 'space-around'` with no wrap).
+  Fixed with `flexWrap: 'wrap'` and a `rowGap`.
+- **A render-time `new Date()` call** (Today's time-of-day greeting) and a
+  **raw `useColorScheme` import from `'react-native'`** in the root layout
+  (bypassing this project's existing hydration-safe wrapper in
+  `use-color-scheme.web.ts`) were both replaced with hydration-safe
+  equivalents (`src/hooks/use-greeting.ts`; the root layout now imports
+  `useColorScheme` from `@/hooks/use-color-scheme`). Both are genuine
+  hydration-unsafe patterns on static web export (server-prerendered output
+  can disagree with the client's first render).
+
+### Root-causing the "Minified React error #418" console warning (Phase 1 correction pass)
+
+The note above originally flagged a non-fatal, self-healing "Minified React
+error #418" (hydration mismatch) that appeared in the browser console on
+every route under `npx expo export --platform web`, without a confirmed root
+cause. This pass root-caused it rather than re-flagging it:
+
+- **Reproduction attempts, systematically widened:** `expo export --platform
+web` (minified, matching the original report) and `--no-minify` /
+  `--no-minify --dev` (to get an unminified React warning with a full
+  message instead of a numeric code); headless-Chromium (Playwright) console
+  and `pageerror`/`window.error` capture installed via `addInitScript` so
+  nothing could be missed by timing; every screen named in this phase's
+  scope (Welcome, Today, Plan, Progress, Coach, Profile, Body Goal Map,
+  Active Workout, Overview) plus `/`; both light and dark
+  (`colorScheme` emulation); 3 repeated attempts per route; CPU throttling
+  (6×) and network throttling (500 kbps / 200 ms latency) to expose any
+  timing-dependent hydration race. **Zero hydration warnings, errors, or
+  `#418` reproductions across all of the above** — 30+ route/attempt
+  combinations, all clean.
+- **Conclusion:** the two hydration-unsafe patterns fixed immediately above
+  (raw `useColorScheme` bypassing the hydration-safe wrapper; render-time
+  `new Date()`) were the actual root cause. Both are textbook triggers for
+  error #418 (a value that differs between the server-prerendered pass and
+  the client's first render before hydration completes) and both are now
+  fixed at the source, not papered over — no `suppressHydrationWarning`, no
+  timing hacks, no console suppression anywhere in the codebase.
+  The original note's claim that the warning "persists" after those fixes
+  could not be reproduced under any tested condition on this branch's
+  current code; it's superseded by this verification.
+- **Outcome: zero hydration errors**, matching this phase's bar for
+  merge-readiness.
+- **What to monitor going forward:** any future code that reads
+  `useColorScheme` directly (bypassing `@/hooks/use-color-scheme`), computes
+  time/date/locale/random values at render time instead of behind a
+  post-mount effect, or renders conditionally on a browser-only global
+  (`window`, `document`) without an effect-gated check, reintroduces exactly
+  this class of bug. If a hydration warning resurfaces on a future Expo SDK
+  upgrade, check that upgrade's changelog for SSG/static-rendering changes
+  first, since the two fixes above are the only known-necessary guards this
+  codebase relies on.
+
+## 2026-07-23 — Phase 1 correction pass
+
+A pre-merge correction pass on PR #5, addressing four issues found on
+review before merge. Strictly within Phase 1 scope — no Supabase, auth
+backend, database, AI, programme generation, BodyScan storage,
+notifications, or payments were touched.
+
+- **Theme source-of-truth unified.** The root layout previously derived the
+  Expo Router / React Navigation theme directly from `useColorScheme`,
+  independently of `ThemePreferenceProvider`/`useTheme` (which Murphy UI
+  components already used and which supports a manual system/light/dark
+  override). A manual override could therefore update app content without
+  updating navigation chrome. Fixed by adding `useNavigationTheme`
+  (`src/hooks/use-navigation-theme.ts`), which derives the React Navigation
+  `Theme` from the same resolved `useTheme()` every component already
+  consumes, and restructuring the root layout
+  (`AppNavigation` inner component, still inside `ThemePreferenceProvider`)
+  to consume it. One resolution path now feeds both; verified visually
+  (Profile → Units & Appearance, System/Light/Dark/System, screenshots in
+  both) that screen surfaces, text, tab bar, and navigation chrome move
+  together, and confirmed with `src/hooks/__tests__/use-theme.test.tsx` and
+  `use-navigation-theme.test.tsx`.
+- **Active tab no longer relies on colour alone.** `TabBarIcon`
+  (`src/components/ui/tab-bar-icon.tsx`) adds a filled pill behind the
+  active tab's icon, and the tab label switches to a bolder weight when
+  focused — both driven by React Navigation's `focused` state, independent
+  of the active/inactive tint colours. Deliberately restrained (one pill,
+  one weight step) rather than multiple simultaneous cues.
+- **Body Goal Map upgraded from stacked rectangles to a silhouette.**
+  `src/components/onboarding/body-silhouette.tsx` is an original flat-vector
+  human silhouette (head/neck/torso/arms/legs as overlapping same-fill,
+  no-stroke shapes, so there are no seams) built with `react-native-svg`
+  (added at `~15.15.4`, the version this Expo SDK 57 project already
+  bundles-compatible-with — no other graphics dependency was introduced).
+  It is deliberately neutral (no skin tone, no facial features, no gendered
+  markers) and shared between front and back views; only the selectable
+  region overlays differ per view. `body-map.tsx` renders soft rounded
+  region overlays on top (matching the existing app-wide "selection card"
+  visual language) with fill _and_ a stroke outline _and_ a checkmark badge
+  when selected — selection is legible without colour. The accessible
+  `Pressable` hit-areas (`accessibilityRole="checkbox"`,
+  `accessibilityState`, `accessibilityLabel`) are unchanged in contract from
+  the previous implementation and share the exact same `onToggle`/
+  `selectedIds` state as the list-based fallback below it, so tapping either
+  produces identical state. No new selectable regions were invented beyond
+  what `src/dev/previewData.ts` already defined.
+- **React error #418 root-caused, not re-flagged.** See the dedicated
+  "Root-causing…" entry above. Conclusion: the two hydration-unsafe patterns
+  already fixed earlier in Phase 1 (raw `useColorScheme` import; render-time
+  `new Date()`) were the actual cause. With both fixed, extensive
+  re-verification (light/dark, throttled CPU/network, unminified builds,
+  repeated attempts, every named screen) reproduces **zero** hydration
+  warnings under `expo export --platform web`.
+- **Visual review:** re-inspected Welcome, Today, Plan, Progress, Coach,
+  Profile, Goal Selection, Body Goal Map, and Active Workout/Overview in
+  light and dark at phone width (375–390px). No further genuine defects
+  found — no overflow, no clipped text, consistent spacing/contrast/touch
+  targets. Nothing was redesigned beyond the four fixes above.
+- **Route-shell duplication:** reviewed all 18 placeholder routes and
+  confirmed each already delegates to the shared `PlaceholderScreen`
+  component with only `icon`/`title`/`description` props — no duplicated
+  layout code to centralise, so nothing was changed here.
+- **Tests added:** `use-theme.test.tsx` (3), `use-navigation-theme.test.tsx`
+  (2), `tab-bar-icon.test.tsx` (2), `body-map.test.tsx` (3) — 10 new tests.
+  Full suite: `npm run typecheck`, `npm run lint`, `npm run format:check`,
+  `npx jest` (11 suites / 26 tests), `npx expo export --platform web` all
+  pass clean.
