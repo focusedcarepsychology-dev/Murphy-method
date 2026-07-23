@@ -205,7 +205,7 @@ generateQuickWorkout(input: { mode: 'quick' | 'minimum' }): WorkoutWithExercises
 
 Deterministic reprioritisation over the current programme version per
 `MASTER_SPEC.md` §19.3 and [`PROGRAMME_ENGINE.md`](PROGRAMME_ENGINE.md) §
-Quick/Minimum Logic — no LLM call required.
+Quick / Minimum workout logic — no LLM call required.
 
 ## 13. Exercise Substitution — **[fn]**
 

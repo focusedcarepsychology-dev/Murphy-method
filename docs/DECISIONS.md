@@ -162,3 +162,72 @@ deliberately did **not** change.
   infrastructure vendors, or begin Phase 1 implementation — all out of
   scope for a documentation/architecture correction pass per its own
   brief and `CLAUDE.md`'s "work one phase at a time."
+
+## 2026-07-23 — Final pre-merge quality-gate verification
+
+A second, independent pass verifying the review above, run before this
+branch is allowed to merge. This entry records what was actually verified
+by execution (not re-trusted from the prior entry) and the small number of
+additional documentation corrections it found.
+
+- **Typecheck contradiction independently re-verified, not just re-read.**
+  Reproduced the original failure mode from a genuinely clean state: deleted
+  `expo-env.d.ts`, removed `node_modules`, ran `npm install` followed by
+  `npm run typecheck` on the result. `pretypecheck` regenerated
+  `expo-env.d.ts` and `tsc --noEmit` exited 0. This confirms the prior
+  entry's root cause and fix are correct on a real bare checkout, not just
+  plausible in the abstract. `npm run lint` and `npm run format:check` were
+  also run to completion and both pass with zero findings.
+- **Expo validation:** `npx expo-doctor` reports 18/20 checks passing; the 2
+  failures ("Check Expo config schema", "Validate packages against React
+  Native Directory") are both outbound calls to `api.expo.dev`/`cdp.expo.dev`
+  that this sandboxed environment's network policy blocks (confirmed via the
+  proxy's own connection log, not assumed) — an environment limitation, not
+  a project defect. Every check that runs fully offline against the local
+  project passes.
+- **Cross-document consistency audit found and fixed three genuine, narrow
+  gaps** (all documentation-only, no product code touched):
+  - `ACCEPTANCE_CRITERIA.md` #36 referenced a `MASTER_SPEC.md` § "Health /
+    Regulatory Claim Boundary" that did not exist — a real broken
+    cross-reference, not a wording nit. Added `MASTER_SPEC.md` §3.1 with
+    that exact heading, consolidating the fitness/wellness-vs-medical
+    boundary, the non-diagnostic stance, the BodyScan-is-not-a-measurement-
+    device constraint, and the pre-release regulatory gate pointer that were
+    previously only implied by scattered sentences in §3, §8.2, §23.
+  - `DATABASE_SCHEMA.md`'s opening paragraph claimed a single
+    `MASTER_SPEC.md` § "Data Model" section as its source, which does not
+    exist (the data model is intentionally spread across many domain
+    sections) — reworded to say so accurately rather than pointing at a
+    section that isn't there.
+  - `API_CONTRACTS.md` §12 referenced `PROGRAMME_ENGINE.md` § "Quick/Minimum
+    Logic"; the actual heading is "Quick / Minimum workout logic" — aligned
+    the wording so the cross-reference matches verbatim.
+  - Added an explicit **Canonical units** and **Canonical timestamps**
+    convention to `DATABASE_SCHEMA.md` § Conventions: all stored physical
+    quantities are kg/cm by construction with `unit_preference` as a
+    display-only concern, all instants are `timestamptz` (UTC), and
+    `workouts.scheduled_for` is deliberately a plain `date` interpreted
+    against `profiles.timezone` at read time — stated explicitly so a
+    user's timezone/locale cannot corrupt which calendar day a workout is
+    shown as scheduled for. This was previously true by convention across
+    individual column notes but never stated as a single, binding principle
+    (task requirement: canonical units and time handling).
+- **No other cross-document inconsistency found** in table names, service
+  names, route names, P0/P1/P2 classifications, AI layer descriptions,
+  security boundaries, BodyScan scope, offline architecture, or programme
+  versioning across the full document set — checked both by full re-read
+  and by a scripted heading/cross-reference audit across every `docs/*.md`
+  file.
+- **Complexity/over-engineering re-check:** re-confirms the prior entry's
+  finding — no material over-engineering beyond the already-justified P1
+  schema reservations. No further simplification or new deferral was
+  warranted.
+- **`OPEN_QUESTIONS.md` re-classified against A/B/C:** confirmed none of the
+  15 items are mis-classified — none block Phase 1 (category A is
+  deliberately empty, as the document itself states), and no vendor
+  (analytics, subscriptions, wearables) was selected prematurely.
+- **What this pass deliberately did not do:** rewrite or re-litigate any
+  design decision from the prior review, touch any product code (there is
+  none yet), or resolve any `OPEN_QUESTIONS.md` item — consistent with
+  `CLAUDE.md`'s "work one phase at a time" and this task's explicit
+  instruction not to begin Phase 1.
