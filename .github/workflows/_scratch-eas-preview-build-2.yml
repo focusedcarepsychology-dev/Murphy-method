@@ -1,0 +1,97 @@
+name: SCRATCH — EAS Android preview build #2 (one-off, do not merge)
+
+# Temporary, throwaway workflow used to trigger exactly one authenticated
+# EAS Android preview build (APK, internal distribution) from the current
+# checked-out ref, using the existing EAS project/keystore/env vars, and
+# report back the build ID/URL/commit/status. Not meant to be merged to
+# main or kept around afterward — see docs/ANDROID_BUILD.md §6 for the
+# precedent (the earlier _scratch-eas-init.yml, which needed a temporary
+# merge to main because workflow_dispatch only fires from the default
+# branch). This one instead triggers on `push` to its own scratch branch,
+# so it never needs to touch main at all — this branch is deleted, not
+# merged, once the build has been submitted.
+on:
+  push:
+    branches:
+      - claude/eas-android-preview-build-2-scratch
+
+permissions:
+  contents: read
+
+jobs:
+  preview-build:
+    name: eas build (android, preview, non-interactive)
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate required configuration is present
+        run: |
+          set -euo pipefail
+          if [ -z "${EXPO_TOKEN:-}" ]; then
+            echo "::error::Missing required configuration: EXPO_TOKEN (repository Secret)."
+            exit 1
+          fi
+          echo "Configuration present. (Value is never printed.)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Report exact source commit
+        run: git rev-parse HEAD
+
+      - name: Confirm Expo account (owner)
+        run: npx eas-cli whoami
+
+      - name: Confirm EAS project identity (existing project, not creating one)
+        run: npx eas-cli project:info
+
+      - name: Confirm preview environment variables are present (names only)
+        run: npx eas-cli env:list preview
+
+      - name: Trigger exactly one Android preview build (existing keystore, no credential changes)
+        # --freeze-credentials: the CLI's own guard against creating/updating
+        # any credentials (including the Android keystore) in non-interactive
+        # mode — it reuses whatever is already configured for this project or
+        # fails outright, it never silently generates a new one.
+        # --no-wait: submit and return immediately; this job does not block
+        # on the (multi-minute) build finishing.
+        run: |
+          npx eas-cli build \
+            --platform android \
+            --profile preview \
+            --non-interactive \
+            --freeze-credentials \
+            --no-wait \
+            --json > build-output.json
+          cat build-output.json
+
+      - name: Show submitted build details
+        run: |
+          node -e "
+            const raw = JSON.parse(require('fs').readFileSync('build-output.json', 'utf8'));
+            const build = Array.isArray(raw) ? raw[0] : raw;
+            console.log(JSON.stringify(build, null, 2));
+          "
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "### EAS Android preview build #2"
+            echo ""
+            echo "See the step logs above for: Expo owner (whoami), confirmed project"
+            echo "identity (project:info), confirmed preview env var names (env:list),"
+            echo "the exact source commit SHA, and the full build submission JSON"
+            echo "(build ID, build URL, status, commit, distribution/profile/platform)."
+            echo ""
+            echo "This workflow does not commit or push anything, and used"
+            echo "--freeze-credentials so no new Android keystore could be created."
+          } >> "$GITHUB_STEP_SUMMARY"
