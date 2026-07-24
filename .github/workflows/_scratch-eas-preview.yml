@@ -53,7 +53,7 @@ jobs:
         run: npx eas-cli project:info
 
       - name: Show current preview env vars (before)
-        run: npx eas-cli env:list --environment preview --non-interactive || true
+        run: npx eas-cli env:list --environment preview || true
 
       - name: Create EXPO_PUBLIC_SUPABASE_URL (preview, plaintext)
         run: |
@@ -74,7 +74,7 @@ jobs:
           || echo "::warning::env:create for EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY failed (may already exist) — verifying via env:list below."
 
       - name: Verify preview env vars (after)
-        run: npx eas-cli env:list --environment preview --non-interactive
+        run: npx eas-cli env:list --environment preview
 
       - name: Check existing Android credentials (read-only, non-interactive)
         run: |
