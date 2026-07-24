@@ -5,16 +5,12 @@ import type { PropsWithChildren } from 'react';
 
 import { getSupabaseClient, type MurphySupabaseClient } from '@/services/supabase/client';
 import { mapAuthErrorMessage } from '@/state/auth/auth-errors';
+import {
+  PASSWORD_RECOVERY_REDIRECT_PATH,
+  processAuthDeepLink,
+  SIGNUP_CONFIRMATION_REDIRECT_PATH,
+} from '@/state/auth/process-auth-deep-link';
 import type { AuthContextValue, AuthResult, AuthState, SignUpResult } from '@/state/auth/types';
-
-/**
- * Deep link the password-recovery email points at (`(auth)/reset-password`,
- * matching the Expo Router path). Must be registered as an allowed redirect
- * URL in the Supabase project's Auth settings — local dev's `supabase/config.toml`
- * already allows `murphymethod://**`; Phase 2B must add the equivalent for
- * the remote project (`docs/SUPABASE_SETUP.md` §6).
- */
-const PASSWORD_RECOVERY_REDIRECT_PATH = 'reset-password';
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -113,6 +109,50 @@ export function AuthProvider({ children, client: injectedClient }: AuthProviderP
     [loadProfile],
   );
 
+  // Every URL this instance has already run through `handleAuthDeepLink`,
+  // by exact string — `Linking.getInitialURL()` and the `'url'` event can
+  // both deliver the same cold-start link on some platforms, and a Supabase
+  // auth code/token is single-use: a second exchange attempt for a link
+  // that already succeeded would come back as a (spurious) failure and
+  // incorrectly tell the user their just-used link was invalid.
+  const handledDeepLinksRef = useRef<Set<string>>(new Set());
+  const [deepLinkNotice, setDeepLinkNotice] = useState<AuthContextValue['deepLinkNotice']>(null);
+
+  const handleAuthDeepLink = useCallback(
+    async (url: string) => {
+      if (handledDeepLinksRef.current.has(url)) {
+        return;
+      }
+      handledDeepLinksRef.current.add(url);
+
+      const result = await processAuthDeepLink(client, url);
+      if (!mountedRef.current || result.outcome === 'ignored') {
+        return;
+      }
+
+      if (result.outcome === 'failed') {
+        setDeepLinkNotice({ kind: result.kind, outcome: 'failed' });
+        return;
+      }
+
+      // result.outcome === 'established'. Set state directly here rather
+      // than relying on `onAuthStateChange` to have classified it: calling
+      // `setSession` (the implicit-token branch) always emits `SIGNED_IN`,
+      // never `PASSWORD_RECOVERY`, regardless of what the link was for — so
+      // a recovery link must be routed to `password_recovery` explicitly, or
+      // it would fall through into an ordinary authenticated session
+      // (docs/ROUTES.md §3).
+      if (result.kind === 'recovery') {
+        lastLoadedUserIdRef.current = null;
+        setState({ status: 'password_recovery', session: result.session });
+      } else {
+        applySession(result.session);
+      }
+      setDeepLinkNotice({ kind: result.kind, outcome: 'established' });
+    },
+    [client, applySession],
+  );
+
   useEffect(() => {
     mountedRef.current = true;
 
@@ -138,6 +178,8 @@ export function AuthProvider({ children, client: injectedClient }: AuthProviderP
       // A password-recovery link opened as a deep link: this session is
       // scoped to setting a new password, not to using the app as this
       // user (see AuthState['password_recovery'] and useProtectedRoute).
+      // Defensive fallback only — `handleAuthDeepLink` below is what
+      // actually drives this transition for links this app opens.
       if (event === 'PASSWORD_RECOVERY' && session) {
         lastLoadedUserIdRef.current = null;
         setState({ status: 'password_recovery', session });
@@ -146,21 +188,45 @@ export function AuthProvider({ children, client: injectedClient }: AuthProviderP
       applySession(session);
     });
 
+    let cancelled = false;
+    Linking.getInitialURL()
+      .then((url) => {
+        if (cancelled || !url) return;
+        void handleAuthDeepLink(url);
+      })
+      .catch(() => {
+        // Cold-start URL retrieval failing isn't a boot-time auth error —
+        // the app just opens as if it had no incoming link.
+      });
+    const linkingSubscription = Linking.addEventListener('url', ({ url }) => {
+      void handleAuthDeepLink(url);
+    });
+
     return () => {
       mountedRef.current = false;
+      cancelled = true;
       subscription.unsubscribe();
+      linkingSubscription.remove();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client]);
+  }, [client, handleAuthDeepLink]);
 
   const signUp = useCallback<AuthContextValue['signUp']>(
     async ({ email, password }): Promise<SignUpResult> => {
-      const { data, error } = await client.auth.signUp({ email, password });
+      const emailRedirectTo = Linking.createURL(SIGNUP_CONFIRMATION_REDIRECT_PATH);
+      const { data, error } = await client.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo },
+      });
       if (error) {
         return { error: mapAuthErrorMessage(error), needsVerification: false };
       }
       // Supabase returns a null session when email confirmation is required
       // (config.toml auth.email.enable_confirmations — on for this project).
+      // The session that confirmation eventually creates comes from
+      // `handleAuthDeepLink` processing the tapped link, never from this
+      // call directly.
       return { error: null, needsVerification: data.session === null };
     },
     [client],
@@ -205,7 +271,12 @@ export function AuthProvider({ children, client: injectedClient }: AuthProviderP
 
   const resendVerificationEmail = useCallback<AuthContextValue['resendVerificationEmail']>(
     async (email): Promise<AuthResult> => {
-      const { error } = await client.auth.resend({ type: 'signup', email });
+      const emailRedirectTo = Linking.createURL(SIGNUP_CONFIRMATION_REDIRECT_PATH);
+      const { error } = await client.auth.resend({
+        type: 'signup',
+        email,
+        options: { emailRedirectTo },
+      });
       return { error: error ? mapAuthErrorMessage(error) : null };
     },
     [client],
@@ -224,6 +295,10 @@ export function AuthProvider({ children, client: injectedClient }: AuthProviderP
     applySession(data.session);
   }, [client, applySession]);
 
+  const acknowledgeDeepLinkNotice = useCallback(() => {
+    setDeepLinkNotice(null);
+  }, []);
+
   const value: AuthContextValue = {
     state,
     signUp,
@@ -234,6 +309,8 @@ export function AuthProvider({ children, client: injectedClient }: AuthProviderP
     resendVerificationEmail,
     retryProfileLoad,
     refreshSession,
+    deepLinkNotice,
+    acknowledgeDeepLinkNotice,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

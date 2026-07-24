@@ -1042,3 +1042,74 @@ update on tables to anon, authenticated`, added before running the
   silently assumed fine — re-auditing all 44 tables' `authenticated` grants
   against their individually documented intent is out of scope for this
   infrastructure-focused Phase 2B correction pass.
+
+## 2026-07-24 — Phase 2B correction pass: native auth deep links
+
+**Problem found on review (client-side, no hosted project involved):**
+`getSupabaseClient()` set `detectSessionInUrl: false` (correct for native)
+but the app had no incoming-link handler at all to replace the browser
+behaviour that flag turns off — `signUp`/`resend` sent no
+`emailRedirectTo`, and password recovery's `redirectTo` pointed at
+`murphymethod://reset-password` with nothing to actually open that link,
+exchange its credential, and establish a session. Tapping either email's
+link would have landed the OS on the app with no session ever created.
+
+**Fix:**
+
+- `src/state/auth/process-auth-deep-link.ts` — one pure, unit-tested
+  function (`processAuthDeepLink`) that classifies an incoming URL
+  (ignored / established / failed) against this app's two known redirect
+  paths (`verify-email`, `reset-password`), supporting both link shapes
+  Supabase can produce for the same email action: PKCE `?code=` (this
+  client's configured `flowType`, `src/services/supabase/client.ts`) via
+  `exchangeCodeForSession`, and `#access_token=&refresh_token=` via
+  `setSession`, kept as a defensive fallback. Never logs the URL or any
+  extracted token/code.
+- `AuthProvider` (`src/state/auth/auth-context.tsx`) wires this to
+  `Linking.getInitialURL()` (cold start) and `Linking.addEventListener('url', ...)`
+  (already running), deduping by exact URL string so a link delivered
+  twice (a known platform quirk, and distinct from Supabase's own
+  single-use-code enforcement) is only ever exchanged once. `signUp` and
+  `resend({ type: 'signup' })` now send `emailRedirectTo:
+Linking.createURL('verify-email')`.
+- **Recovery-vs-signup is decided explicitly, not inferred from
+  `onAuthStateChange`.** Investigated the real `@supabase/auth-js`
+  behaviour directly (`node_modules/@supabase/auth-js`, not assumed): a
+  manual `setSession()` call always emits `SIGNED_IN`, never
+  `PASSWORD_RECOVERY`, regardless of what the token pair was for —
+  confirming the task's explicit warning was a real, not theoretical, risk.
+  `exchangeCodeForSession` _can_ emit `PASSWORD_RECOVERY` correctly, but
+  only via a local-storage marker recorded by the original
+  `resetPasswordForEmail` call on the same device — a real mechanism, but
+  an implicit one this code doesn't rely on. Instead
+  `processAuthDeepLink` classifies `kind` explicitly (Supabase's own
+  `type` URL param when present, the app's own redirect path as a
+  deterministic fallback) and `AuthProvider` sets `state.status` from that
+  classification directly, so a recovery session can never fall through
+  into an ordinary `signed_in` state regardless of SDK-internal timing.
+- Verify Email (`src/app/(auth)/verify-email.tsx`) now surfaces a failed
+  signup-link deep-link outcome (malformed / expired / already-used) as
+  plain "invalid or expired, resend" copy, sourced from a new
+  `AuthContextValue.deepLinkNotice` — using React's "adjust state during
+  render" pattern (not a `useEffect` calling local `setState`), since
+  `eslint-plugin-react-hooks`'s `set-state-in-effect` rule (already wired
+  into this repo's flat config) correctly flagged the first draft of this.
+  Reset Password's existing `state.status !== 'password_recovery'` fallback
+  already covered the equivalent recovery-side cases without changes.
+- `docs/PHASE_2B_HOSTED_SETUP.md` §F and `docs/SUPABASE_SETUP.md` §6
+  updated to require both exact redirects (`murphymethod://reset-password`,
+  `murphymethod://verify-email`) on the hosted project's dashboard — no
+  wildcard — correcting `SUPABASE_SETUP.md`'s previous text, which
+  (unlike `PHASE_2B_HOSTED_SETUP.md`) still said `murphymethod://**` was
+  required. `docs/PHASE_2B_HOSTED_VERIFICATION.md`'s manual test plan
+  gained explicit expired/malformed/duplicate-link checks for both flows.
+- Tests: `src/state/auth/__tests__/process-auth-deep-link.test.ts` (pure
+  classification/exchange logic — both link shapes, both kinds, error
+  params, missing-token, exchange failure, no token/code ever logged) plus
+  new cases in `src/state/auth/__tests__/auth-context.test.tsx` (cold-start
+  URL, runtime URL, duplicate delivery, recovery never touching the
+  profile-loading path, `emailRedirectTo` on `signUp`/`resend`,
+  `deepLinkNotice` surfacing and acknowledgement). All prior tests
+  continue to pass unmodified in behaviour (95 total).
+- No hosted Supabase project was created, modified, or connected to for
+  this pass — client-side only, per this task's explicit scope.

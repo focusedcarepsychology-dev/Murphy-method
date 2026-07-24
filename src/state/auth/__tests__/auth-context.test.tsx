@@ -7,10 +7,37 @@ import { createMockSession, createMockSupabaseClient } from '@/test-utils/mock-s
 // `Linking.createURL` needs the Expo Constants manifest that only a full
 // `renderRouter`-driven app tree provides (see src/app/__tests__/route-guards.test.tsx);
 // this file drives AuthProvider directly via renderHook, so the manifest
-// is never populated — mock the one call this module makes.
+// is never populated — mock the calls this module makes. `getInitialURL`/
+// `addEventListener` are driven by the `mockInitial*`/`mockUrlListener`
+// module-scoped `let`s below (the "mock" prefix is required for
+// babel-plugin-jest-hoist to allow a jest.mock() factory to close over
+// them).
+let mockInitialUrl: string | null = null;
+let mockUrlListener: ((event: { url: string }) => void) | null = null;
+
 jest.mock('expo-linking', () => ({
   createURL: jest.fn((path: string) => `murphymethod://${path}`),
+  getInitialURL: jest.fn(() => Promise.resolve(mockInitialUrl)),
+  addEventListener: jest.fn((_type: string, handler: (event: { url: string }) => void) => {
+    mockUrlListener = handler;
+    return { remove: jest.fn() };
+  }),
 }));
+
+/** Makes `Linking.getInitialURL()` resolve to `url` for the next mount. */
+function setColdStartUrl(url: string | null) {
+  mockInitialUrl = url;
+}
+
+/** Simulates the app receiving `url` while already running. */
+function emitRuntimeUrl(url: string) {
+  mockUrlListener?.({ url });
+}
+
+beforeEach(() => {
+  mockInitialUrl = null;
+  mockUrlListener = null;
+});
 
 function wrapperFor(client: ReturnType<typeof createMockSupabaseClient>['client']) {
   return function Wrapper({ children }: PropsWithChildren) {
@@ -185,6 +212,42 @@ describe('AuthProvider / useAuth', () => {
     expect(response).toEqual({ error: null, needsVerification: true });
   });
 
+  it('sign-up sends emailRedirectTo pointing at the verify-email deep link', async () => {
+    const mock = createMockSupabaseClient();
+    const { result } = await renderHook(() => useAuth(), { wrapper: wrapperFor(mock.client) });
+    await waitFor(() => expect(result.current.state.status).toBe('signed_out'));
+
+    await act(async () => {
+      await result.current.signUp({ email: 'new@example.com', password: 'aB1!aB1!' });
+    });
+
+    expect(mock.auth.signUp).toHaveBeenCalledWith({
+      email: 'new@example.com',
+      password: 'aB1!aB1!',
+      options: expect.objectContaining({
+        emailRedirectTo: expect.stringContaining('verify-email'),
+      }),
+    });
+  });
+
+  it('resend sends emailRedirectTo pointing at the same verify-email deep link', async () => {
+    const mock = createMockSupabaseClient();
+    const { result } = await renderHook(() => useAuth(), { wrapper: wrapperFor(mock.client) });
+    await waitFor(() => expect(result.current.state.status).toBe('signed_out'));
+
+    await act(async () => {
+      await result.current.resendVerificationEmail('new@example.com');
+    });
+
+    expect(mock.auth.resend).toHaveBeenCalledWith({
+      type: 'signup',
+      email: 'new@example.com',
+      options: expect.objectContaining({
+        emailRedirectTo: expect.stringContaining('verify-email'),
+      }),
+    });
+  });
+
   it('password-reset request never reveals whether the email exists (always no-error on success)', async () => {
     const mock = createMockSupabaseClient();
     const { result } = await renderHook(() => useAuth(), { wrapper: wrapperFor(mock.client) });
@@ -320,5 +383,152 @@ describe('AuthProvider / useAuth', () => {
     expect((result.current as Error).message).toMatch(
       /useAuth\(\) must be called within an AuthProvider/,
     );
+  });
+
+  describe('incoming auth deep links', () => {
+    it('cold-start: a signup confirmation link present at launch establishes a normal session', async () => {
+      const mock = createMockSupabaseClient();
+      mock.mockProfileResponse({ onboarding_completed_at: null });
+      const session = createMockSession();
+      mock.auth.exchangeCodeForSession.mockResolvedValueOnce({
+        data: { session, user: session.user },
+        error: null,
+      });
+      setColdStartUrl('murphymethod://verify-email?code=cold-start-code');
+
+      const { result } = await renderHook(() => useAuth(), { wrapper: wrapperFor(mock.client) });
+
+      await waitFor(() => expect(result.current.state.status).toBe('signed_in'));
+      expect(mock.auth.exchangeCodeForSession).toHaveBeenCalledWith('cold-start-code');
+    });
+
+    it('runtime: a signup confirmation link received while running establishes a normal session', async () => {
+      const mock = createMockSupabaseClient();
+      mock.mockProfileResponse({ onboarding_completed_at: null });
+      const session = createMockSession();
+      mock.auth.exchangeCodeForSession.mockResolvedValueOnce({
+        data: { session, user: session.user },
+        error: null,
+      });
+
+      const { result } = await renderHook(() => useAuth(), { wrapper: wrapperFor(mock.client) });
+      await waitFor(() => expect(result.current.state.status).toBe('signed_out'));
+
+      await act(async () => {
+        emitRuntimeUrl('murphymethod://verify-email?code=runtime-code');
+      });
+
+      await waitFor(() => expect(result.current.state.status).toBe('signed_in'));
+      expect(mock.auth.exchangeCodeForSession).toHaveBeenCalledWith('runtime-code');
+    });
+
+    it('a recovery link establishes password_recovery, never an ordinary signed_in session', async () => {
+      const mock = createMockSupabaseClient();
+      const session = createMockSession();
+      mock.auth.exchangeCodeForSession.mockResolvedValueOnce({
+        data: { session, user: session.user },
+        error: null,
+      });
+
+      const { result } = await renderHook(() => useAuth(), { wrapper: wrapperFor(mock.client) });
+      await waitFor(() => expect(result.current.state.status).toBe('signed_out'));
+
+      await act(async () => {
+        emitRuntimeUrl('murphymethod://reset-password?code=recovery-code');
+      });
+
+      await waitFor(() => expect(result.current.state.status).toBe('password_recovery'));
+      // Never routed through the ordinary profile-loading path.
+      expect(mock.from).not.toHaveBeenCalled();
+    });
+
+    it('processes the same URL only once, even if delivered twice (cold-start + runtime duplicate)', async () => {
+      const mock = createMockSupabaseClient();
+      const session = createMockSession();
+      mock.auth.exchangeCodeForSession.mockResolvedValueOnce({
+        data: { session, user: session.user },
+        error: null,
+      });
+      setColdStartUrl('murphymethod://reset-password?code=duplicate-code');
+
+      const { result } = await renderHook(() => useAuth(), { wrapper: wrapperFor(mock.client) });
+      await waitFor(() => expect(result.current.state.status).toBe('password_recovery'));
+
+      await act(async () => {
+        emitRuntimeUrl('murphymethod://reset-password?code=duplicate-code');
+      });
+
+      expect(mock.auth.exchangeCodeForSession).toHaveBeenCalledTimes(1);
+    });
+
+    it('a malformed link (matches an auth path, no token/code) fails safely without establishing a session', async () => {
+      const mock = createMockSupabaseClient();
+
+      const { result } = await renderHook(() => useAuth(), { wrapper: wrapperFor(mock.client) });
+      await waitFor(() => expect(result.current.state.status).toBe('signed_out'));
+
+      await act(async () => {
+        emitRuntimeUrl('murphymethod://verify-email');
+      });
+
+      await waitFor(() =>
+        expect(result.current.deepLinkNotice).toEqual({ kind: 'signup', outcome: 'failed' }),
+      );
+      expect(result.current.state.status).toBe('signed_out');
+      expect(mock.auth.setSession).not.toHaveBeenCalled();
+      expect(mock.auth.exchangeCodeForSession).not.toHaveBeenCalled();
+    });
+
+    it('an expired/invalid link (Supabase error params) fails safely without establishing a session', async () => {
+      const mock = createMockSupabaseClient();
+
+      const { result } = await renderHook(() => useAuth(), { wrapper: wrapperFor(mock.client) });
+      await waitFor(() => expect(result.current.state.status).toBe('signed_out'));
+
+      await act(async () => {
+        emitRuntimeUrl('murphymethod://reset-password?error=access_denied&error_code=otp_expired');
+      });
+
+      await waitFor(() =>
+        expect(result.current.deepLinkNotice).toEqual({ kind: 'recovery', outcome: 'failed' }),
+      );
+      expect(result.current.state.status).toBe('signed_out');
+    });
+
+    it('acknowledgeDeepLinkNotice resets the notice to null', async () => {
+      const mock = createMockSupabaseClient();
+
+      const { result } = await renderHook(() => useAuth(), { wrapper: wrapperFor(mock.client) });
+      await waitFor(() => expect(result.current.state.status).toBe('signed_out'));
+
+      await act(async () => {
+        emitRuntimeUrl('murphymethod://verify-email');
+      });
+      await waitFor(() => expect(result.current.deepLinkNotice).not.toBeNull());
+
+      await act(async () => {
+        result.current.acknowledgeDeepLinkNotice();
+      });
+
+      expect(result.current.deepLinkNotice).toBeNull();
+    });
+
+    it('ignores a URL unrelated to auth without touching auth state', async () => {
+      const mock = createMockSupabaseClient();
+      mock.setInitialSession(createMockSession());
+      mock.mockProfileResponse({ onboarding_completed_at: '2026-01-01T00:00:00.000Z' });
+
+      const { result } = await renderHook(() => useAuth(), { wrapper: wrapperFor(mock.client) });
+      await waitFor(() => expect(result.current.state.status).toBe('signed_in'));
+
+      await act(async () => {
+        emitRuntimeUrl('murphymethod://workout/some-session-id');
+      });
+
+      expect(result.current.state.status).toBe('signed_in');
+      expect(result.current.deepLinkNotice).toBeNull();
+      expect(mock.auth.setSession).not.toHaveBeenCalled();
+      expect(mock.auth.exchangeCodeForSession).not.toHaveBeenCalled();
+    });
   });
 });

@@ -61,9 +61,16 @@ real user experiences.
       this is `handle_new_user()` firing on `auth.users` insert.
 - [ ] Confirm a `notification_preferences` row was created for the same
       user — this is `handle_new_profile()` firing on `profiles` insert.
-- [ ] Tap the verification link; confirm the app recognises the now-verified
-      account (per whatever `enable_confirmations` behaviour is configured
-      — `supabase/config.toml` mirrors this for local dev).
+- [ ] Tap the verification link on a device with the app installed (a real
+      build or dev build — not Expo Go, unless you added the `exp://**`
+      redirect entry per `docs/PHASE_2B_HOSTED_SETUP.md` §F); confirm
+      Murphy Method opens directly (not a browser dead end), the app
+      establishes a real session via the incoming-link handler
+      (`src/state/auth/process-auth-deep-link.ts`) rather than the "I've
+      verified" button, and the route guard sends the user into onboarding.
+- [ ] Tap an already-used or expired verification link; confirm Verify
+      Email shows a plain "invalid or expired, resend" message rather than
+      silently doing nothing or crashing.
 
 ### Sign in
 
@@ -89,14 +96,23 @@ real user experiences.
       installed (a real build or dev build — not Expo Go, unless you added
       the `exp://**` redirect entry per `docs/PHASE_2B_HOSTED_SETUP.md` §F),
       opens Murphy Method directly rather than a browser dead end.
-- [ ] Confirm the app detects the `PASSWORD_RECOVERY` auth event and is
-      forced onto `(auth)/reset-password` — not any other screen, even if
-      another route was open at the time (`src/hooks/use-protected-route.ts`
-      rule 4).
+- [ ] Confirm the incoming-link handler
+      (`src/state/auth/process-auth-deep-link.ts`) establishes the
+      recovery-scoped session and the app is forced onto
+      `(auth)/reset-password` — not any other screen, even if another route
+      was open at the time (`src/hooks/use-protected-route.ts` rule 4), and
+      never briefly shows a private screen first.
 - [ ] Set a new password; confirm `updatePasswordAndSignOut` runs (the
       recovery session ends and the app returns to Sign In).
 - [ ] Sign in with the **new** password; confirm it works and the **old**
       password no longer does.
+- [ ] Tap an already-used or expired reset-password link; confirm
+      Reset Password shows the "this link has expired" fallback rather than
+      operating on a session that was never actually established.
+- [ ] Trigger the same link twice in a row (e.g. background/foreground the
+      app so the OS redelivers it, or tap it twice); confirm the second
+      delivery is a no-op rather than surfacing a spurious "expired" error
+      for a link that just worked.
 
 ## 3. Manual: RLS isolation on the hosted backend
 
