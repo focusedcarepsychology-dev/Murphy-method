@@ -24,13 +24,14 @@ function isHttpUrl(value: string): boolean {
 /**
  * Reads and validates the Supabase env contract. Accepts an explicit
  * `source` so tests can inject configuration directly rather than mutating
- * `process.env` (module-load order makes that unreliable in Jest).
- * Returns `null` — never throws — on missing or malformed configuration, so
- * callers (and Jest) can render a clear "not configured" state instead of
- * crashing.
+ * `process.env` (module-load order makes that unreliable in Jest). This
+ * function must never be called with the entire `process.env` object — see
+ * `runtimeSupabaseEnv` below for why. Returns `null` — never throws — on
+ * missing or malformed configuration, so callers (and Jest) can render a
+ * clear "not configured" state instead of crashing.
  */
 export function readSupabaseEnvConfig(
-  source: Partial<Record<string, string | undefined>> = process.env,
+  source: Partial<Record<string, string | undefined>>,
 ): SupabaseEnvConfig | null {
   const url = source.EXPO_PUBLIC_SUPABASE_URL?.trim();
   const publishableKey = source.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
@@ -45,7 +46,22 @@ export function readSupabaseEnvConfig(
   return { url, publishableKey };
 }
 
-export const supabaseEnvConfig = readSupabaseEnvConfig();
+/**
+ * Metro/Expo only inlines `EXPO_PUBLIC_*` variables at build time when they
+ * appear as statically analyzable, direct `process.env.EXPO_PUBLIC_*`
+ * member expressions — not when read off a variable holding `process.env`
+ * (e.g. `readSupabaseEnvConfig(source = process.env)`), and not via
+ * destructuring or bracket/dynamic access. Building this object literal
+ * with direct dot-notation references is what makes the values survive
+ * into the compiled bundle; do not refactor it to read from `process.env`
+ * indirectly.
+ */
+const runtimeSupabaseEnv = {
+  EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
+  EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+};
+
+export const supabaseEnvConfig = readSupabaseEnvConfig(runtimeSupabaseEnv);
 export const isSupabaseConfigured = supabaseEnvConfig !== null;
 
 if (typeof __DEV__ !== 'undefined' && __DEV__ && !isSupabaseConfigured) {

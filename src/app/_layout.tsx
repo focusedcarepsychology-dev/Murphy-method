@@ -81,6 +81,19 @@ function AppNavigation() {
 }
 
 export default function RootLayout() {
+  // Splash lifecycle is owned in exactly two places, both gated on
+  // `state.status`/`isSupabaseConfigured` rather than on mount timing: the
+  // effect in `AppNavigation` above hides it once auth has resolved, and
+  // this one hides it immediately when Supabase isn't configured at all —
+  // `AppNavigation` (and therefore its own effect) never mounts in that
+  // case, so without this the native splash would hide for neither branch
+  // and `ConfigurationErrorScreen` would stay hidden behind it forever.
+  useEffect(() => {
+    if (!isSupabaseConfigured) {
+      SplashScreen.hideAsync();
+    }
+  }, []);
+
   return (
     <ThemePreferenceProvider>
       {isSupabaseConfigured ? (
