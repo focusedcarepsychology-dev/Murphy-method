@@ -137,22 +137,24 @@ never accidentally target the wrong project by a typo in committed code.
 
 ---
 
-## F. Configure Supabase Auth redirect URLs (required for password recovery)
+## F. Configure Supabase Auth redirect URLs (required for password recovery and signup confirmation)
 
 In the Supabase dashboard: **Authentication** → **URL Configuration** →
 **Redirect URLs**.
 
-Add exactly:
+Add exactly both of:
 
 ```
 murphymethod://reset-password
+murphymethod://verify-email
 ```
 
-This is the exact, specific redirect the app uses to bring a user back
-into Murphy Method after they tap the password-reset link in their email,
-for a real installed build of the app (a "standalone" or "development
-build," not the Expo Go app). Deliberately **not** a wildcard — a narrower
-allow-list entry is safer and this is the only path the app ever sends.
+These are the exact, specific redirects the app uses to bring a user back
+into Murphy Method after they tap the password-reset link or the signup
+confirmation link in their email, for a real installed build of the app (a
+"standalone" or "development build," not the Expo Go app). Deliberately
+**not** a wildcard — a narrower allow-list entry is safer and these are the
+only two paths the app ever sends (`src/state/auth/process-auth-deep-link.ts`).
 
 **Only if you are personally testing password recovery through the Expo Go
 app** (the generic Expo Go app from the App Store/Play Store, used during

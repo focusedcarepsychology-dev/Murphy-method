@@ -58,11 +58,20 @@ export function getSupabaseClient(): MurphySupabaseClient {
       storage: AsyncStorage,
       autoRefreshToken: true,
       persistSession: true,
-      // This app has no web OAuth redirect flow (email/password only,
-      // docs/DECISIONS.md) — detecting a session from the URL is
-      // unnecessary and would only add web-specific behaviour to guard
-      // against.
+      // `detectSessionInUrl` drives supabase-js's own browser-only
+      // URL-parsing/history-cleanup behaviour, which does not exist on
+      // native — the app's incoming-link handling
+      // (`state/auth/process-auth-deep-link.ts`, wired in
+      // `state/auth/auth-context.tsx`) reads the URL itself via
+      // `expo-linking` and establishes the session explicitly, so this
+      // must stay `false` on native regardless.
       detectSessionInUrl: false,
+      // PKCE over the implicit flow for both email links this app sends
+      // (signup confirmation, password recovery): the emailed link then
+      // carries a single-use `code` query param instead of raw
+      // access/refresh tokens in a URL fragment, per current Supabase
+      // guidance for native/mobile apps.
+      flowType: 'pkce',
     },
   });
 

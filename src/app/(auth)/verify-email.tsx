@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { AppText, Heading } from '@/components/ui/app-text';
@@ -8,10 +8,12 @@ import { Icon } from '@/components/ui/icon';
 import { Screen } from '@/components/ui/screen';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/state/auth/auth-context';
+import type { DeepLinkNotice } from '@/state/auth/types';
 
 export default function VerifyEmailScreen() {
   const { spacing, colors, radius } = useTheme();
-  const { resendVerificationEmail, refreshSession } = useAuth();
+  const { resendVerificationEmail, refreshSession, deepLinkNotice, acknowledgeDeepLinkNotice } =
+    useAuth();
   const params = useLocalSearchParams<{ email?: string }>();
   const email = typeof params.email === 'string' ? params.email : undefined;
 
@@ -19,6 +21,34 @@ export default function VerifyEmailScreen() {
   const [checking, setChecking] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [messageTone, setMessageTone] = useState<'positive' | 'critical'>('positive');
+
+  // Reflects the outcome of a tapped confirmation link (the session itself is
+  // established elsewhere, in AuthProvider's incoming-link handler — success
+  // routes the user onward via the route guard before this would matter, so
+  // only the failure case is surfaced here). Malformed, expired, and
+  // already-used links all land here with the same safe, generic copy
+  // (docs/IMPLEMENTATION_PLAN.md Phase 2 §17) — never the underlying reason.
+  //
+  // Reacts to `deepLinkNotice` changing during render (not in an effect) per
+  // React's "adjusting state when a prop changes" pattern, since the update
+  // is local (`setMessage`/`setMessageTone`), not a subscription to an
+  // external system.
+  const [handledNotice, setHandledNotice] = useState<DeepLinkNotice | null>(null);
+  if (deepLinkNotice !== handledNotice) {
+    setHandledNotice(deepLinkNotice);
+    if (deepLinkNotice?.kind === 'signup' && deepLinkNotice.outcome === 'failed') {
+      setMessageTone('critical');
+      setMessage('That verification link is invalid or has expired. Resend a new one below.');
+    }
+  }
+
+  // Acknowledging is an update to AuthProvider's (external, ancestor) state,
+  // so it belongs in an effect rather than the render body above.
+  useEffect(() => {
+    if (deepLinkNotice) {
+      acknowledgeDeepLinkNotice();
+    }
+  }, [deepLinkNotice, acknowledgeDeepLinkNotice]);
 
   async function handleResend() {
     if (!email || resending) return;

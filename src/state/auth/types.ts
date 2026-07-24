@@ -1,5 +1,7 @@
 import type { Session } from '@supabase/supabase-js';
 
+import type { AuthDeepLinkKind } from '@/state/auth/process-auth-deep-link';
+
 /**
  * Explicit auth states (docs/IMPLEMENTATION_PLAN.md Phase 2 §5). Route
  * guards (src/app/_layout.tsx and per-group layouts) switch on `status`,
@@ -41,6 +43,15 @@ export type AuthState =
 export type AuthResult = { error: string | null };
 export type SignUpResult = AuthResult & { needsVerification: boolean };
 
+/**
+ * The outcome of the most recent auth email link (signup confirmation or
+ * password recovery) this provider processed, for the relevant screen to
+ * react to — e.g. Verify Email showing "that link is invalid or expired"
+ * when `kind: 'signup'` fails. `null` once acknowledged
+ * (`acknowledgeDeepLinkNotice`) or before any link has been processed.
+ */
+export type DeepLinkNotice = { kind: AuthDeepLinkKind; outcome: 'established' | 'failed' };
+
 export type AuthContextValue = {
   state: AuthState;
   signUp: (input: { email: string; password: string }) => Promise<SignUpResult>;
@@ -61,9 +72,14 @@ export type AuthContextValue = {
   /**
    * Re-checks the current session (Verify Email's "I've verified" action,
    * docs/SCREEN_SPECIFICATIONS.md §1) — a verification link opened as a
-   * deep link already flows through onAuthStateChange automatically; this
-   * covers the case where the user verified via a browser and returns to
-   * the app manually.
+   * deep link already establishes the session via the app's incoming-link
+   * handler (`state/auth/process-auth-deep-link.ts`) as soon as it's
+   * tapped; this covers the case where the user verified via a browser and
+   * returns to the app manually.
    */
   refreshSession: () => Promise<void>;
+  /** See {@link DeepLinkNotice}. */
+  deepLinkNotice: DeepLinkNotice | null;
+  /** Marks the current `deepLinkNotice` as handled, resetting it to `null`. */
+  acknowledgeDeepLinkNotice: () => void;
 };

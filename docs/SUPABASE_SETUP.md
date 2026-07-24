@@ -182,19 +182,38 @@ When Phase 2B's hosted project is actually created and connected:
    the app's real deployment environment (EAS secrets, `.env` for local
    dev against the remote project, etc.) — still only ever the public
    URL/publishable key, never a service-role key or access token.
-5. **Password recovery redirect URL** (Phase 2A correction pass): the
-   client already builds and sends `redirectTo` on every
-   `resetPasswordForEmail` call (`src/state/auth/auth-context.tsx`,
-   `Linking.createURL('reset-password')` — resolves to
-   `murphymethod://reset-password` in a built/standalone app), and
-   `src/app/(auth)/reset-password.tsx` + the `PASSWORD_RECOVERY` handling
-   in `onAuthStateChange` already implement the full completion flow. The
-   remote project's dashboard (Authentication → URL Configuration →
-   Redirect URLs) must allow `murphymethod://**` — mirroring
-   `supabase/config.toml`'s local `additional_redirect_urls` — or Supabase
-   will reject `redirectTo` and silently fall back to `site_url`, which
-   breaks the flow for a mobile user. Nothing else in this flow depends on
-   the remote project; only this dashboard allow-list entry is deferred.
+5. **Auth email redirect URLs** (Phase 2A correction pass; native deep-link
+   handling added in Phase 2B): the client already builds and sends
+   `redirectTo`/`emailRedirectTo` on every `resetPasswordForEmail`,
+   `signUp`, and `resend` call (`src/state/auth/auth-context.tsx`,
+   `Linking.createURL('reset-password')` / `Linking.createURL('verify-email')`
+   — resolve to `murphymethod://reset-password` / `murphymethod://verify-email`
+   in a built/standalone app). `src/state/auth/process-auth-deep-link.ts`
+   (wired into `AuthProvider`) handles the incoming link on both cold start
+   and while the app is already running, establishes the session (PKCE code
+   exchange, with an access/refresh-token fallback), and routes a recovery
+   link to the isolated `password_recovery` state so it can never fall
+   through into an ordinary signed-in session; `src/app/(auth)/reset-password.tsx`
+   and `src/app/(auth)/verify-email.tsx` implement the two screens this
+   lands on. The remote project's dashboard (Authentication → URL
+   Configuration → Redirect URLs) must allow **exactly** these two entries:
+
+   ```
+   murphymethod://reset-password
+   murphymethod://verify-email
+   ```
+
+   Deliberately not a wildcard (`murphymethod://**`) — these two paths are
+   the only ones the app ever sends, per `docs/PHASE_2B_HOSTED_SETUP.md`
+   §F. `supabase/config.toml`'s local `additional_redirect_urls` uses the
+   broader `murphymethod://**` (plus `exp://**` for Expo Go) for local-dev
+   convenience only — the same narrowing applies once a real production
+   project exists. Without these dashboard entries Supabase rejects
+   `redirectTo`/`emailRedirectTo` and silently falls back to `site_url`,
+   which breaks both flows for a mobile user. Nothing else in this flow
+   depends on the remote project; only these dashboard allow-list entries
+   are deferred.
+
 6. Re-run `supabase test db --linked` (or `--local` against a pulled copy)
    to confirm RLS holds on the real project.
 7. Regenerate `src/types/database.ts` from the linked project if its

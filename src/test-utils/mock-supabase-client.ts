@@ -37,6 +37,14 @@ export function createMockSupabaseClient() {
       error: null as unknown,
     })),
     resend: jest.fn(async () => ({ data: {}, error: null as AuthError | null })),
+    setSession: jest.fn(async () => ({
+      data: { session: null as Session | null, user: null as unknown },
+      error: null as unknown,
+    })),
+    exchangeCodeForSession: jest.fn(async () => ({
+      data: { session: null as Session | null, user: null as unknown },
+      error: null as unknown,
+    })),
     startAutoRefresh: jest.fn(),
     stopAutoRefresh: jest.fn(),
   };
