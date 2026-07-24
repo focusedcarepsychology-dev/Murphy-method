@@ -6,6 +6,8 @@ name: SCRATCH — EAS project init (one-off, do not merge)
 # extra.eas.projectId can be committed by hand on a separate, minimal
 # branch. Not meant to be merged to main or kept around afterward.
 on:
+  push:
+    branches: [claude/eas-init-scratch]
   workflow_dispatch: {}
 
 permissions:
