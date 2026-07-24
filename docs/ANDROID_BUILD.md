@@ -116,16 +116,36 @@ cloud build was out of scope for this change (see §6).
 
 ## 6. What remains manual (EAS account)
 
-This repository now has everything needed for `eas build --profile
-preview --platform android` to succeed, except the parts that require an
-authenticated EAS/Expo account, which cannot be created or driven from
-this sandbox:
+The project is now linked to an EAS project (see §6a). What's still
+manual, requiring an authenticated EAS/Expo account:
 
-1. `npx eas login` (or `eas whoami` to confirm an existing session).
-2. `npx eas init` (or the first `eas build` run) to link this project to
-   an EAS project and populate `extra.eas.projectId` in `app.json` — not
-   present yet, since no EAS project has been created for this repository.
-3. Set the two `EXPO_PUBLIC_*` values as EAS environment variables for the
+1. Set the two `EXPO_PUBLIC_*` values as EAS environment variables for the
    `preview` environment (§4).
-4. Run `npx eas build --profile preview --platform android` and install
+2. Run `npx eas build --profile preview --platform android` and install
    the resulting APK on a real device via the printed QR code/link.
+
+## 6a. EAS project linking (done)
+
+`app.json` now carries the confirmed EAS project identity:
+
+- `expo.owner`: `focusedcares-team`
+- `expo.extra.eas.projectId`: `d5d71b2c-531f-4ad3-af56-5ad2794ab2d1`
+- Full project name: `@focusedcares-team/murphy-method`
+
+This was confirmed authoritatively by running `eas-cli whoami` and
+`eas-cli init --non-interactive` against the real EAS API from a
+temporary, one-off GitHub Actions workflow authenticated with the
+repository's `EXPO_TOKEN` secret (removed after use — see git history on
+this branch). No project with this slug existed under the account before
+this run (`eas-cli init` without `--force` failed with "Project does not
+exist", proving no duplicate), so `--force` was used once absence was
+confirmed, and it created exactly one project. `name`, `slug`, `scheme`,
+and `android.package` were left untouched — the CLI only ever adds
+`extra.eas.projectId` and `owner`; the `projectId` was never hand-typed.
+
+**Not yet confirmed**: whether this GitHub repository is connected to
+the EAS project via Expo's dashboard-level GitHub integration. `eas-cli`
+21.2.0 has no CLI surface for this (`eas integrations` only covers App
+Store Connect, Convex, and PostHog) — check
+`https://expo.dev/accounts/focusedcares-team/projects/murphy-method/github`
+directly.
