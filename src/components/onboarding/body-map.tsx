@@ -7,10 +7,10 @@ import {
   BodySilhouette,
 } from '@/components/onboarding/body-silhouette';
 import { Icon } from '@/components/ui/icon';
+import { BODY_AREA_OPTIONS, type BodyAreaKey } from '@/domain/onboarding/body-areas';
 import { useTheme } from '@/hooks/use-theme';
-import type { PreviewBodyArea } from '@/dev/previewData';
 
-type RegionBox = { id: string; x: number; y: number; width: number; height: number };
+type RegionBox = { id: BodyAreaKey; x: number; y: number; width: number; height: number };
 
 /**
  * Approximate region hit-boxes in the same coordinate space as
@@ -20,35 +20,45 @@ type RegionBox = { id: string; x: number; y: number; width: number; height: numb
  * These are deliberately approximate soft zones, not anatomical outlines —
  * matching the "approximate regions" contract in
  * docs/SCREEN_SPECIFICATIONS.md rather than implying precise targeting.
+ * Ids are the canonical `BodyAreaKey`s (`src/domain/onboarding/body-areas.ts`)
+ * — the exact set the database check constraint accepts, no aggregation.
  */
 const regionsByView: Record<'front' | 'back', RegionBox[]> = {
   front: [
-    { id: 'shoulders', x: 40, y: 60, width: 120, height: 34 },
-    { id: 'chest', x: 50, y: 94, width: 100, height: 60 },
-    { id: 'arms', x: 14, y: 68, width: 30, height: 150 },
-    { id: 'arms', x: 156, y: 68, width: 30, height: 150 },
-    { id: 'core', x: 52, y: 154, width: 96, height: 46 },
-    { id: 'thighs', x: 52, y: 196, width: 40, height: 94 },
-    { id: 'thighs', x: 108, y: 196, width: 40, height: 94 },
+    { id: 'shoulders', x: 40, y: 58, width: 120, height: 28 },
+    { id: 'chest', x: 56, y: 90, width: 88, height: 46 },
+    { id: 'biceps', x: 14, y: 70, width: 28, height: 55 },
+    { id: 'biceps', x: 158, y: 70, width: 28, height: 55 },
+    { id: 'forearms', x: 12, y: 130, width: 24, height: 80 },
+    { id: 'forearms', x: 164, y: 130, width: 24, height: 80 },
+    { id: 'core', x: 58, y: 140, width: 84, height: 40 },
+    { id: 'waist_appearance', x: 58, y: 178, width: 84, height: 24 },
+    { id: 'quadriceps', x: 54, y: 198, width: 38, height: 82 },
+    { id: 'quadriceps', x: 108, y: 198, width: 38, height: 82 },
   ],
   back: [
-    { id: 'upper_back', x: 44, y: 64, width: 112, height: 90 },
-    { id: 'glutes', x: 54, y: 190, width: 92, height: 44 },
-    { id: 'calves', x: 56, y: 284, width: 32, height: 80 },
-    { id: 'calves', x: 112, y: 284, width: 32, height: 80 },
+    { id: 'upper_back', x: 44, y: 60, width: 112, height: 56 },
+    { id: 'lats', x: 44, y: 112, width: 112, height: 44 },
+    { id: 'triceps', x: 14, y: 70, width: 28, height: 65 },
+    { id: 'triceps', x: 158, y: 70, width: 28, height: 65 },
+    { id: 'glutes', x: 54, y: 196, width: 92, height: 40 },
+    { id: 'hamstrings', x: 54, y: 238, width: 38, height: 48 },
+    { id: 'hamstrings', x: 108, y: 238, width: 38, height: 48 },
+    { id: 'calves', x: 56, y: 284, width: 32, height: 76 },
+    { id: 'calves', x: 112, y: 284, width: 32, height: 76 },
   ],
 };
 
 export type BodyMapProps = {
   view: 'front' | 'back';
-  areas: PreviewBodyArea[];
-  selectedIds: string[];
-  onToggle: (id: string) => void;
+  selectedKeys: BodyAreaKey[];
+  onToggle: (key: BodyAreaKey) => void;
 };
 
-export function BodyMap({ view, areas, selectedIds, onToggle }: BodyMapProps) {
+export function BodyMap({ view, selectedKeys, onToggle }: BodyMapProps) {
   const { colors, spacing, radius } = useTheme();
-  const labelFor = (id: string) => areas.find((area) => area.id === id)?.label ?? id;
+  const labelFor = (id: BodyAreaKey) =>
+    BODY_AREA_OPTIONS.find((option) => option.key === id)?.label ?? id;
   const regions = regionsByView[view];
 
   return (
@@ -71,7 +81,7 @@ export function BodyMap({ view, areas, selectedIds, onToggle }: BodyMapProps) {
           importantForAccessibility="no-hide-descendants"
         >
           {regions.map((region, index) => {
-            const selected = selectedIds.includes(region.id);
+            const selected = selectedKeys.includes(region.id);
             return (
               <Rect
                 key={`${region.id}-${index}`}
@@ -90,7 +100,7 @@ export function BodyMap({ view, areas, selectedIds, onToggle }: BodyMapProps) {
         </Svg>
         {/* Accessible tap targets, positioned as percentages of the same viewBox as the overlay above. */}
         {regions.map((region, index) => {
-          const selected = selectedIds.includes(region.id);
+          const selected = selectedKeys.includes(region.id);
           return (
             <Pressable
               key={`${region.id}-${index}-hit`}

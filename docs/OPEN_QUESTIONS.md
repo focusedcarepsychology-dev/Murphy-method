@@ -23,15 +23,22 @@ classified:
 
 ## Identity & onboarding
 
-1. **Exact biological-sex/physiological field set.** [**B** — blocks
-   Phase 3's Basic Profile screen specifically, not Phase 1] `profiles`
-   (`DATABASE_SCHEMA.md` §1) reserves a `biological_sex` field because some
-   physiological calculations genuinely benefit from it, but the precise
-   field (a binary flag vs. a broader set of options, whether it's required
-   or optional, and exactly which calculations depend on it) needs product
-   - a qualified exercise-science/clinical reviewer to define, not an
-     architecture document. Needs resolution before Phase 3 (Onboarding)
-     implements the Basic Profile screen.
+1. **Exact biological-sex/physiological field set.** [**RESOLVED for MVP**
+   — 2026-07-24, Phase 3] Decision: **do not collect biological sex during
+   MVP onboarding**, on data-minimisation grounds — no Phase 3 feature has
+   demonstrated a sufficiently specific, material, and validated need for
+   it. `profiles.biological_sex` (`DATABASE_SCHEMA.md` §1) is left in
+   place and nullable (dropping it would be a needless destructive
+   migration against a field that costs nothing to leave unused), but
+   Phase 3's Basic Profile screen has no write path to it at all — not
+   defaulted, not inferred, not substituted with gender. See
+   `docs/DECISIONS.md` 2026-07-24 "Phase 3: Onboarding" for the full
+   reasoning. **Not closed permanently:** this may be revisited only if a
+   later phase identifies a specific, scientifically/clinically justified
+   calculation that genuinely requires it — at which point the exact field
+   shape (binary vs. a broader set, required vs. optional) still needs a
+   qualified exercise-science/clinical reviewer to define, not an
+   architecture document, exactly as originally scoped here.
 2. **Age verification.** [**B**] MVP assumes self-attested 18+
    (`MASTER_SPEC.md` §3) via date-of-birth entry. Whether any stronger
    verification is required (for App Store/Play Store policy or regional

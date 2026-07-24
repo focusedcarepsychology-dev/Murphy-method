@@ -35,7 +35,7 @@
 -- rather than assuming 00_setup.sql already ran in this session.
 create extension if not exists pgtap with schema extensions;
 
-select plan(271);
+select plan(274);
 
 -- The one, explicit allowlist of Murphy Method application tables, used by
 -- every check below instead of scanning pg_tables directly. This is
@@ -194,7 +194,10 @@ insert into expected_authenticated_privileges (name, can_select, can_insert, can
   ('exercise_substitutions',    true,  false, false, false),
   ('exercises',                 true,  false, false, false),
   ('goals',                     true,  false, false, false),
-  ('health_screenings',         true,  true,  false, false),
+  -- INSERT revoked by Phase 3 (supabase/migrations/20260724080200_onboarding_grant_tightening.sql):
+  -- only the security-definer submit_safety_screening() RPC may write this
+  -- table now (docs/MASTER_SPEC.md §8.1).
+  ('health_screenings',         true,  false, false, false),
   ('motivation_profiles',       true,  false, false, false),
   ('movement_patterns',         true,  false, false, false),
   ('muscles',                   true,  false, false, false),
@@ -206,7 +209,12 @@ insert into expected_authenticated_privileges (name, can_select, can_insert, can
   ('personal_records',          true,  true,  false, false),
   ('personal_response_models',  true,  false, false, false),
   ('preference_signals',        true,  true,  false, false),
-  ('profiles',                  true,  true,  true,  false),
+  -- UPDATE narrowed to a column allowlist by Phase 3
+  -- (supabase/migrations/20260724080200_onboarding_grant_tightening.sql), so
+  -- there is no *table-level* UPDATE grant any more (has_table_privilege
+  -- reports false even though most columns remain updatable) — verified at
+  -- the column level in the dedicated section below instead.
+  ('profiles',                  true,  true,  false, false),
   ('programme_decisions',       true,  true,  false, false),
   ('programme_versions',        true,  true,  false, false),
   ('programmes',                true,  true,  true,  false),
@@ -264,5 +272,26 @@ select ok(
 )
 from expected_authenticated_privileges eap
 order by eap.name;
+
+-- 8. profiles column-level UPDATE grant (Phase 3,
+-- supabase/migrations/20260724080200_onboarding_grant_tightening.sql):
+-- ordinary onboarding/profile-edit fields remain updatable, but
+-- onboarding_completed_at is reserved to public.complete_onboarding()
+-- alone (docs/IMPLEMENTATION_PLAN.md Phase 3 §20).
+select is(
+  has_column_privilege('authenticated', 'public.profiles', 'onboarding_completed_at', 'UPDATE'),
+  false,
+  'authenticated cannot UPDATE profiles.onboarding_completed_at directly'
+);
+select is(
+  has_column_privilege('authenticated', 'public.profiles', 'display_name', 'UPDATE'),
+  true,
+  'authenticated can UPDATE profiles.display_name'
+);
+select is(
+  has_column_privilege('authenticated', 'public.profiles', 'coaching_style', 'UPDATE'),
+  true,
+  'authenticated can UPDATE profiles.coaching_style'
+);
 
 select * from finish();

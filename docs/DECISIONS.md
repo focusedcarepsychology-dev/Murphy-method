@@ -1243,3 +1243,199 @@ as "non-destructive and free of application-data mutations" (no
 application-row insert/update/delete, no fixture users required), which
 is the property that actually matters for running it against a
 never-reset hosted project. No assertions changed.
+
+## 2026-07-24 — Phase 3: Onboarding
+
+**Biological sex not collected in MVP** (`OPEN_QUESTIONS.md` #1,
+resolved). A human product decision was made: do not ask for biological
+sex during onboarding. No Phase 3 feature has a specific, validated need
+for it, and the field's exact shape was never resolved (the open question
+this closes). `profiles.biological_sex` is left in place, nullable, with
+no write path anywhere in Phase 3 — not defaulted, not inferred, not
+substituted with gender. The column is kept (not dropped) because dropping
+it would be a needless destructive migration against a field that costs
+nothing to leave nullable, and a later phase may still have a genuinely
+justified, narrowly-scoped reason to populate it. `docs/OPEN_QUESTIONS.md`
+updated to record the MVP resolution; revisiting it requires a stated
+scientific/clinical justification for a specific calculation, not a
+default "most apps collect this."
+
+**RPC (`security definer` Postgres functions), not Edge Functions, for
+Phase 3's three trusted server operations** (`set_user_goal_priorities`,
+`submit_safety_screening`, `complete_onboarding` —
+`supabase/migrations/20260724080100_onboarding_rpc_functions.sql`).
+`API_CONTRACTS.md`'s transport legend frames `[fn]` as "Supabase Edge
+Function," and `IMPLEMENTATION_PLAN.md` Phase 3 §27 anticipates Edge
+Functions, but this sandbox has no Deno runtime at all (checked: no
+`deno` binary), so a Deno Edge Function could be written but never
+executed, tested, or debugged here — unlike a Postgres function, which
+runs against the real local Postgres this sandbox does have (via
+`scripts/local-pg-harness`, the same tool Phase 2A/2B already established
+for testing migrations without Docker). All three operations are purely
+relational — validate input, derive values deterministically, write rows,
+no external I/O, no AI call — so a second server runtime buys nothing
+architecturally; `handle_new_user()`
+(`supabase/migrations/20260723090200_profiles.sql`) already established
+the `security definer` + `set search_path = ''` + fully-qualified-name
+pattern this reuses. Each function derives identity exclusively from
+`auth.uid()`, accepts no client-supplied profile id, is granted only to
+`authenticated` (never `anon`), and was verified end-to-end against a
+real local PostgreSQL 16 instance (goal reorder/retry/duplicate/unknown-key
+rejection, all 7 safety-screening rule branches individually, direct
+health_screenings insert now denied, `onboarding_completed_at` column-grant
+denial, complete_onboarding's full required-field rejection/success/
+idempotent-retry/requires-clearance paths, cross-user isolation) — see
+`supabase/tests/database/13_onboarding_rpc_functions.sql` (pgTAP, 36
+assertions) and the equivalent raw-SQL smoke script run manually against
+the harness during development. If a later phase's server logic genuinely
+needs an external call (the `AIProvider` abstraction, a payment webhook),
+that phase should use a Deno Edge Function — this is not a permanent
+architectural precedent against them, just the right tool for three purely
+relational operations under this sandbox's actual constraints.
+
+**pgTAP itself is not installed in this sandbox's bare PostgreSQL 16**
+(apt has no `pgtap` package reachable here), so
+`supabase/tests/database/13_onboarding_rpc_functions.sql` (and the two
+existing files this phase edited, `01_reference_tables.sql`,
+`04_health_safety.sql`, `12_hosted_structural_verification.sql`) could
+not literally be executed in this sandbox — same limitation
+`scripts/local-pg-harness/README.md` already documents for Phase 2A/2B.
+Every RPC's underlying SQL logic was instead verified by hand against the
+harness with an equivalent raw-SQL script (no pgTAP helpers, same
+assertions expressed as plain `select`/`do $$ ... $$` blocks) before the
+pgTAP file was written, so the logic is real-Postgres-verified even though
+the pgTAP wrapper itself is not. `supabase test db --local` in CI
+(`.github/workflows/ci.yml`, Docker-backed) is what actually runs this
+file for the first time — treat that CI result as authoritative, not this
+sandbox's dry-run.
+
+**Equipment reference seed** (`supabase/migrations/20260724080000_equipment_seed.sql`):
+10 rows — `bodyweight` (the unambiguous "no equipment" choice),
+`dumbbell`, `barbell`, `kettlebell`, `bench`, `pull_up_bar`,
+`resistance_band`, `cable_machine`, `leg_press_machine`,
+`lat_pulldown_machine`. Deliberately the Phase 3 onboarding-minimum, not
+the exercise-library equipment ontology (Phase 4 content-authoring scope,
+`IMPLEMENTATION_PLAN.md` Phase 4) — Phase 4 can add more rows freely
+without touching or replacing any key/id seeded here. `goals` was already
+seeded in Phase 2A (`supabase/migrations/20260723090600_goals.sql`); no
+Phase 3 migration was needed for it.
+
+**Grant tightening for two tables now that Phase 3 gives them real write
+paths** (`supabase/migrations/20260724080200_onboarding_grant_tightening.sql`):
+`profiles` UPDATE narrowed from table-level to an explicit column
+allowlist, excluding `onboarding_completed_at` — the client's own
+`updateProfile()` (`src/services/onboarding/onboarding-repository.ts`)
+never sets that column, and now it structurally cannot, even if a client
+were compromised or hand-crafted a raw request; only
+`complete_onboarding()` sets it, on success, server-side.
+`health_screenings` INSERT revoked entirely from `authenticated` — the
+client submits raw yes/no answers only, through `submit_safety_screening()`,
+which is the sole writer; a direct client insert can no longer set
+`requires_clearance`/`restriction_flags` to anything at all. Both were
+verified with `has_column_privilege`/`has_table_privilege` against the
+harness and are asserted in `12_hosted_structural_verification.sql`'s
+existing per-table grant matrix (updated, not replaced, to state the new
+intent explicitly) and the new RPC pgTAP file.
+
+**Interactive Body Goal Map redesigned to the 13 canonical region keys**
+(`src/components/onboarding/body-map.tsx`,
+`src/domain/onboarding/body-areas.ts`). Phase 1's version used 7
+aggregated preview regions (e.g. "arms" for biceps+triceps+forearms,
+"thighs" for quadriceps+hamstrings) that did not match
+`body_area_goals.body_area_key`'s actual 13-value check constraint
+(`supabase/migrations/20260723090700_body_area_goals.sql`) — real
+persistence needed the exact keys, not an aggregated preview taxonomy.
+Split front/back by where each area is anatomically visible: front
+(shoulders, chest, biceps, forearms, core, waist_appearance, quadriceps),
+back (upper_back, lats, triceps, glutes, hamstrings, calves) — triceps
+moved to the back view specifically (the back of the upper arm), unlike
+Phase 1's front-only "arms" aggregate. `src/domain/onboarding/body-areas.ts`
+is now the single source of the 13-key list; the map, the accessible
+list-selector, and the screen all read from it instead of each
+hard-coding a second copy.
+
+**Genuine BodyScan capture, not the narrowest fallback** —
+`expo-image-picker` (`~57.0.6`, matching this project's Expo SDK) was
+added (`package.json`, `app.json` plugin config with camera/library
+permission strings) so `/bodyscan-baseline`
+(`src/services/onboarding/bodyscan-upload.ts`) does a real camera capture
+
+- upload to the private `bodyscans` bucket at the user-scoped
+  `{user_id}/{scan_id}/{angle}.jpg` path Phase 2B's storage RLS already
+  expects, rather than a stub "capture lands in Phase 10" placeholder. This
+  could not be exercised on a real device/simulator in this sandbox (none
+  available) — the same category of gap `docs/DECISIONS.md`'s Phase 2B
+  entries already flag for native deep-link handling, and the reason the
+  task brief calls for a combined auth + deep-link + onboarding Android
+  device smoke test after this phase merges. Consent-gating (no capture UI
+  at all without a granted `bodyscan_capture` consent record), the skip
+  path, and the user-scoped storage path construction are covered by Jest
+  (`src/app/(onboarding)/__tests__/bodyscan-baseline.test.tsx`); the actual
+  native camera/permission flow is not, and cannot be, exercised here.
+
+**Resume-to-first-incomplete-step is two guards composed, not one.**
+`useProtectedRoute` (`src/hooks/use-protected-route.ts`, unchanged) always
+redirects an incomplete-onboarding session to `/(onboarding)/introduction`
+— it has no onboarding-progress data to route more precisely with, and
+giving it that would mean an extra fetch on every single non-onboarding
+navigation, not just onboarding entry. Instead, Introduction itself
+(`src/app/(onboarding)/introduction.tsx`) checks progress on mount and
+silently forwards to the real first incomplete required step whenever
+that's not `basic_profile` (i.e. the user has already started), rather
+than showing Introduction again — a brand-new user still sees it
+normally. Separately, `useOnboardingForwardGuard`
+(`src/hooks/use-onboarding-guard.ts`, wired in
+`(onboarding)/_layout.tsx`) blocks the opposite direction — a deep
+link/typed URL jumping _ahead_ of an incomplete required step — on every
+in-group navigation. Between the two, a relaunch always lands on the true
+resume point regardless of which required step was last completed;
+covered end-to-end by
+`src/app/(onboarding)/__tests__/introduction-resume.test.tsx` (fresh user,
+partial progress, and fully-required-complete-but-not-yet-`complete_onboarding`-called
+cases) using an in-memory fake Supabase backend
+(`src/test-utils/fake-onboarding-backend.ts`), not a real database.
+
+**E2E-style test scope.** `IMPLEMENTATION_PLAN.md` Phase 3's test list
+calls for an end-to-end onboarding flow test. Given this sandbox has no
+device/simulator and Docker is unavailable, "end-to-end" here means a
+data-flow-level integration test — driving the real
+`onboarding-repository.ts` functions (goals, equipment, measurements,
+safety screening, completion) against the in-memory fake backend through
+every required step in order, then asserting `complete_onboarding`
+succeeds and `computeFirstIncompleteRequiredStep` returns `null`
+(`src/services/onboarding/__tests__/onboarding-repository.test.ts`), plus
+the resume test above driving actual screen components through
+`expo-router`'s `renderRouter`. It does not simulate a human tapping
+through all 16 screens' UI in sequence — that would be extremely brittle
+for the value it adds given the individual screens are each covered by
+their own component tests, and the underlying data contract is what
+`complete_onboarding`'s own required-field validation actually enforces
+regardless of which UI path produced the data.
+
+**Minimal Phase 3 programme stand-in** (`complete_onboarding()`'s
+`structure` jsonb). No fake exercises, no exercise IDs — Phase 4's
+ontology doesn't exist yet. The structure is a high-level jsonb
+description only: weekly frequency (from `available_training_days`),
+target session duration, the caller's goal priorities, the latest safety
+screening's `requires_clearance`/`restriction_flags`, and a deterministic
+template summary string that changes wording when `requires_clearance` is
+true (never implying ordinary unrestricted clearance in that case, per
+`MASTER_SPEC.md` §21/Layer 1). `engine_version`/`exercise_dataset_version`
+are literal stand-in strings (`'phase3-stub-1'`, `'0'`) so Phase 5 has an
+unambiguous marker for "this version predates the real engine" when it
+takes over generation. `programme_decisions`/`decision_id` deliberately
+not populated for the initial generation, matching
+`DATABASE_SCHEMA.md` §6's own note that `decision_id` is "null for the
+initial generation."
+
+**Not done, on purpose (Phase 3 non-goals held to):** no exercise library
+seeding beyond the existing Phase 2A reference rows, no muscle ontology,
+no real programme-generation algorithm, no workout logging, no Coach LLM,
+no BodyScan timeline/comparison/CV, no subscriptions. Safety-screening
+question wording and disclaimer copy is a complete, functional,
+deterministic DEVELOPMENT set (`src/domain/onboarding/safety-screening.ts`)
+sufficient for the flow and its rule-derivation logic to work and be
+tested — not final legal/clinical copy; qualified clinical/legal review
+before public beta remains open (`docs/OPEN_QUESTIONS.md` #5,
+`docs/RISKS.md` #1), unchanged by this phase. No remote deployment, no
+merge.
