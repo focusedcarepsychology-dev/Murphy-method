@@ -121,11 +121,58 @@ preview --platform android` to succeed, except the parts that require an
 authenticated EAS/Expo account, which cannot be created or driven from
 this sandbox:
 
-1. `npx eas login` (or `eas whoami` to confirm an existing session).
+1. `npx eas login` (or `eas whoami` to confirm an existing session) —
+   or, for non-interactive/CI use, an Expo access token (§7 below).
 2. `npx eas init` (or the first `eas build` run) to link this project to
    an EAS project and populate `extra.eas.projectId` in `app.json` — not
    present yet, since no EAS project has been created for this repository.
 3. Set the two `EXPO_PUBLIC_*` values as EAS environment variables for the
    `preview` environment (§4).
 4. Run `npx eas build --profile preview --platform android` and install
-   the resulting APK on a real device via the printed QR code/link.
+   the resulting APK on a real device via the printed QR code/link — or
+   trigger `.github/workflows/eas-build-preview.yml` once §7 is set up.
+
+## 7. CI-driven builds (`EXPO_TOKEN`)
+
+`.github/workflows/eas-build-preview.yml` runs `eas build --profile
+preview --platform android --non-interactive` from GitHub Actions,
+authenticating with an **Expo access token** instead of an interactive
+`eas login` session — the mechanism the EAS CLI itself supports for
+CI/automation: if the `EXPO_TOKEN` environment variable is set, the CLI
+uses it for auth and skips the login prompt entirely.
+
+This is still gated on the manual account/project setup in §6 (items 1–2
+above must already be done at least once, interactively, by whoever owns
+the EAS project) — `EXPO_TOKEN` only replaces the _authentication_ step
+for subsequent non-interactive runs, it does not create the EAS project
+or the `preview` environment's `EXPO_PUBLIC_*` variables.
+
+To set it up:
+
+1. Generate a token from the [expo.dev dashboard](https://expo.dev) —
+   Account settings → Access tokens — scoped to the account/project that
+   owns this app's EAS project (§6 item 2). Treat it like any other
+   credential capable of triggering builds and reading project
+   configuration under that account.
+2. Create a GitHub Environment named `eas-preview` in this repository's
+   settings (`Settings → Environments`), matching the
+   `supabase-development` pattern already used by
+   `.github/workflows/deploy-supabase-dev.yml`. This scopes the secret and
+   lets required-reviewer protection be configured without any workflow
+   file change.
+3. Add the token as an **Environment secret** named `EXPO_TOKEN` on that
+   environment (never as a repository variable, never committed to any
+   file in this repository — same rule as every other credential in this
+   project; see `docs/SUPABASE_SETUP.md` §6 step 4's warning against ever
+   putting an Expo access token into `eas env:create` or `.env`, which is
+   about a different, unrelated thing — this token authenticates the EAS
+   _CLI_, it is never inlined into the client bundle).
+4. Trigger the workflow manually (`Actions` → `EAS Build (Android Preview)`
+   → `Run workflow`). It submits the build and returns immediately
+   (`--no-wait`); track progress and download the resulting APK from
+   https://expo.dev.
+
+`EXPO_PUBLIC_SUPABASE_URL`/`EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are
+**not** passed through this workflow — they come from the `preview`
+EAS environment variables set up in §4, which EAS applies itself based on
+the build profile, independent of how the CLI authenticated.

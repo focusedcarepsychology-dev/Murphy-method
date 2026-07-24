@@ -1472,3 +1472,35 @@ merge.
   no actual `eas build` invocation (same reason), no iOS bundle
   identifier (not required for Android configuration), no onboarding/
   auth/database changes of any kind.
+
+## 2026-07-24 — EAS CI build authentication (`EXPO_TOKEN`)
+
+- **`.github/workflows/eas-build-preview.yml`** (new): manual
+  (`workflow_dispatch`-only) workflow that runs
+  `eas build --profile preview --platform android --non-interactive --no-wait`,
+  authenticating via the
+  `EXPO_TOKEN` environment variable — the EAS CLI's own supported
+  non-interactive auth mechanism (mirrors how `deploy-supabase-dev.yml`
+  authenticates the Supabase CLI via `SUPABASE_ACCESS_TOKEN`, same
+  rationale: no credential ever appears as a command-line argument or in
+  workflow logs). Scoped to a GitHub Environment named `eas-preview` so
+  the secret and any required-reviewer protection live in repo settings,
+  not this file. Validates the secret is present before doing anything
+  else and runs `scripts/check-no-secrets.js` first, same
+  defence-in-depth pattern as the existing `ci.yml` app job.
+- **`docs/ANDROID_BUILD.md` §7** (new): documents generating an Expo
+  access token, creating the `eas-preview` environment, and adding
+  `EXPO_TOKEN` as an environment secret. Explicit that this token
+  authenticates the EAS CLI only — it is never an `EXPO_PUBLIC_*`
+  variable, never inlined into the client bundle, and never passed to
+  `eas env:create`/committed anywhere in this repository, consistent with
+  `CLAUDE.md`'s "never expose secrets or privileged API keys
+  client-side." `EXPO_PUBLIC_SUPABASE_URL`/
+  `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` continue to come from the
+  `preview` EAS environment (§4 of the same doc), unrelated to and
+  unaffected by this token.
+- **Not done, on purpose**: this does not create the EAS project/account
+  or populate `extra.eas.projectId` — those remain the manual, one-time
+  prerequisites recorded in `docs/ANDROID_BUILD.md` §6; `EXPO_TOKEN` only
+  replaces the interactive login step for subsequent non-interactive
+  runs. No app functionality, database, or onboarding changes.

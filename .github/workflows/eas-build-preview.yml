@@ -1,0 +1,73 @@
+name: EAS Build (Android Preview)
+
+# Builds the installable Android preview APK via EAS (docs/ANDROID_BUILD.md)
+# non-interactively, authenticating with an Expo access token (EXPO_TOKEN)
+# instead of `eas login` — the standard EAS CLI mechanism for CI/automation
+# (docs/ANDROID_BUILD.md §6).
+#
+# MANUAL ONLY — never runs on push/pull_request. Every run consumes EAS
+# build-minutes quota and produces a real artifact for a specific device
+# smoke test, not something that should fire on every commit.
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: eas-build-preview
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Android preview APK
+    runs-on: ubuntu-latest
+    # A GitHub Environment named `eas-preview` scopes EXPO_TOKEN and lets
+    # required-reviewer protection be configured in repo settings without
+    # any change to this file. Create it before first use — see
+    # docs/ANDROID_BUILD.md §6.
+    environment: eas-preview
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required configuration is present
+        run: |
+          set -euo pipefail
+          if [ -z "${EXPO_TOKEN:-}" ]; then
+            echo "::error::Missing required configuration: EXPO_TOKEN (repo/environment Secret). See docs/ANDROID_BUILD.md §6."
+            exit 1
+          fi
+          echo "Configuration present. (Value is never printed.)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Secret-leak check (source only — no build output exists yet in this job)
+        run: node ./scripts/check-no-secrets.js
+
+      - name: Submit Android preview build to EAS
+        # --non-interactive: fail rather than prompt (this is unattended CI).
+        # --no-wait: submit and return immediately: the actual build runs on
+        # EAS's own infrastructure, not this runner, and can take well
+        # beyond a typical job's attention span. Track/download the result
+        # from https://expo.dev.
+        run: npx eas-cli build --profile preview --platform android --non-interactive --no-wait
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "### EAS Android preview build"
+            echo ""
+            echo "Build submitted to EAS non-interactively, authenticated via \`EXPO_TOKEN\`."
+            echo "This workflow does not wait for the build to finish (\`--no-wait\`) — track"
+            echo "progress and download the resulting APK from https://expo.dev."
+          } >> "$GITHUB_STEP_SUMMARY"
