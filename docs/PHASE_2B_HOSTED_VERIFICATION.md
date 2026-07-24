@@ -12,20 +12,33 @@ and this document continues that discipline for Phase 2B.
 ## 1. Automated: schema/migration verification
 
 Already built and repository-tested against a from-scratch migrated schema
-(see `docs/DECISIONS.md`'s Phase 2B entry) — runs automatically as part of
-`deploy-supabase-dev.yml`:
+(see `docs/DECISIONS.md`'s Phase 2B correction-pass entry) — runs
+automatically as part of `deploy-supabase-dev.yml`, as a single command:
 
-- `supabase test db --linked` — the same 146-assertion pgTAP suite
-  `docs/SUPABASE_SETUP.md` §5 describes, run against the real hosted
-  project instead of the local/CI stack.
-- `scripts/verify-hosted-schema.sql` — a structural check (all 44 tables
-  present with RLS enabled, no unreviewed extra tables, required
-  functions/triggers exist, `service_role` has table privileges, no `anon`
-  grant exists on any private table, the `bodyscans` bucket exists and is
-  private).
+- `supabase test db --linked` — the full pgTAP suite in
+  `supabase/tests/database/` (13 files, 241 assertions — the RLS Test
+  Matrix from `docs/SUPABASE_SETUP.md` §5, plus
+  `12_hosted_structural_verification.sql`'s structural checks: all 44
+  tables present with RLS enabled, no unreviewed extra tables, required
+  functions exist, `service_role` has table privileges, no `anon` grant
+  exists on any private table, the `bodyscans` bucket exists and is
+  private), run against the real hosted project instead of the local/CI
+  stack.
 
-Both must pass before treating the hosted schema as verified. Neither
-replaces `.github/workflows/ci.yml`'s `database` job, which keeps running
+An earlier version of this deploy workflow ran a second, separate check
+(`scripts/verify-hosted-schema.sql`) over a hand-built direct Postgres
+connection string. That was removed — GitHub Actions runners lack the
+IPv6 egress that hostname resolves to by default, so the check was not
+reliably runnable there, and duplicating the same assertions in two
+places (one pgTAP, one hand-rolled SQL) risked the two drifting apart.
+The structural checks now live as pgTAP assertions in
+`supabase/tests/database/12_hosted_structural_verification.sql`, so there
+is exactly one implementation, exercised by both `supabase test db
+--local` (CI, every PR) and `supabase test db --linked` (this workflow) —
+see `docs/DECISIONS.md`.
+
+This must pass before treating the hosted schema as verified. It does not
+replace `.github/workflows/ci.yml`'s `database` job, which keeps running
 on every PR regardless of whether a hosted project exists.
 
 ## 2. Manual: hosted authentication lifecycle
@@ -112,8 +125,8 @@ a storage-API-level check, not an in-app one:
 
 - [ ] Confirm the `bodyscans` bucket shows as **private** in the Supabase
       dashboard (Storage → bodyscans → bucket settings) — this is also
-      asserted by `scripts/verify-hosted-schema.sql` in §1, but worth a
-      visual confirmation in the dashboard too.
+      asserted by `supabase/tests/database/12_hosted_structural_verification.sql`
+      in §1, but worth a visual confirmation in the dashboard too.
 - [ ] Using each test user's own session (not the service-role key), attempt
       to read/write an object under the other user's `{user_id}/...` path
       prefix; confirm it is denied.

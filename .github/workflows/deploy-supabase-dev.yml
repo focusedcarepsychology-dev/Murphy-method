@@ -3,19 +3,22 @@ name: Deploy Supabase (Development)
 # Phase 2B infrastructure (docs/PHASE_2B_HOSTED_SETUP.md). Deploys
 # supabase/migrations/ to the hosted DEVELOPMENT Supabase project only.
 #
-# MANUAL ONLY — never runs on push/pull_request. This workflow must not be
-# reused for a production project: a real production deploy path should be
-# a separately named workflow with its own GitHub Environment and its own
-# secrets (never the development project's SUPABASE_ACCESS_TOKEN/
-# SUPABASE_DB_PASSWORD), gated by its own required reviewers. See
-# docs/PHASE_2B_HOSTED_SETUP.md for the reasoning.
+# MANUAL ONLY — never runs on push/pull_request. Always deploys `main`
+# (hardcoded below, not a workflow input) — reviewed/merged code only, no
+# arbitrary-branch deploy button, even though GitHub's own "Use workflow
+# from" selector lets a user pick a different branch to *run* the workflow
+# definition from. The checkout step ignores that selection and always
+# fetches `main`, so triggering this workflow from any branch still only
+# ever deploys `main`'s migrations. See docs/DECISIONS.md's Phase 2B
+# correction-pass entry.
+#
+# This workflow must not be reused for a production project: a real
+# production deploy path should be a separately named workflow with its
+# own GitHub Environment and its own secrets (never the development
+# project's SUPABASE_ACCESS_TOKEN/SUPABASE_DB_PASSWORD), gated by its own
+# required reviewers.
 on:
-  workflow_dispatch:
-    inputs:
-      ref:
-        description: 'Branch, tag, or commit SHA to deploy to the DEVELOPMENT project'
-        required: true
-        default: 'main'
+  workflow_dispatch: {}
 
 # Only one deploy to the development project at a time.
 concurrency:
@@ -39,12 +42,13 @@ jobs:
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_ID: ${{ vars.SUPABASE_PROJECT_ID }}
     steps:
-      - name: Checkout ${{ inputs.ref }}
+      - name: Checkout main
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: main
 
       - name: Validate required configuration is present and well-formed
+        id: validate
         run: |
           set -euo pipefail
           missing=()
@@ -65,58 +69,79 @@ jobs:
           fi
           echo "Configuration present and well-formed. (Values are never printed.)"
 
-      - name: Install PostgreSQL client (for hosted schema verification)
-        run: |
-          set -euo pipefail
-          if ! command -v psql >/dev/null 2>&1; then
-            sudo apt-get update -qq
-            sudo apt-get install -y --no-install-recommends postgresql-client
-          fi
-
       - uses: supabase/setup-cli@v1
         with:
           version: latest
 
       - name: Link to the hosted development project
+        id: link
         # SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD are read from the
-        # environment automatically by the Supabase CLI (official
+        # environment automatically by the Supabase CLI (its supported
         # non-interactive auth path) — never passed as command-line
-        # arguments, so they never appear in `ps`/workflow logs.
+        # arguments, so they never appear in `ps`/workflow logs. This also
+        # means the CLI (not a hand-built connection string) owns how it
+        # actually reaches the database — see the "Hosted connectivity"
+        # note below.
         run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
 
       - name: Migration dry run (diff only, nothing applied)
+        id: dryrun
         run: supabase db push --dry-run
 
       - name: Apply approved migrations
+        id: push
         run: supabase db push
 
-      - name: Run pgTAP RLS/database suite against the hosted project
-        # The authoritative suite (docs/SUPABASE_SETUP.md §5) run against
-        # the real linked project, not the local/CI-only stack. This does
-        # not replace or weaken .github/workflows/ci.yml's `database` job,
-        # which remains mandatory on every PR — this is an additional,
-        # post-deploy check specific to the hosted target.
+      # --- Hosted connectivity note ---------------------------------------
+      # An earlier version of this workflow ran a separate `psql` step
+      # against a hand-built `postgresql://postgres:...@db.<ref>.supabase.co`
+      # connection string for structural verification. That direct-database
+      # hostname resolves to an IPv6 address by default on projects without
+      # Supabase's IPv4 add-on, and GitHub-hosted Actions runners do not
+      # have IPv6 egress — so that step was not reliably runnable here, and
+      # has been removed rather than papered over with a second pooler
+      # secret. `supabase db push` above and `supabase test db --linked`
+      # below both go through the Supabase CLI's own connection handling
+      # (the same mechanism Supabase's own official GitHub Actions
+      # guidance uses for `db push` in CI), not a hand-rolled URL, so they
+      # do not hit this problem. Structural verification (44 tables, RLS,
+      # required functions, service_role grants, no anon grants, private
+      # BodyScan bucket) now lives in
+      # supabase/tests/database/12_hosted_structural_verification.sql —
+      # one pgTAP file, run as part of the one command below, both locally
+      # (.github/workflows/ci.yml's `database` job, `--local`) and here
+      # (`--linked`), instead of a second, separately-connected script.
+      # See docs/DECISIONS.md's Phase 2B correction-pass entry.
+      - name: Run pgTAP suite (RLS + hosted structural verification) against the linked project
+        id: verify
         run: supabase test db --linked
-
-      - name: Hosted schema structural verification
-        run: |
-          set -euo pipefail
-          DB_URL="postgresql://postgres:${SUPABASE_DB_PASSWORD}@db.${SUPABASE_PROJECT_ID}.supabase.co:5432/postgres"
-          psql "$DB_URL" -v ON_ERROR_STOP=1 -f scripts/verify-hosted-schema.sql
 
       - name: Job summary
         if: always()
+        env:
+          DRYRUN_OUTCOME: ${{ steps.dryrun.outcome }}
+          PUSH_OUTCOME: ${{ steps.push.outcome }}
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
         run: |
           {
-            echo "### Supabase development deploy — \`${{ inputs.ref }}\`"
+            echo "### Supabase development deploy — \`main\`"
             echo ""
-            if [ "${{ job.status }}" = "success" ]; then
-              echo "✅ Migrations applied and verified against the hosted **development** project."
+            if [ "$PUSH_OUTCOME" = "success" ] && [ "$VERIFY_OUTCOME" = "success" ]; then
+              echo "✅ Migrations applied and verified (pgTAP + hosted structural checks) against the hosted **development** project."
+            elif [ "$PUSH_OUTCOME" = "success" ] && [ "$VERIFY_OUTCOME" != "success" ]; then
+              echo "⚠️ Migrations WERE applied to the hosted development project, but post-deploy verification failed or did not complete."
+              echo ""
+              echo "The schema on the hosted project has already changed — this is not a \"nothing happened\" failure. Investigate the failed pgTAP assertions in the step above before re-running or making further changes."
+            elif [ "$PUSH_OUTCOME" != "success" ] && [ "$DRYRUN_OUTCOME" = "success" ]; then
+              echo "❌ Failed while applying migrations (\`supabase db push\`)."
+              echo ""
+              echo "Supabase applies migrations one at a time and records each success; some migrations from this run may already be applied even though the step reported failure. Run \`supabase migration list --linked\` to see exactly which migrations are recorded as applied before retrying — do not assume a full rollback occurred."
             else
-              echo "❌ Deploy failed — see the failed step above for details. Nothing further was applied."
+              echo "❌ Failed before any migration was applied (configuration validation, CLI link, or dry run). Nothing was changed on the hosted project."
             fi
             echo ""
             echo "- Target: hosted DEVELOPMENT project only (never production)"
+            echo "- Source: \`main\` branch only, regardless of which branch this workflow run was triggered from"
             echo "- Migration mechanism: \`supabase db push\` (supabase/migrations/), no ad-hoc SQL"
-            echo "- Verified: pgTAP suite (\`supabase test db --linked\`) + structural check (\`scripts/verify-hosted-schema.sql\`)"
+            echo "- Verification: \`supabase test db --linked\` (pgTAP RLS suite + structural checks, supabase/tests/database/)"
           } >> "$GITHUB_STEP_SUMMARY"

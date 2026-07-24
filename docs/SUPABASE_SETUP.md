@@ -116,6 +116,15 @@ matrix.
 Run them with `npx supabase test db --local`. This is the authoritative,
 Supabase-supported test path and is what CI runs
 (`.github/workflows/ci.yml`, `database` job) against the real local stack.
+The same suite also runs with `npx supabase test db --linked` against a
+connected hosted project (`.github/workflows/deploy-supabase-dev.yml`) —
+`supabase/tests/database/12_hosted_structural_verification.sql` (added in
+Phase 2B) adds hosted-deployment structural checks (all 44 tables present
+with RLS enabled, required functions, `service_role` grants, no `anon`
+grants on private tables, the `bodyscans` bucket private) to the same
+file set, rather than a separately-connected script, so there is one
+implementation exercised both ways. Current total: 13 files, 241
+assertions.
 
 ### What ran where for this PR
 

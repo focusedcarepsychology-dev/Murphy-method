@@ -831,3 +831,94 @@ were requested, received, or committed. Repository-side deliverables:
   notification credentials, not for the Supabase Auth redirect flow), so
   none was invented; assigning real values is a decision for whoever owns
   the app-store listings, not an architecture default to guess here.
+
+## 2026-07-24 — Phase 2B correction pass: hosted verification connectivity
+
+An independent review of the Phase 2B PR (#7) before any hosted project
+existed found a real deployment blocker in the design above, not yet a
+failure anyone could have observed by running it (no hosted project has
+been created): the hosted structural-verification step connected directly
+to `postgresql://postgres:...@db.<project-ref>.supabase.co:5432/postgres`.
+Current Supabase guidance is that this hostname resolves to an IPv6
+address by default on any project without the (paid) IPv4 add-on, and
+GitHub-hosted Actions runners do not have IPv6 egress — so that step was
+not reliably runnable on the exact infrastructure this workflow is
+designed to run on. Caught by re-reading current Supabase connectivity
+documentation against the actual runner environment, not by a failed run.
+
+- **Fix chosen: fold the structural checks into the existing pgTAP suite
+  as `supabase/tests/database/12_hosted_structural_verification.sql`,
+  and drop the separate `scripts/verify-hosted-schema.sql` / direct
+  `psql` connection entirely**, rather than adding a Supavisor
+  session-pooler connection string as a new secret. `supabase db push`
+  (already required, and already implicitly assumed to work in GitHub
+  Actions — it's the deployment mechanism this whole workflow exists to
+  run) and `supabase test db --linked` both go through the Supabase CLI's
+  own connection handling, the same mechanism Supabase's own official
+  GitHub Actions guidance uses for `db push` in CI — not a hand-built
+  connection string — so neither hits the IPv6 problem the removed step
+  did. This was the brief's own stated strong preference ("use Supabase
+  CLI linked-project functionality... avoid requiring an unnecessary extra
+  secret merely to work around IPv6") and is also simply less code: one
+  set of assertions, run through one mechanism, instead of a pgTAP suite
+  plus a separately-connected, separately-maintained SQL script asserting
+  overlapping things that could drift apart. No new GitHub secret was
+  added — `SUPABASE_ACCESS_TOKEN`/`SUPABASE_DB_PASSWORD`/`SUPABASE_PROJECT_ID`
+  are unchanged from the original Phase 2B entry above. **Caveat, stated
+  plainly:** this reasoning is based on current official Supabase CLI/
+  GitHub Actions documentation and this project's own already-accepted
+  assumption that `supabase db push` works from GitHub Actions (true both
+  before and after this correction) — it has not been, and cannot yet be,
+  proven against a real hosted project in this sandbox (no network egress
+  to Supabase's API, no credentials). `docs/PHASE_2B_HOSTED_VERIFICATION.md`
+  §1 still says so explicitly, and the first real deploy run is the actual
+  proof.
+- **The new pgTAP file was written and executed for real**, the same
+  discipline every prior verification claim in this document follows: 44
+  exact-table-set check via pgTAP's `tables_are()` (replaces three
+  separate hand-written checks in the removed script with one
+  purpose-built pgTAP function — missing tables, unexpected tables, and
+  wrong count all fail the same single assertion), per-table RLS/
+  `service_role`-privilege checks generated from `pg_tables` (88
+  assertions), 3 `has_function()` checks, 1 `anon`-grants check, 2
+  BodyScan-bucket checks — 95 assertions total. Run via `pg_prove` against
+  a from-scratch migration of every file in `supabase/migrations/` on this
+  sandbox's bare-Postgres harness (`postgresql-16-pgtap` installed for
+  this purpose, since it wasn't already present): the full 13-file,
+  241-assertion suite passes clean, and — mirroring the negative-test
+  discipline used to verify `scripts/verify-hosted-schema.sql` originally
+  — manually disabling RLS on `profiles` and manually granting `anon`
+  `SELECT` on `profiles` each independently made exactly the expected
+  single assertion fail, confirming the failure path works, not just the
+  success path.
+- **Failure summary rewritten to be phase-aware.** The prior version's
+  static "Nothing further was applied" on any failure was inaccurate
+  whenever `supabase db push` itself had already succeeded and a later
+  step (verification) failed — the schema would already be live on the
+  hosted project at that point. The job summary step now reads
+  `steps.<id>.outcome` for the dry-run/push/verify steps and reports one
+  of three distinct states: failed before any migration was applied
+  (validation/link/dry-run); failed while applying migrations, with an
+  explicit note that `supabase db push` applies and records migrations
+  one at a time so a partial application is possible and
+  `supabase migration list --linked` should be checked before retrying
+  (not assumed rolled back — `db push` does not wrap the whole batch in
+  one transaction); or migrations applied successfully but verification
+  failed, stated plainly as "the schema has already changed" rather than
+  implying safety.
+- **`ref` workflow input removed; the checkout step now hardcodes
+  `ref: main`.** The brief's own concern — this is operated by a
+  non-technical user from an Android browser, and GitHub's
+  workflow_dispatch UI always offers a "Use workflow from" branch
+  selector regardless of whether the workflow itself declares a `ref`
+  input — means the previous free-text `ref` input added a way to type an
+  arbitrary, potentially-unreviewed branch/tag/SHA into a form field, and
+  even removing that input alone would not have stopped someone using
+  GitHub's own branch selector to run the workflow _definition_ from a
+  different branch. Hardcoding the checkout step's `ref: main` closes both
+  paths at once: whichever branch the workflow is triggered from, the
+  checkout step always fetches `main`, so only reviewed, merged migration
+  code can ever reach `supabase db push`. A future production workflow
+  needing a different (e.g. tag-based) promotion model should make that
+  an explicit, separate decision in its own file, not a reason to loosen
+  this one.
