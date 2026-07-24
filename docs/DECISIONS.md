@@ -922,3 +922,123 @@ documentation against the actual runner environment, not by a failed run.
   needing a different (e.g. tag-based) promotion model should make that
   an explicit, separate decision in its own file, not a reason to loosen
   this one.
+
+## 2026-07-24 — Phase 2B correction pass: real CI failure (anon default table privileges)
+
+The previous correction pass's fixes were pushed and a real CI run
+executed against the real local Supabase stack (`.github/workflows/ci.yml`,
+run 30079837109, `database` job 89438662438). Result: `App` job success,
+`database` job **failure** — `supabase start`/`db reset --local` both
+succeeded, `supabase test db --local` failed exactly one of 241
+assertions: `supabase/tests/database/12_hosted_structural_verification.sql`
+test 93, "anon has no privileges on any public-schema table" —
+`have: 132, want: 0`. Everything else in that file (the 44-table set via
+`tables_are()`, all 44 RLS checks, all 3 function checks, all 44
+`service_role`-privilege checks, both BodyScan-bucket checks) passed, as
+did every assertion in files 00–11 (the original Phase 2A suite).
+
+- **Root cause:** the real Supabase stack's own project provisioning
+  grants `anon` 132 unrevoked table privileges (44 tables × 3 privilege
+  types — `SELECT`/`INSERT`/`UPDATE`) across `public` that no migration in
+  this repository ever explicitly granted. `docs/DECISIONS.md`'s Phase 2A
+  entry already stated the intended design — "no table grants `anon` any
+  privilege at all on a private table," enforced at the Postgres
+  privilege-check level, not just RLS — but that specific claim had never
+  actually been checked at the raw-`GRANT` level against the real stack
+  until this pass's new structural test did so; RLS itself was already
+  correctly blocking `anon`'s actual data access the whole time (no data
+  was ever exposed by this gap), so the _additional_, defense-in-depth
+  privilege-level guarantee the design called for was simply never built,
+  not a data-exposure incident.
+- **Fix:** `supabase/migrations/20260724060000_revoke_anon_default_table_grants.sql`
+  — an unconditional `revoke all on all tables/sequences in schema public
+from anon`, plus the equivalent `alter default privileges ... revoke`
+  pairing (mirroring `20260723091900_service_role_grants.sql`'s
+  grant-plus-default-privileges shape for the same reason). Deliberately
+  unconditional rather than scoped to a guessed subset of tables: the
+  exact mechanism that produced the 132 grants was investigated but not
+  conclusively determined (see the harness note below), and an
+  unconditional `REVOKE` is a safe no-op on any table that never had the
+  grant in the first place, so correctness here does not depend on fully
+  understanding the platform's mechanism — only on removing whatever is
+  actually there.
+- **Investigation of the exact mechanism, and why it stopped short of a
+  full explanation:** the arithmetic (132 = 44 × 3) initially suggested a
+  uniform default-privilege grant applied to literally every table this
+  project creates. That hypothesis was tested directly by reproducing it
+  in `scripts/local-pg-harness/00_auth_storage_shim.sql`
+  (`alter default privileges in schema public grant select, insert,
+update on tables to anon, authenticated`, added before running the
+  migrations) — and it was wrong: applying it uniformly broke roughly 35
+  assertions across files 01–10 in the harness, including
+  `01_reference_tables.sql`'s `anon cannot select from goals`/`exercises`/
+  `equipment`/`movement_patterns` (`throws_ok(..., '42501', ...)`
+  assertions, which can only pass on a genuine missing-`SELECT`-privilege
+  error — RLS itself never raises an error for a blocked `SELECT`, it
+  silently returns zero rows), and those exact assertions **passed** on
+  the real stack in the same CI run this pass is fixing. That is direct
+  proof the real platform's mechanism is not "every table, uniformly, via
+  one default-privilege declaration applied by the same role that creates
+  them" — something more selective is happening (Supabase's own Data-API/
+  role provisioning, not anything in `supabase/migrations/`), and this
+  sandbox has no way to inspect it directly (no Docker, no hosted project,
+  no way to query the real stack's own bootstrap SQL). Rather than commit
+  a harness change proven inaccurate by this project's own evidence, **the
+  harness reproduction attempt was reverted** —
+  `scripts/local-pg-harness/README.md` records this explicitly (what was
+  tried, why it was wrong, and what remains unverified) instead of either
+  silently keeping a wrong reproduction or silently dropping the
+  investigation.
+- **Structural-test robustness redesign
+  (`supabase/tests/database/12_hosted_structural_verification.sql`).**
+  Independent of the CI failure, audited for a different, related risk: the
+  file's RLS and `service_role` checks were driven by scanning `pg_tables`
+  directly (`where schemaname = 'public'`), meaning their assertion count
+  would silently change if the real `public` schema ever contained
+  anything beyond this project's own 44 tables — a legitimate
+  Supabase/extension-managed object, for instance — producing a confusing
+  "planned 95 but ran N" pgTAP-level failure instead of a clear, named one.
+  Redesigned around one explicit allowlist (a temporary table populated
+  once from the same 44 names `tables_are()` already checks), with the RLS
+  check `LEFT JOIN`-ed against `pg_tables` (a missing table still produces
+  a named, failing assertion rather than silently vanishing from the
+  count) and the `service_role` check guarded with an explicit `CASE`
+  (not `exists(...) AND has_table_privilege(...)`, whose evaluation order
+  Postgres does not guarantee — calling `has_table_privilege()` on a
+  nonexistent table raises `undefined_table` and aborts the whole file
+  rather than failing one assertion). Verified directly, not just by
+  design: re-ran against the harness with a table dropped (3 clear, named
+  failures — the missing-table check, its RLS check, its `service_role`
+  check — plan still exactly 95, no crash) and with an extra unexpected
+  table added (exactly 2 failures — the extra-table check and an
+  incidental RLS gap from how the test table was created — plan still
+  exactly 95, not 97). `plan(95)` and the total assertion count are
+  unchanged by this redesign; only the failure-injection paths were
+  reworked to be as robust as they claim to be.
+- **This is not evidence the harness is now "more equivalent" to the real
+  stack — the opposite, made explicit.** The investigation above
+  conclusively shows this sandbox cannot currently reproduce this specific
+  class of platform behaviour accurately, and guessing further risked
+  making the harness actively misleading rather than merely incomplete.
+  `supabase test db --local`/`--linked` against the real stack remains the
+  sole authoritative signal for the `anon`-privilege check specifically —
+  restated here, not just in the harness README, because this is exactly
+  the kind of claim `docs/SUPABASE_SETUP.md` and this document's own
+  Phase 2A correction-pass entry already warn against overstating.
+- **Broader implication flagged, not silently absorbed:** if the real
+  platform grants `anon` privileges beyond what migrations declare, it may
+  do the same for `authenticated` — which would matter more, since several
+  tables' migrations deliberately grant `authenticated` _narrower_ access
+  than the schema doc's default CRUD pattern (`programme_versions`/
+  `programme_decisions` insert-only; `performance_metrics` select-only;
+  `docs/DECISIONS.md`'s Phase 2A entry) as a stated structural guarantee.
+  Nothing in this pass's evidence shows that guarantee is actually broken
+  — RLS still gates real access regardless, and no test asserting the
+  narrower grant has failed — but nothing in this pass proves it's intact
+  at the raw-`GRANT` level either, only via RLS behavioural tests, which is
+  exactly the gap this whole correction pass exists to close for `anon`.
+  Recorded as a flagged, unresolved item in `docs/RISKS.md` risk #5 for
+  Phase 11's full audit (`docs/IMPLEMENTATION_PLAN.md`) rather than
+  silently assumed fine — re-auditing all 44 tables' `authenticated` grants
+  against their individually documented intent is out of scope for this
+  infrastructure-focused Phase 2B correction pass.
