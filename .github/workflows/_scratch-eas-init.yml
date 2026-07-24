@@ -1,0 +1,69 @@
+name: SCRATCH — EAS project init (one-off, do not merge)
+
+# Temporary, throwaway workflow used to perform exactly one authenticated
+# EAS linking operation (`eas init --non-interactive`) with EXPO_TOKEN and
+# report back the resulting project identity, so the confirmed
+# extra.eas.projectId can be committed by hand on a separate, minimal
+# branch. Not meant to be merged to main or kept around afterward.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  init:
+    name: eas init (non-interactive)
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate required configuration is present
+        run: |
+          set -euo pipefail
+          if [ -z "${EXPO_TOKEN:-}" ]; then
+            echo "::error::Missing required configuration: EXPO_TOKEN (repository Secret)."
+            exit 1
+          fi
+          echo "Configuration present. (Value is never printed.)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Confirm Expo account (owner)
+        run: npx eas-cli whoami
+
+      - name: Link or create exactly one EAS project (non-interactive, no --force, no --id)
+        # No --id: lets the CLI resolve by the existing app.json slug —
+        # if a project with this slug already exists under the
+        # authenticated account, it links to that one (no duplicate is
+        # created); only if none exists does it create a new one. No
+        # --force: keep the CLI's own built-in safety prompts/guards for
+        # anything ambiguous (it will fail rather than guess, which is
+        # what --non-interactive without --force does on ambiguity).
+        run: npx eas-cli init --non-interactive
+
+      - name: Confirm resulting project identity
+        run: npx eas-cli project:info
+
+      - name: Show the resulting app.json change (no secrets in this diff)
+        run: git --no-pager diff app.json
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "### EAS project init"
+            echo ""
+            echo "See the step logs above for: Expo owner (whoami), resulting project"
+            echo "identity (project:info), and the exact app.json diff (extra.eas.projectId)."
+            echo "This workflow does not commit or push anything — apply the same"
+            echo "projectId by hand on a separate, minimal branch."
+          } >> "$GITHUB_STEP_SUMMARY"
