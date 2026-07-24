@@ -729,3 +729,316 @@ extensions` in `00_auth_storage_shim.sql`.
   entry (no remote project exists yet this phase) — documented precisely
   in `docs/SUPABASE_SETUP.md` §6 rather than left for Phase 2B to
   rediscover.
+
+## 2026-07-24 — Phase 2B: hosted Supabase deployment infrastructure (pre-credential prep)
+
+Full context: this phase's brief was to build everything that safely can be
+built _before_ a real hosted Supabase project and its credentials exist,
+then stop at that boundary. No remote project was created; no credentials
+were requested, received, or committed. Repository-side deliverables:
+`.github/workflows/deploy-supabase-dev.yml`, `scripts/verify-hosted-schema.sql`,
+`docs/PHASE_2B_HOSTED_SETUP.md`, `docs/PHASE_2B_HOSTED_VERIFICATION.md`, a
+`db:gen-types:remote` npm script, and a `docs/SUPABASE_SETUP.md` §6 update.
+
+- **Deploy workflow is `workflow_dispatch`-only, gated by a GitHub
+  Environment (`supabase-development`).** Considered running it on push to
+  a `develop`/`staging` branch instead; rejected per this phase's explicit
+  brief ("Do not automatically deploy database migrations on every push")
+  and because a database migration is a materially higher-consequence
+  action than a code deploy — an accidental push to the wrong branch should
+  never apply schema changes to a real project. The Environment binding
+  (rather than plain repository secrets) additionally allows an optional
+  required-reviewer gate to be configured in repo settings without any
+  workflow-file change, and scopes the credentials so they're not
+  automatically available to every other workflow in the repo.
+- **Credentials passed to the Supabase CLI via environment variables, not
+  CLI flags.** `supabase link`/`db push`/`test db` read `SUPABASE_ACCESS_TOKEN`
+  and `SUPABASE_DB_PASSWORD` from the process environment (the CLI's own
+  supported non-interactive auth path) rather than `--password`/`--token`
+  flags, so neither value is ever visible in a process listing or a
+  workflow log line, on top of GitHub's own automatic secret-masking.
+- **`SUPABASE_PROJECT_ID` is a GitHub Variable, not a Secret.** A project
+  ref alone grants no access without the paired access token/db password,
+  so it isn't sensitive — keeping it out of the workflow file as a Variable
+  (rather than hardcoding it, which this phase's brief explicitly forbids)
+  means the same workflow file works for any project id set later without
+  a code change, while a regex sanity check (`^[a-z0-9]{20}$`) in the
+  workflow's first step guards against an empty or obviously-malformed
+  value silently linking to an unintended target.
+- **Password-recovery redirect URL documented as `murphymethod://reset-password`
+  (exact, no wildcard) for the hosted project's dashboard, not
+  `murphymethod://**`.** `supabase/config.toml`'s local-dev
+  `additional_redirect_urls` already uses the wildcard form (Phase 2A
+  correction pass), and that remains correct for local dev. This phase's
+  brief specifically asks for "the most specific production/development-safe
+  redirect pattern possible" and warns against "overly broad wildcard
+  redirects for production configuration" — the app only ever calls
+  `Linking.createURL('reset-password')` (`src/state/auth/auth-context.tsx`),
+  a single fixed path, so the hosted project's allow-list needs nothing
+  broader than that one exact entry. Supabase's redirect-URL matching
+  compares the URL ignoring query/fragment, so the PKCE `?code=...` (or
+  implicit-flow fragment) Supabase appends on top of `redirectTo` does not
+  require a wildcard to still match. The broader `exp://**` pattern is
+  documented separately (`docs/PHASE_2B_HOSTED_SETUP.md` §F) as an
+  explicitly opt-in, development-only addition for testing via Expo Go
+  specifically (whose own local address is not a fixed string), not part
+  of the default hosted-project configuration.
+- **Hosted schema verification is a plain SQL script run via `psql`
+  (`scripts/verify-hosted-schema.sql`), not a new pgTAP test file added to
+  `supabase/tests/database/`.** The brief explicitly requires not weakening
+  or renumbering the existing mandatory 146-assertion local suite; a
+  separate script run only from the deploy workflow (against the linked
+  hosted project, in addition to `supabase test db --linked` also running
+  the real pgTAP suite there) keeps the two verification paths — CI-mandatory
+  pgTAP vs. deploy-time structural check — independent and neither one able
+  to silently mask a regression in the other. This script was written
+  against, and actually executed against, a from-scratch migration of every
+  file in `supabase/migrations/` on this sandbox's bare-PostgreSQL harness
+  (`scripts/local-pg-harness/`, the same approach Phase 2A used, Docker
+  still being unavailable in this sandbox) — confirmed to pass on a
+  correctly-migrated schema and, deliberately, to fail loudly (non-zero
+  `psql` exit code) when RLS was manually disabled on a table and when an
+  `anon` grant was manually added to a private table, so its failure path
+  is verified by execution, not just by reading the SQL. It is not a
+  substitute for `supabase test db --linked`, which the workflow also runs.
+- **No automated hosted smoke-test harness (real signup/RLS-as-a-real-user
+  automation) built this phase.** Evaluated and explicitly declined — full
+  reasoning in `docs/PHASE_2B_HOSTED_VERIFICATION.md` §5. Summary: the
+  authoritative RLS claim is already covered by `supabase test db --linked`
+  against the real database roles; a safe automated version would need
+  privileged service-role cleanup credentials in CI for a project that
+  doesn't yet hold real user data, which is disproportionate secret-handling
+  surface for a check that only needs to run once per hosted deploy, not
+  per-commit. A precise manual test plan was written instead
+  (`docs/PHASE_2B_HOSTED_VERIFICATION.md` §2–4), to be executed once the
+  hosted project actually exists — not claimed as already passing, since it
+  hasn't run yet.
+- **Remote type generation (`db:gen-types:remote` npm script) added but not
+  invoked.** `src/types/database.ts` is left exactly as Phase 2A generated
+  it (harness introspection, `docs/DECISIONS.md`'s Phase 2A entry) —
+  running `supabase gen types typescript --project-id ...` against a real
+  hosted project is meaningless before one exists, and the brief explicitly
+  says not to overwrite the committed contract without one. The script
+  exists so the later, real invocation is a single documented command
+  rather than something to be reconstructed at Phase 2B's next session.
+- **`app.json`'s existing `scheme: "murphymethod"` was left unchanged** —
+  it already matches every reference in Phase 2A's password-recovery
+  implementation (`PASSWORD_RECOVERY_REDIRECT_PATH`, `supabase/config.toml`'s
+  local `additional_redirect_urls`, the auth-context tests' `createURL`
+  mock). No Android package identifier (`android.package`) or iOS bundle
+  identifier (`ios.bundleIdentifier`) is set in `app.json` yet — neither is
+  needed for anything in this phase (they matter for app-store builds/push
+  notification credentials, not for the Supabase Auth redirect flow), so
+  none was invented; assigning real values is a decision for whoever owns
+  the app-store listings, not an architecture default to guess here.
+
+## 2026-07-24 — Phase 2B correction pass: hosted verification connectivity
+
+An independent review of the Phase 2B PR (#7) before any hosted project
+existed found a real deployment blocker in the design above, not yet a
+failure anyone could have observed by running it (no hosted project has
+been created): the hosted structural-verification step connected directly
+to `postgresql://postgres:...@db.<project-ref>.supabase.co:5432/postgres`.
+Current Supabase guidance is that this hostname resolves to an IPv6
+address by default on any project without the (paid) IPv4 add-on, and
+GitHub-hosted Actions runners do not have IPv6 egress — so that step was
+not reliably runnable on the exact infrastructure this workflow is
+designed to run on. Caught by re-reading current Supabase connectivity
+documentation against the actual runner environment, not by a failed run.
+
+- **Fix chosen: fold the structural checks into the existing pgTAP suite
+  as `supabase/tests/database/12_hosted_structural_verification.sql`,
+  and drop the separate `scripts/verify-hosted-schema.sql` / direct
+  `psql` connection entirely**, rather than adding a Supavisor
+  session-pooler connection string as a new secret. `supabase db push`
+  (already required, and already implicitly assumed to work in GitHub
+  Actions — it's the deployment mechanism this whole workflow exists to
+  run) and `supabase test db --linked` both go through the Supabase CLI's
+  own connection handling, the same mechanism Supabase's own official
+  GitHub Actions guidance uses for `db push` in CI — not a hand-built
+  connection string — so neither hits the IPv6 problem the removed step
+  did. This was the brief's own stated strong preference ("use Supabase
+  CLI linked-project functionality... avoid requiring an unnecessary extra
+  secret merely to work around IPv6") and is also simply less code: one
+  set of assertions, run through one mechanism, instead of a pgTAP suite
+  plus a separately-connected, separately-maintained SQL script asserting
+  overlapping things that could drift apart. No new GitHub secret was
+  added — `SUPABASE_ACCESS_TOKEN`/`SUPABASE_DB_PASSWORD`/`SUPABASE_PROJECT_ID`
+  are unchanged from the original Phase 2B entry above. **Caveat, stated
+  plainly:** this reasoning is based on current official Supabase CLI/
+  GitHub Actions documentation and this project's own already-accepted
+  assumption that `supabase db push` works from GitHub Actions (true both
+  before and after this correction) — it has not been, and cannot yet be,
+  proven against a real hosted project in this sandbox (no network egress
+  to Supabase's API, no credentials). `docs/PHASE_2B_HOSTED_VERIFICATION.md`
+  §1 still says so explicitly, and the first real deploy run is the actual
+  proof.
+- **The new pgTAP file was written and executed for real**, the same
+  discipline every prior verification claim in this document follows: 44
+  exact-table-set check via pgTAP's `tables_are()` (replaces three
+  separate hand-written checks in the removed script with one
+  purpose-built pgTAP function — missing tables, unexpected tables, and
+  wrong count all fail the same single assertion), per-table RLS/
+  `service_role`-privilege checks generated from `pg_tables` (88
+  assertions), 3 `has_function()` checks, 1 `anon`-grants check, 2
+  BodyScan-bucket checks — 95 assertions total. Run via `pg_prove` against
+  a from-scratch migration of every file in `supabase/migrations/` on this
+  sandbox's bare-Postgres harness (`postgresql-16-pgtap` installed for
+  this purpose, since it wasn't already present): the full 13-file,
+  241-assertion suite passes clean, and — mirroring the negative-test
+  discipline used to verify `scripts/verify-hosted-schema.sql` originally
+  — manually disabling RLS on `profiles` and manually granting `anon`
+  `SELECT` on `profiles` each independently made exactly the expected
+  single assertion fail, confirming the failure path works, not just the
+  success path.
+- **Failure summary rewritten to be phase-aware.** The prior version's
+  static "Nothing further was applied" on any failure was inaccurate
+  whenever `supabase db push` itself had already succeeded and a later
+  step (verification) failed — the schema would already be live on the
+  hosted project at that point. The job summary step now reads
+  `steps.<id>.outcome` for the dry-run/push/verify steps and reports one
+  of three distinct states: failed before any migration was applied
+  (validation/link/dry-run); failed while applying migrations, with an
+  explicit note that `supabase db push` applies and records migrations
+  one at a time so a partial application is possible and
+  `supabase migration list --linked` should be checked before retrying
+  (not assumed rolled back — `db push` does not wrap the whole batch in
+  one transaction); or migrations applied successfully but verification
+  failed, stated plainly as "the schema has already changed" rather than
+  implying safety.
+- **`ref` workflow input removed; the checkout step now hardcodes
+  `ref: main`.** The brief's own concern — this is operated by a
+  non-technical user from an Android browser, and GitHub's
+  workflow_dispatch UI always offers a "Use workflow from" branch
+  selector regardless of whether the workflow itself declares a `ref`
+  input — means the previous free-text `ref` input added a way to type an
+  arbitrary, potentially-unreviewed branch/tag/SHA into a form field, and
+  even removing that input alone would not have stopped someone using
+  GitHub's own branch selector to run the workflow _definition_ from a
+  different branch. Hardcoding the checkout step's `ref: main` closes both
+  paths at once: whichever branch the workflow is triggered from, the
+  checkout step always fetches `main`, so only reviewed, merged migration
+  code can ever reach `supabase db push`. A future production workflow
+  needing a different (e.g. tag-based) promotion model should make that
+  an explicit, separate decision in its own file, not a reason to loosen
+  this one.
+
+## 2026-07-24 — Phase 2B correction pass: real CI failure (anon default table privileges)
+
+The previous correction pass's fixes were pushed and a real CI run
+executed against the real local Supabase stack (`.github/workflows/ci.yml`,
+run 30079837109, `database` job 89438662438). Result: `App` job success,
+`database` job **failure** — `supabase start`/`db reset --local` both
+succeeded, `supabase test db --local` failed exactly one of 241
+assertions: `supabase/tests/database/12_hosted_structural_verification.sql`
+test 93, "anon has no privileges on any public-schema table" —
+`have: 132, want: 0`. Everything else in that file (the 44-table set via
+`tables_are()`, all 44 RLS checks, all 3 function checks, all 44
+`service_role`-privilege checks, both BodyScan-bucket checks) passed, as
+did every assertion in files 00–11 (the original Phase 2A suite).
+
+- **Root cause:** the real Supabase stack's own project provisioning
+  grants `anon` 132 unrevoked table privileges (44 tables × 3 privilege
+  types — `SELECT`/`INSERT`/`UPDATE`) across `public` that no migration in
+  this repository ever explicitly granted. `docs/DECISIONS.md`'s Phase 2A
+  entry already stated the intended design — "no table grants `anon` any
+  privilege at all on a private table," enforced at the Postgres
+  privilege-check level, not just RLS — but that specific claim had never
+  actually been checked at the raw-`GRANT` level against the real stack
+  until this pass's new structural test did so; RLS itself was already
+  correctly blocking `anon`'s actual data access the whole time (no data
+  was ever exposed by this gap), so the _additional_, defense-in-depth
+  privilege-level guarantee the design called for was simply never built,
+  not a data-exposure incident.
+- **Fix:** `supabase/migrations/20260724060000_revoke_anon_default_table_grants.sql`
+  — an unconditional `revoke all on all tables/sequences in schema public
+from anon`, plus the equivalent `alter default privileges ... revoke`
+  pairing (mirroring `20260723091900_service_role_grants.sql`'s
+  grant-plus-default-privileges shape for the same reason). Deliberately
+  unconditional rather than scoped to a guessed subset of tables: the
+  exact mechanism that produced the 132 grants was investigated but not
+  conclusively determined (see the harness note below), and an
+  unconditional `REVOKE` is a safe no-op on any table that never had the
+  grant in the first place, so correctness here does not depend on fully
+  understanding the platform's mechanism — only on removing whatever is
+  actually there.
+- **Investigation of the exact mechanism, and why it stopped short of a
+  full explanation:** the arithmetic (132 = 44 × 3) initially suggested a
+  uniform default-privilege grant applied to literally every table this
+  project creates. That hypothesis was tested directly by reproducing it
+  in `scripts/local-pg-harness/00_auth_storage_shim.sql`
+  (`alter default privileges in schema public grant select, insert,
+update on tables to anon, authenticated`, added before running the
+  migrations) — and it was wrong: applying it uniformly broke roughly 35
+  assertions across files 01–10 in the harness, including
+  `01_reference_tables.sql`'s `anon cannot select from goals`/`exercises`/
+  `equipment`/`movement_patterns` (`throws_ok(..., '42501', ...)`
+  assertions, which can only pass on a genuine missing-`SELECT`-privilege
+  error — RLS itself never raises an error for a blocked `SELECT`, it
+  silently returns zero rows), and those exact assertions **passed** on
+  the real stack in the same CI run this pass is fixing. That is direct
+  proof the real platform's mechanism is not "every table, uniformly, via
+  one default-privilege declaration applied by the same role that creates
+  them" — something more selective is happening (Supabase's own Data-API/
+  role provisioning, not anything in `supabase/migrations/`), and this
+  sandbox has no way to inspect it directly (no Docker, no hosted project,
+  no way to query the real stack's own bootstrap SQL). Rather than commit
+  a harness change proven inaccurate by this project's own evidence, **the
+  harness reproduction attempt was reverted** —
+  `scripts/local-pg-harness/README.md` records this explicitly (what was
+  tried, why it was wrong, and what remains unverified) instead of either
+  silently keeping a wrong reproduction or silently dropping the
+  investigation.
+- **Structural-test robustness redesign
+  (`supabase/tests/database/12_hosted_structural_verification.sql`).**
+  Independent of the CI failure, audited for a different, related risk: the
+  file's RLS and `service_role` checks were driven by scanning `pg_tables`
+  directly (`where schemaname = 'public'`), meaning their assertion count
+  would silently change if the real `public` schema ever contained
+  anything beyond this project's own 44 tables — a legitimate
+  Supabase/extension-managed object, for instance — producing a confusing
+  "planned 95 but ran N" pgTAP-level failure instead of a clear, named one.
+  Redesigned around one explicit allowlist (a temporary table populated
+  once from the same 44 names `tables_are()` already checks), with the RLS
+  check `LEFT JOIN`-ed against `pg_tables` (a missing table still produces
+  a named, failing assertion rather than silently vanishing from the
+  count) and the `service_role` check guarded with an explicit `CASE`
+  (not `exists(...) AND has_table_privilege(...)`, whose evaluation order
+  Postgres does not guarantee — calling `has_table_privilege()` on a
+  nonexistent table raises `undefined_table` and aborts the whole file
+  rather than failing one assertion). Verified directly, not just by
+  design: re-ran against the harness with a table dropped (3 clear, named
+  failures — the missing-table check, its RLS check, its `service_role`
+  check — plan still exactly 95, no crash) and with an extra unexpected
+  table added (exactly 2 failures — the extra-table check and an
+  incidental RLS gap from how the test table was created — plan still
+  exactly 95, not 97). `plan(95)` and the total assertion count are
+  unchanged by this redesign; only the failure-injection paths were
+  reworked to be as robust as they claim to be.
+- **This is not evidence the harness is now "more equivalent" to the real
+  stack — the opposite, made explicit.** The investigation above
+  conclusively shows this sandbox cannot currently reproduce this specific
+  class of platform behaviour accurately, and guessing further risked
+  making the harness actively misleading rather than merely incomplete.
+  `supabase test db --local`/`--linked` against the real stack remains the
+  sole authoritative signal for the `anon`-privilege check specifically —
+  restated here, not just in the harness README, because this is exactly
+  the kind of claim `docs/SUPABASE_SETUP.md` and this document's own
+  Phase 2A correction-pass entry already warn against overstating.
+- **Broader implication flagged, not silently absorbed:** if the real
+  platform grants `anon` privileges beyond what migrations declare, it may
+  do the same for `authenticated` — which would matter more, since several
+  tables' migrations deliberately grant `authenticated` _narrower_ access
+  than the schema doc's default CRUD pattern (`programme_versions`/
+  `programme_decisions` insert-only; `performance_metrics` select-only;
+  `docs/DECISIONS.md`'s Phase 2A entry) as a stated structural guarantee.
+  Nothing in this pass's evidence shows that guarantee is actually broken
+  — RLS still gates real access regardless, and no test asserting the
+  narrower grant has failed — but nothing in this pass proves it's intact
+  at the raw-`GRANT` level either, only via RLS behavioural tests, which is
+  exactly the gap this whole correction pass exists to close for `anon`.
+  Recorded as a flagged, unresolved item in `docs/RISKS.md` risk #5 for
+  Phase 11's full audit (`docs/IMPLEMENTATION_PLAN.md`) rather than
+  silently assumed fine — re-auditing all 44 tables' `authenticated` grants
+  against their individually documented intent is out of scope for this
+  infrastructure-focused Phase 2B correction pass.

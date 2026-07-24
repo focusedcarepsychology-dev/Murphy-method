@@ -116,6 +116,15 @@ matrix.
 Run them with `npx supabase test db --local`. This is the authoritative,
 Supabase-supported test path and is what CI runs
 (`.github/workflows/ci.yml`, `database` job) against the real local stack.
+The same suite also runs with `npx supabase test db --linked` against a
+connected hosted project (`.github/workflows/deploy-supabase-dev.yml`) —
+`supabase/tests/database/12_hosted_structural_verification.sql` (added in
+Phase 2B) adds hosted-deployment structural checks (all 44 tables present
+with RLS enabled, required functions, `service_role` grants, no `anon`
+grants on private tables, the `bodyscans` bucket private) to the same
+file set, rather than a separately-connected script, so there is one
+implementation exercised both ways. Current total: 13 files, 241
+assertions.
 
 ### What ran where for this PR
 
@@ -153,8 +162,17 @@ directly in that sandbox. Instead:
 
 ## 6. Phase 2B — connecting a remote project
 
-Not done in this phase, by design (no remote credentials were supplied).
-When Phase 2B begins:
+The repository-side infrastructure for this (deploy workflow, hosted
+schema verification, redirect-URL documentation, setup checklist) was
+built in Phase 2B — see `docs/PHASE_2B_HOSTED_SETUP.md` (non-developer
+setup checklist), `docs/PHASE_2B_HOSTED_VERIFICATION.md` (post-deploy test
+plan), and `.github/workflows/deploy-supabase-dev.yml` (the manual-only
+deploy workflow). No remote project was created and no credentials were
+supplied or committed during that work — this section's original plan
+(below) is still accurate for what actually connecting one involves; the
+two documents above give the exact, current step-by-step version of it.
+
+When Phase 2B's hosted project is actually created and connected:
 
 1. Create (or select) a Supabase project in the dashboard.
 2. `npx supabase link --project-ref <ref>`.

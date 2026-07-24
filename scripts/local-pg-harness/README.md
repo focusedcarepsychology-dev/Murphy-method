@@ -47,6 +47,38 @@ privileges, so the harness passing is no longer contingent on this file's
 separate (now redundant, but left in place as defence-in-depth for a bare
 Postgres target) grant.
 
+**Known limitation — `anon` default table-privilege provisioning (NOT
+reproduced here, unlike the two gaps above).** Real CI (run 30079837109,
+database job) found that the real Supabase local stack grants `anon` 132
+unrevoked table privileges across `public` (44 tables × 3 privilege types
+— SELECT/INSERT/UPDATE) that no migration in this repo ever explicitly
+granted, so `supabase/tests/database/12_hosted_structural_verification.sql`'s
+anon-grants-count assertion failed there while passing here (this harness
+never granted `anon` anything beyond `USAGE` on the schema, so it had
+zero such grants to begin with — the opposite of the real stack's
+problem, not an equivalent one). Unlike the `service_role` and
+`protect_delete` gaps above, this one was **not** reproduced in this
+harness: an attempt to reproduce it with a blanket
+`alter default privileges ... grant ... to anon` was tried and reverted,
+because it applied the grant uniformly to every table created afterward
+by this harness's single connecting role — including the four reference
+tables (`goals`, `exercises`, `equipment`, `movement_patterns`), whose own
+`supabase/tests/database/01_reference_tables.sql` assertions
+(`anon cannot select from goals`, expecting a genuine `42501`) passed on
+the _real_ stack in the same CI run, proving the real mechanism is not a
+uniform "every table, every role that creates it" default — something
+more selective is happening on the real platform (Supabase's own
+role/Data-API provisioning, not anything in `supabase/migrations/`) that
+this sandbox cannot inspect directly (no Docker, no hosted project). The
+fix for the actual security requirement
+(`supabase/migrations/20260724060000_revoke_anon_default_table_grants.sql`,
+an unconditional `revoke ... from anon` per table — correct regardless of
+which mechanism granted the privilege in the first place) does not depend
+on understanding that mechanism precisely, but this harness cannot yet
+verify it did so correctly; only `supabase test db --local`/`--linked`
+against the real stack can. Documented here rather than silently claiming
+false parity.
+
 **Never apply anything in this directory to a real Supabase project.** It
 is sandbox/CI-verification tooling only, applied _before_ the real
 migrations when standing up the local harness database, and is deliberately
