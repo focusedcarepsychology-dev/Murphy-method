@@ -14,9 +14,9 @@ begin;
     (select count(*)::int from public.movement_patterns) = 17,
     'authenticated can read all 17 seeded movement patterns'
   );
-  select lives_ok(
-    $$ select 1 from public.equipment $$,
-    'authenticated can select from equipment (empty content, but readable)'
+  select ok(
+    (select count(*)::int from public.equipment) = 10,
+    'authenticated can read all 10 seeded equipment rows (Phase 3 onboarding-minimum taxonomy)'
   );
   select lives_ok(
     $$ select 1 from public.muscles $$,
