@@ -59,7 +59,8 @@
     "pretypecheck": "node ./scripts/ensure-expo-env-types.js",
     "typecheck": "tsc --noEmit",
     "test": "jest",
-    "check:secrets": "node ./scripts/check-no-secrets.js"
+    "check:secrets": "node ./scripts/check-no-secrets.js",
+    "db:gen-types:remote": "supabase gen types typescript --project-id \"$SUPABASE_PROJECT_ID\" > src/types/database.ts"
   },
   "private": true,
   "jest": {

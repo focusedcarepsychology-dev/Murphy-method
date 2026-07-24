@@ -1,0 +1,122 @@
+name: Deploy Supabase (Development)
+
+# Phase 2B infrastructure (docs/PHASE_2B_HOSTED_SETUP.md). Deploys
+# supabase/migrations/ to the hosted DEVELOPMENT Supabase project only.
+#
+# MANUAL ONLY — never runs on push/pull_request. This workflow must not be
+# reused for a production project: a real production deploy path should be
+# a separately named workflow with its own GitHub Environment and its own
+# secrets (never the development project's SUPABASE_ACCESS_TOKEN/
+# SUPABASE_DB_PASSWORD), gated by its own required reviewers. See
+# docs/PHASE_2B_HOSTED_SETUP.md for the reasoning.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch, tag, or commit SHA to deploy to the DEVELOPMENT project'
+        required: true
+        default: 'main'
+
+# Only one deploy to the development project at a time.
+concurrency:
+  group: deploy-supabase-dev
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy migrations to hosted development project
+    runs-on: ubuntu-latest
+    # A GitHub Environment named `supabase-development` scopes the secrets/
+    # variables below and lets required-reviewer protection be configured
+    # in repo settings without any change to this file. Create it before
+    # first use — see docs/PHASE_2B_HOSTED_SETUP.md §E.
+    environment: supabase-development
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_ID: ${{ vars.SUPABASE_PROJECT_ID }}
+    steps:
+      - name: Checkout ${{ inputs.ref }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Validate required configuration is present and well-formed
+        run: |
+          set -euo pipefail
+          missing=()
+          [ -z "${SUPABASE_PROJECT_ID:-}" ] && missing+=("SUPABASE_PROJECT_ID (repo/environment Variable)")
+          [ -z "${SUPABASE_ACCESS_TOKEN:-}" ] && missing+=("SUPABASE_ACCESS_TOKEN (repo/environment Secret)")
+          [ -z "${SUPABASE_DB_PASSWORD:-}" ] && missing+=("SUPABASE_DB_PASSWORD (repo/environment Secret)")
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing required configuration: ${missing[*]}. See docs/PHASE_2B_HOSTED_SETUP.md."
+            exit 1
+          fi
+          # Supabase project refs are a fixed-shape 20-character lowercase
+          # alphanumeric id (e.g. from the dashboard URL
+          # app.supabase.com/project/<this-id>). Reject anything else
+          # rather than risk linking to an unintended/malformed target.
+          if ! [[ "$SUPABASE_PROJECT_ID" =~ ^[a-z0-9]{20}$ ]]; then
+            echo "::error::SUPABASE_PROJECT_ID does not look like a valid Supabase project ref. Refusing to proceed."
+            exit 1
+          fi
+          echo "Configuration present and well-formed. (Values are never printed.)"
+
+      - name: Install PostgreSQL client (for hosted schema verification)
+        run: |
+          set -euo pipefail
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends postgresql-client
+          fi
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link to the hosted development project
+        # SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD are read from the
+        # environment automatically by the Supabase CLI (official
+        # non-interactive auth path) — never passed as command-line
+        # arguments, so they never appear in `ps`/workflow logs.
+        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
+
+      - name: Migration dry run (diff only, nothing applied)
+        run: supabase db push --dry-run
+
+      - name: Apply approved migrations
+        run: supabase db push
+
+      - name: Run pgTAP RLS/database suite against the hosted project
+        # The authoritative suite (docs/SUPABASE_SETUP.md §5) run against
+        # the real linked project, not the local/CI-only stack. This does
+        # not replace or weaken .github/workflows/ci.yml's `database` job,
+        # which remains mandatory on every PR — this is an additional,
+        # post-deploy check specific to the hosted target.
+        run: supabase test db --linked
+
+      - name: Hosted schema structural verification
+        run: |
+          set -euo pipefail
+          DB_URL="postgresql://postgres:${SUPABASE_DB_PASSWORD}@db.${SUPABASE_PROJECT_ID}.supabase.co:5432/postgres"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f scripts/verify-hosted-schema.sql
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "### Supabase development deploy — \`${{ inputs.ref }}\`"
+            echo ""
+            if [ "${{ job.status }}" = "success" ]; then
+              echo "✅ Migrations applied and verified against the hosted **development** project."
+            else
+              echo "❌ Deploy failed — see the failed step above for details. Nothing further was applied."
+            fi
+            echo ""
+            echo "- Target: hosted DEVELOPMENT project only (never production)"
+            echo "- Migration mechanism: \`supabase db push\` (supabase/migrations/), no ad-hoc SQL"
+            echo "- Verified: pgTAP suite (\`supabase test db --linked\`) + structural check (\`scripts/verify-hosted-schema.sql\`)"
+          } >> "$GITHUB_STEP_SUMMARY"

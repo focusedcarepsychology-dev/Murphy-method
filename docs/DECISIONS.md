@@ -729,3 +729,105 @@ extensions` in `00_auth_storage_shim.sql`.
   entry (no remote project exists yet this phase) — documented precisely
   in `docs/SUPABASE_SETUP.md` §6 rather than left for Phase 2B to
   rediscover.
+
+## 2026-07-24 — Phase 2B: hosted Supabase deployment infrastructure (pre-credential prep)
+
+Full context: this phase's brief was to build everything that safely can be
+built _before_ a real hosted Supabase project and its credentials exist,
+then stop at that boundary. No remote project was created; no credentials
+were requested, received, or committed. Repository-side deliverables:
+`.github/workflows/deploy-supabase-dev.yml`, `scripts/verify-hosted-schema.sql`,
+`docs/PHASE_2B_HOSTED_SETUP.md`, `docs/PHASE_2B_HOSTED_VERIFICATION.md`, a
+`db:gen-types:remote` npm script, and a `docs/SUPABASE_SETUP.md` §6 update.
+
+- **Deploy workflow is `workflow_dispatch`-only, gated by a GitHub
+  Environment (`supabase-development`).** Considered running it on push to
+  a `develop`/`staging` branch instead; rejected per this phase's explicit
+  brief ("Do not automatically deploy database migrations on every push")
+  and because a database migration is a materially higher-consequence
+  action than a code deploy — an accidental push to the wrong branch should
+  never apply schema changes to a real project. The Environment binding
+  (rather than plain repository secrets) additionally allows an optional
+  required-reviewer gate to be configured in repo settings without any
+  workflow-file change, and scopes the credentials so they're not
+  automatically available to every other workflow in the repo.
+- **Credentials passed to the Supabase CLI via environment variables, not
+  CLI flags.** `supabase link`/`db push`/`test db` read `SUPABASE_ACCESS_TOKEN`
+  and `SUPABASE_DB_PASSWORD` from the process environment (the CLI's own
+  supported non-interactive auth path) rather than `--password`/`--token`
+  flags, so neither value is ever visible in a process listing or a
+  workflow log line, on top of GitHub's own automatic secret-masking.
+- **`SUPABASE_PROJECT_ID` is a GitHub Variable, not a Secret.** A project
+  ref alone grants no access without the paired access token/db password,
+  so it isn't sensitive — keeping it out of the workflow file as a Variable
+  (rather than hardcoding it, which this phase's brief explicitly forbids)
+  means the same workflow file works for any project id set later without
+  a code change, while a regex sanity check (`^[a-z0-9]{20}$`) in the
+  workflow's first step guards against an empty or obviously-malformed
+  value silently linking to an unintended target.
+- **Password-recovery redirect URL documented as `murphymethod://reset-password`
+  (exact, no wildcard) for the hosted project's dashboard, not
+  `murphymethod://**`.** `supabase/config.toml`'s local-dev
+  `additional_redirect_urls` already uses the wildcard form (Phase 2A
+  correction pass), and that remains correct for local dev. This phase's
+  brief specifically asks for "the most specific production/development-safe
+  redirect pattern possible" and warns against "overly broad wildcard
+  redirects for production configuration" — the app only ever calls
+  `Linking.createURL('reset-password')` (`src/state/auth/auth-context.tsx`),
+  a single fixed path, so the hosted project's allow-list needs nothing
+  broader than that one exact entry. Supabase's redirect-URL matching
+  compares the URL ignoring query/fragment, so the PKCE `?code=...` (or
+  implicit-flow fragment) Supabase appends on top of `redirectTo` does not
+  require a wildcard to still match. The broader `exp://**` pattern is
+  documented separately (`docs/PHASE_2B_HOSTED_SETUP.md` §F) as an
+  explicitly opt-in, development-only addition for testing via Expo Go
+  specifically (whose own local address is not a fixed string), not part
+  of the default hosted-project configuration.
+- **Hosted schema verification is a plain SQL script run via `psql`
+  (`scripts/verify-hosted-schema.sql`), not a new pgTAP test file added to
+  `supabase/tests/database/`.** The brief explicitly requires not weakening
+  or renumbering the existing mandatory 146-assertion local suite; a
+  separate script run only from the deploy workflow (against the linked
+  hosted project, in addition to `supabase test db --linked` also running
+  the real pgTAP suite there) keeps the two verification paths — CI-mandatory
+  pgTAP vs. deploy-time structural check — independent and neither one able
+  to silently mask a regression in the other. This script was written
+  against, and actually executed against, a from-scratch migration of every
+  file in `supabase/migrations/` on this sandbox's bare-PostgreSQL harness
+  (`scripts/local-pg-harness/`, the same approach Phase 2A used, Docker
+  still being unavailable in this sandbox) — confirmed to pass on a
+  correctly-migrated schema and, deliberately, to fail loudly (non-zero
+  `psql` exit code) when RLS was manually disabled on a table and when an
+  `anon` grant was manually added to a private table, so its failure path
+  is verified by execution, not just by reading the SQL. It is not a
+  substitute for `supabase test db --linked`, which the workflow also runs.
+- **No automated hosted smoke-test harness (real signup/RLS-as-a-real-user
+  automation) built this phase.** Evaluated and explicitly declined — full
+  reasoning in `docs/PHASE_2B_HOSTED_VERIFICATION.md` §5. Summary: the
+  authoritative RLS claim is already covered by `supabase test db --linked`
+  against the real database roles; a safe automated version would need
+  privileged service-role cleanup credentials in CI for a project that
+  doesn't yet hold real user data, which is disproportionate secret-handling
+  surface for a check that only needs to run once per hosted deploy, not
+  per-commit. A precise manual test plan was written instead
+  (`docs/PHASE_2B_HOSTED_VERIFICATION.md` §2–4), to be executed once the
+  hosted project actually exists — not claimed as already passing, since it
+  hasn't run yet.
+- **Remote type generation (`db:gen-types:remote` npm script) added but not
+  invoked.** `src/types/database.ts` is left exactly as Phase 2A generated
+  it (harness introspection, `docs/DECISIONS.md`'s Phase 2A entry) —
+  running `supabase gen types typescript --project-id ...` against a real
+  hosted project is meaningless before one exists, and the brief explicitly
+  says not to overwrite the committed contract without one. The script
+  exists so the later, real invocation is a single documented command
+  rather than something to be reconstructed at Phase 2B's next session.
+- **`app.json`'s existing `scheme: "murphymethod"` was left unchanged** —
+  it already matches every reference in Phase 2A's password-recovery
+  implementation (`PASSWORD_RECOVERY_REDIRECT_PATH`, `supabase/config.toml`'s
+  local `additional_redirect_urls`, the auth-context tests' `createURL`
+  mock). No Android package identifier (`android.package`) or iOS bundle
+  identifier (`ios.bundleIdentifier`) is set in `app.json` yet — neither is
+  needed for anything in this phase (they matter for app-store builds/push
+  notification credentials, not for the Supabase Auth redirect flow), so
+  none was invented; assigning real values is a decision for whoever owns
+  the app-store listings, not an architecture default to guess here.
