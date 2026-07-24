@@ -193,7 +193,7 @@ export default function BasicProfileScreen() {
     <OnboardingScaffold
       stepIndex={1}
       title="A little about you"
-      description="Used to size your programme correctly — not shared, and editable later in Profile."
+      description="Used to size your programme correctly — stored privately in your account, and editable later in Profile."
       onBack={() => router.back()}
       onNext={handleNext}
       nextDisabled={!canSubmit}

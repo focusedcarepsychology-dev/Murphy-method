@@ -51,8 +51,8 @@ export default function BodyScanIntroScreen() {
       <View style={{ gap: spacing.two }}>
         {submitError ? <AppText color="critical">{submitError}</AppText> : null}
         <AppText color="secondary">
-          BodyScan is entirely optional and private — photos are stored only for you, never made
-          public, and Murphy Method remains fully useful without it.
+          BodyScan is entirely optional. Photos are stored privately in your account and are not
+          publicly shared, and Murphy Method remains fully useful without it.
         </AppText>
         <AppText color="secondary">
           It&apos;s comparison imagery for tracking visual change over time — not a medical body
