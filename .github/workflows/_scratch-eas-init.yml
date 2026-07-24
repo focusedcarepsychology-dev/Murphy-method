@@ -5,6 +5,9 @@ name: SCRATCH — EAS project init (one-off, do not merge)
 # report back the resulting project identity, so the confirmed
 # extra.eas.projectId can be committed by hand on a separate, minimal
 # branch. Not meant to be merged to main or kept around afterward.
+#
+# Re-run 2: EXPO_TOKEN re-saved as a repository secret after the first
+# attempt found it empty.
 on:
   push:
     branches: [claude/eas-init-scratch]
