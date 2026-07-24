@@ -45,22 +45,12 @@ export default function WelcomeScreen() {
         </View>
 
         <View style={{ gap: spacing.three }}>
-          <Link href="/(onboarding)/introduction" asChild>
+          <Link href="/(auth)/sign-up" asChild>
             <PrimaryButton label="Get Started" size="large" />
           </Link>
           <Link href="/(auth)/sign-in" asChild>
             <TertiaryButton label="I already have an account" fullWidth />
           </Link>
-          {__DEV__ ? (
-            <Link href="/(tabs)/today" asChild>
-              <TertiaryButton
-                label="Preview app shell (dev only)"
-                fullWidth
-                tone="brand"
-                accessibilityHint="Development-only shortcut into the tab shell, skipping onboarding"
-              />
-            </Link>
-          ) : null}
         </View>
       </View>
     </Screen>

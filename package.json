@@ -4,6 +4,8 @@
   "version": "1.0.0",
   "dependencies": {
     "@expo/ui": "~57.0.7",
+    "@react-native-async-storage/async-storage": "^3.1.1",
+    "@supabase/supabase-js": "^2.110.8",
     "expo": "~57.0.8",
     "expo-constants": "~57.0.7",
     "expo-device": "~57.0.1",
@@ -25,6 +27,7 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "react-native-svg": "~15.15.4",
+    "react-native-url-polyfill": "^4.0.0",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.10.0"
   },
@@ -55,13 +58,15 @@
     "format:check": "prettier --check .",
     "pretypecheck": "node ./scripts/ensure-expo-env-types.js",
     "typecheck": "tsc --noEmit",
-    "test": "jest"
+    "test": "jest",
+    "check:secrets": "node ./scripts/check-no-secrets.js"
   },
   "private": true,
   "jest": {
     "preset": "jest-expo",
     "moduleNameMapper": {
-      "\\.css$": "<rootDir>/jest/cssMock.js"
+      "\\.css$": "<rootDir>/jest/cssMock.js",
+      "^@react-native-async-storage/async-storage$": "@react-native-async-storage/async-storage/jest"
     },
     "collectCoverageFrom": [
       "src/components/ui/**/*.{ts,tsx}"

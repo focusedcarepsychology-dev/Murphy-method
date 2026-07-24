@@ -1,0 +1,12 @@
+-- Local development seed data.
+--
+-- Intentionally empty for Phase 2A. The exercise ontology's actual content
+-- (muscles, exercises, substitutions, restrictions, body-area weighting) is
+-- Phase 4 content-authoring work (docs/IMPLEMENTATION_PLAN.md Phase 4), not
+-- seeded here. The fixed, closed enumerations `goals` and `movement_patterns`
+-- are already seeded by their own migrations (structural taxonomy, not
+-- authored content — see docs/DECISIONS.md's Phase 2A entry) and do not need
+-- repeating here.
+--
+-- Local RLS/auth testing uses supabase/tests/database, which creates its own
+-- test users and data rather than relying on this file.

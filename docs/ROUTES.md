@@ -27,6 +27,7 @@ src/app/
     sign-up.tsx
     sign-in.tsx
     forgot-password.tsx
+    reset-password.tsx             # password-recovery deep-link target, guard rule 4
     verify-email.tsx
   (onboarding)/
     _layout.tsx                    # guarded: authenticated + onboarding incomplete
@@ -115,7 +116,7 @@ modal-like experience that should not be nested inside tab chrome.
 
 ## 3. Guards
 
-Three nested guard conditions, evaluated in `_layout.tsx` files via a
+Four nested guard conditions, evaluated in `_layout.tsx` files via a
 redirect-on-mismatch pattern (Expo Router `Redirect`):
 
 1. **Unauthenticated → `(auth)`.** Any route outside `(auth)` redirects to
@@ -128,6 +129,14 @@ redirect-on-mismatch pattern (Expo Router `Redirect`):
    screen itself (see `SCREEN_SPECIFICATIONS.md`), not by the router.
 3. **Authenticated, onboarding complete → `(tabs)` + `workout/`.** Standard
    application state.
+4. **Password-recovery session → `(auth)/reset-password`, exclusively.**
+   Opening a password-recovery link establishes a real Supabase session
+   (Supabase emits `PASSWORD_RECOVERY`, distinct from `SIGNED_IN`), but it
+   is scoped to setting a new password, not to using the app — this guard
+   forces `(auth)/reset-password` and nowhere else (not `(tabs)`, not
+   `(onboarding)`, not another `(auth)` screen) for the duration of that
+   session, overriding rules 1-3 above. Saving the new password signs the
+   recovery session out, which hands off to rule 1 (Sign In).
 
 `(auth)`'s own `_layout.tsx` redirects _forward_ to `(tabs)` (or
 `(onboarding)` per rule 2) if a session already exists, so a signed-in user
@@ -182,12 +191,13 @@ while a workout is `in_progress` (exact placement:
 `app.json` already declares `"scheme": "murphymethod"`. Deep-link targets
 supported from MVP notification payloads (`MASTER_SPEC.md` §28):
 
-| Notification type  | Deep link target                                                                 |
-| ------------------ | -------------------------------------------------------------------------------- |
-| `workout_reminder` | `workout/[workoutId]/overview`                                                   |
-| `missed_start`     | `workout/[workoutId]/overview` (with Quick/Reschedule/Skip surfaced immediately) |
-| `progress` (PR)    | `(tabs)/progress/records`                                                        |
-| `bodyscan_due`     | `(tabs)/progress/bodyscan`                                                       |
+| Notification type                                                  | Deep link target                                                                 |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| `workout_reminder`                                                 | `workout/[workoutId]/overview`                                                   |
+| `missed_start`                                                     | `workout/[workoutId]/overview` (with Quick/Reschedule/Skip surfaced immediately) |
+| `progress` (PR)                                                    | `(tabs)/progress/records`                                                        |
+| `bodyscan_due`                                                     | `(tabs)/progress/bodyscan`                                                       |
+| _(Supabase Auth, not an MVP notification)_ password recovery email | `(auth)/reset-password` — see §3 rule 4                                          |
 
 A deep link into a guarded route re-runs the guard chain in §3 first (e.g. a
 notification opened while signed out lands on Sign In, then continues to the

@@ -1,11 +1,111 @@
-import { PlaceholderScreen } from '@/components/dev/placeholder-screen';
+import { useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
+import { View } from 'react-native';
+
+import { AppText, Heading } from '@/components/ui/app-text';
+import { PrimaryButton, SecondaryButton } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
+import { Screen } from '@/components/ui/screen';
+import { useTheme } from '@/hooks/use-theme';
+import { useAuth } from '@/state/auth/auth-context';
 
 export default function VerifyEmailScreen() {
+  const { spacing, colors, radius } = useTheme();
+  const { resendVerificationEmail, refreshSession } = useAuth();
+  const params = useLocalSearchParams<{ email?: string }>();
+  const email = typeof params.email === 'string' ? params.email : undefined;
+
+  const [resending, setResending] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [messageTone, setMessageTone] = useState<'positive' | 'critical'>('positive');
+
+  async function handleResend() {
+    if (!email || resending) return;
+    setResending(true);
+    setMessage(null);
+    try {
+      const result = await resendVerificationEmail(email);
+      if (result.error) {
+        setMessageTone('critical');
+        setMessage(result.error);
+      } else {
+        setMessageTone('positive');
+        setMessage('Verification email sent again.');
+      }
+    } finally {
+      setResending(false);
+    }
+  }
+
+  async function handleCheckVerified() {
+    if (checking) return;
+    setChecking(true);
+    setMessage(null);
+    try {
+      await refreshSession();
+      // If verification completed, AuthProvider's state flips to signed_in
+      // and the route guards (src/app/_layout.tsx) redirect automatically.
+      // If not, there's nothing to redirect to yet — say so plainly.
+      setMessageTone('critical');
+      setMessage('Not verified yet. Check your inbox and tap the link, then try again.');
+    } finally {
+      setChecking(false);
+    }
+  }
+
   return (
-    <PlaceholderScreen
-      icon="shield"
-      title="Verify your email"
-      description="Confirms email ownership once auth is wired in Phase 2. This is a visual shell only."
-    />
+    <Screen>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.four }}>
+        <View
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: radius.pill,
+            backgroundColor: colors.brand.primarySubtle,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon name="envelope" color={colors.brand.primary} size={26} />
+        </View>
+
+        <View style={{ gap: spacing.one, alignItems: 'center' }}>
+          <Heading variant="section" align="center">
+            Verify your email
+          </Heading>
+          <AppText color="secondary" align="center" style={{ maxWidth: 320 }}>
+            {email
+              ? `We’ve sent a verification link to ${email}. Tap it to confirm your account, then come back here.`
+              : 'Check your email for a verification link, then come back here.'}
+          </AppText>
+        </View>
+
+        {message ? (
+          <AppText
+            accessibilityRole="alert"
+            color={messageTone}
+            align="center"
+            style={{ maxWidth: 320 }}
+          >
+            {message}
+          </AppText>
+        ) : null}
+
+        <View style={{ gap: spacing.two, width: '100%' }}>
+          <PrimaryButton
+            label="I've verified — Continue"
+            onPress={handleCheckVerified}
+            loading={checking}
+          />
+          <SecondaryButton
+            label="Resend verification email"
+            onPress={handleResend}
+            disabled={!email}
+            loading={resending}
+          />
+        </View>
+      </View>
+    </Screen>
   );
 }

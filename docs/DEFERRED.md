@@ -102,3 +102,10 @@ requirement." None of these block MVP (P0).
   the A/B-style low-risk framing experiments are explicitly P1/premium
   scope in the brief and are not designed in this phase beyond the
   safeguards already recorded in `MASTER_SPEC.md` §20.3.
+- **Deep-link redirect-target preservation** (`ROUTES.md` §7) — Phase 2A's
+  route guard (`src/hooks/use-protected-route.ts`) redirects an
+  unauthenticated deep link to Welcome/Sign In but does not yet carry the
+  original target through sign-in and back to it afterward. No
+  notification-originated deep links exist yet (notifications are a later
+  phase per `IMPLEMENTATION_PLAN.md`), so nothing exercises this path
+  today. Revisit once a later phase adds real notification deep links.

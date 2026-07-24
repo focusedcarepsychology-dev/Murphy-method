@@ -14,8 +14,8 @@ function TabBarLabel({ title, color, focused }: TabBarLabelProps & { title: stri
   return <Text style={{ fontSize: 12, fontWeight: focused ? '700' : '500', color }}>{title}</Text>;
 }
 
-// Guard (authenticated + onboarding complete, docs/ROUTES.md §3) is Phase 2 —
-// there is no session/profile state yet for it to check.
+// Guard (authenticated + onboarding complete, docs/ROUTES.md §3) lives
+// centrally in src/hooks/use-protected-route.ts (wired at the app root).
 export default function TabsLayout() {
   const { colors } = useTheme();
 
