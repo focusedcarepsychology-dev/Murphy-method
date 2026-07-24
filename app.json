@@ -45,6 +45,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d5d71b2c-531f-4ad3-af56-5ad2794ab2d1"
+      }
+    },
+    "owner": "focusedcares-team"
   }
 }
