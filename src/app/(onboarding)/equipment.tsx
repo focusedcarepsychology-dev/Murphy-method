@@ -68,10 +68,26 @@ export default function EquipmentScreen() {
 
   useEffect(load, [client, userId]);
 
+  const bodyweightId = options.find((option) => option.key === 'bodyweight')?.id;
+
+  /**
+   * "No equipment / bodyweight only" is an unambiguous sentinel, not one
+   * checklist item among many (docs/SCREEN_SPECIFICATIONS.md §2): selecting
+   * it clears every other equipment selection, and selecting any other
+   * equipment clears it. Without this, a user could select both
+   * "bodyweight only" and "dumbbells", which the programme engine cannot
+   * interpret truthfully as "no equipment" (docs/PROGRAMME_ENGINE.md §3.1).
+   */
   function toggle(id: string) {
-    setSelectedIds((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
-    );
+    setSelectedIds((current) => {
+      if (id === bodyweightId) {
+        return current.includes(id) ? [] : [id];
+      }
+      const withoutBodyweight = current.filter((item) => item !== bodyweightId);
+      return withoutBodyweight.includes(id)
+        ? withoutBodyweight.filter((item) => item !== id)
+        : [...withoutBodyweight, id];
+    });
   }
 
   async function handleNext() {
