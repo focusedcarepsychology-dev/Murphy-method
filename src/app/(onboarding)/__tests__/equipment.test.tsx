@@ -75,4 +75,44 @@ describe('Equipment screen (docs/SCREEN_SPECIFICATIONS.md §2 "Available Equipme
     const nextButton = await screen.findByRole('button', { name: 'Next' });
     expect(nextButton.props.accessibilityState.disabled).toBe(true);
   });
+
+  it('selecting "Bodyweight only" clears any other equipment selection (INVARIANT E precondition)', async () => {
+    await renderRouter('src/app', { initialUrl: '/(onboarding)/equipment' });
+
+    const dumbbellCard = await screen.findByLabelText('Dumbbells');
+    await act(async () => fireEvent.press(dumbbellCard));
+    const bodyweightCard = await screen.findByLabelText('Bodyweight only');
+    await act(async () => fireEvent.press(bodyweightCard));
+
+    const nextButton = await screen.findByRole('button', { name: 'Next' });
+    await act(async () => fireEvent.press(nextButton));
+
+    await waitFor(() => {
+      const selected = mockBackend.tables.user_equipment.filter(
+        (row) => row.profile_id === USER_ID && row.available,
+      );
+      expect(selected).toHaveLength(1);
+      expect(selected[0]?.equipment_id).toBe('equip-bodyweight');
+    });
+  });
+
+  it('selecting real equipment clears "Bodyweight only"', async () => {
+    await renderRouter('src/app', { initialUrl: '/(onboarding)/equipment' });
+
+    const bodyweightCard = await screen.findByLabelText('Bodyweight only');
+    await act(async () => fireEvent.press(bodyweightCard));
+    const dumbbellCard = await screen.findByLabelText('Dumbbells');
+    await act(async () => fireEvent.press(dumbbellCard));
+
+    const nextButton = await screen.findByRole('button', { name: 'Next' });
+    await act(async () => fireEvent.press(nextButton));
+
+    await waitFor(() => {
+      const selected = mockBackend.tables.user_equipment.filter(
+        (row) => row.profile_id === USER_ID && row.available,
+      );
+      expect(selected).toHaveLength(1);
+      expect(selected[0]?.equipment_id).toBe('equip-dumbbell');
+    });
+  });
 });
