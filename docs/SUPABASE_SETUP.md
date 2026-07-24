@@ -182,6 +182,38 @@ When Phase 2B's hosted project is actually created and connected:
    the app's real deployment environment (EAS secrets, `.env` for local
    dev against the remote project, etc.) — still only ever the public
    URL/publishable key, never a service-role key or access token.
+
+   **For an EAS Build** (`eas.json`'s `preview` profile — see
+   `docs/ANDROID_BUILD.md`), these two `EXPO_PUBLIC_*` values must be
+   supplied as **EAS environment variables**, not committed to any file in
+   this repository:
+
+   ```sh
+   npx eas env:create --environment preview \
+     --name EXPO_PUBLIC_SUPABASE_URL \
+     --value https://bofsldczgmgtsgwgbadt.supabase.co \
+     --visibility plaintext --non-interactive
+
+   npx eas env:create --environment preview \
+     --name EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY \
+     --value <the publishable/anon key from the Supabase dashboard> \
+     --visibility plaintext --non-interactive
+   ```
+
+   Both are safe as `plaintext` EAS env vars (they're already public,
+   client-inlined values — see the "Never add to this list" note above);
+   this is a convenience, not a secrecy requirement. `eas build --profile
+preview` automatically pulls variables scoped to the `preview`
+   environment and inlines `EXPO_PUBLIC_*` ones into the JS bundle at
+   build time, the same way Metro does locally from `.env`. Equivalently,
+   they can be set once from the [expo.dev dashboard](https://expo.dev)
+   (Project → Environment variables → `preview` environment) instead of
+   the CLI. Never pass a service-role key, database password, GitHub PAT,
+   or Expo access token to `eas env:create` or any EAS secret/variable —
+   `scripts/check-no-secrets.js` only scans this repository's source and
+   build output, not EAS's own variable store, so this boundary is
+   enforced by not doing it, not by tooling.
+
 5. **Auth email redirect URLs** (Phase 2A correction pass; native deep-link
    handling added in Phase 2B): the client already builds and sends
    `redirectTo`/`emailRedirectTo` on every `resetPasswordForEmail`,

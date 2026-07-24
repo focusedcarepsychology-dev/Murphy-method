@@ -1439,3 +1439,36 @@ tested — not final legal/clinical copy; qualified clinical/legal review
 before public beta remains open (`docs/OPEN_QUESTIONS.md` #5,
 `docs/RISKS.md` #1), unchanged by this phase. No remote deployment, no
 merge.
+
+## 2026-07-24 — Android EAS preview build configuration
+
+- **Android application ID**: `ie.focusedcarepsychology.murphymethod`, set
+  via `expo.android.package` in `app.json` for the first time (previously
+  unset). Chosen to match the org's reverse-domain convention
+  (`ie.focusedcarepsychology.*`); no prior installed build exists under
+  any other identifier, so there is no migration concern.
+- **Visible app name** changed from the slug-derived `murphy-method` to
+  `Murphy Method` (`expo.name`). `expo.slug` (`murphy-method`) and
+  `expo.scheme` (`murphymethod`) deliberately left unchanged — the slug is
+  Expo project identity and the scheme is load-bearing for the Phase 2B
+  auth deep links (`docs/ANDROID_BUILD.md` §3).
+- **`eas.json`**: added for the first time, with a single `preview` build
+  profile (`distribution: "internal"`, `android.buildType: "apk"`) plus
+  the `cli.appVersionSource: "remote"` field the currently-installed EAS
+  CLI now requires for non-interactive builds. `buildType: "apk"` is a
+  deliberate override of EAS's `.aab` default so the build is directly
+  installable on a device without Google Play or `bundletool` — see
+  `docs/ANDROID_BUILD.md` §2 for the full rationale. No `development`
+  profile / `expo-dev-client` added (not requested; this is meant to be a
+  standalone, production-like preview build), no `production` profile
+  (Play Store submission is explicitly out of scope for this change).
+- **Supabase client env vars for EAS builds**: documented (not
+  committed) — `docs/SUPABASE_SETUP.md` §6, `docs/ANDROID_BUILD.md` §4.
+  Supplied as EAS environment variables scoped to the `preview`
+  environment, same two `EXPO_PUBLIC_*` values as local `.env`, still
+  never a service-role key/password/token.
+- **Not done, on purpose**: no `extra.eas.projectId` (requires an
+  authenticated EAS account to create/link — `docs/ANDROID_BUILD.md` §6),
+  no actual `eas build` invocation (same reason), no iOS bundle
+  identifier (not required for Android configuration), no onboarding/
+  auth/database changes of any kind.
