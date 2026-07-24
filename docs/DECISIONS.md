@@ -1113,3 +1113,103 @@ Linking.createURL('verify-email')`.
   continue to pass unmodified in behaviour (95 total).
 - No hosted Supabase project was created, modified, or connected to for
   this pass — client-side only, per this task's explicit scope.
+
+## 2026-07-24 — Phase 2B hosted-verification-fix correction pass
+
+**Real CI failure investigated:** GitHub Actions run 30094254573 (job
+89485692741), `Deploy Supabase (Development)` — migrations already applied
+to the real hosted development project via `supabase db push` (which
+succeeded), then `supabase test db --linked` reported `Result: FAIL,
+Files=13, Tests=241` with 5 failed assertions across 4 files, all the same
+shape: `throws_ok(..., '42501')` expecting an `UPDATE` by `authenticated`
+to fail at the raw-grant level, instead reporting "caught: no exception":
+`consent_records` (02, test 5), `health_screenings` and `pain_reports`
+(04, tests 3 and 6), `personal_records` (07, test 6), `audit_logs` (10,
+test 11). None of these UPDATEs actually mutated a row — each of the five
+tables has no UPDATE policy for `authenticated`, so RLS silently reduced
+every one to a 0-row no-op — but the raw-grant-level guarantee this
+project's design calls for (an unintended write should fail loudly with
+`insufficient_privilege`, not silently no-op) was not in place.
+
+**Root cause:** the exact `authenticated`-role counterpart of the `anon`
+gap fixed earlier the same day
+(`20260724060000_revoke_anon_default_table_grants.sql`): the real hosted
+Supabase platform's project-provisioning step sets `public`-schema default
+privileges broader than this project's own migrations ever asked for.
+Every migration already declares its intended grant per table (e.g.
+`grant select, insert on table public.audit_logs to authenticated;`), but
+`GRANT` is additive — it cannot remove a privilege a platform default
+already conferred — so those declarations were never actually narrowing
+anything on the real project. `scripts/local-pg-harness/00_auth_storage_shim.sql`
+(this repo's Docker-unavailable sandbox stand-in) never reproduced this,
+because it only ever grants `authenticated` schema `USAGE` plus whatever
+each migration explicitly grants — it has no broader baseline to begin
+with, so it had nothing to reveal. This was caught only where it can be:
+`supabase test db --linked` against the real hosted project.
+
+**Fix — explicit, deterministic privilege model, not a two-table patch:**
+audited the raw SQL privilege intent for `authenticated` across all 44
+application tables by treating every existing `grant ... to authenticated`
+statement already present in `supabase/migrations/` as the authoritative,
+already-decided contract (docs/DATABASE_SCHEMA.md §§1-15) — not a new
+decision, a restatement. `supabase/migrations/20260724070000_revoke_authenticated_default_table_grants.sql`
+revokes all privileges (and default privileges, for any future table) from
+`authenticated` on every `public`-schema table, then re-grants, table by
+table, exactly the same 44 statements already declared. A revoke is a safe
+no-op wherever the platform baseline never applied. `service_role` and
+`anon` grants are untouched by this migration.
+
+**Verification — extended, not duplicated:** check 7 in
+`supabase/tests/database/12_hosted_structural_verification.sql` now
+asserts the full `authenticated` SELECT/INSERT/UPDATE/DELETE matrix
+against all 44 tables (176 explicit, reviewable assertions — one row of
+intent per table, cross-checked line-for-line against the corrective
+migration during this pass), mirroring check 5's existing "no anon
+grant" stance but per-privilege and per-table rather than one aggregate
+count. `select plan(...)` moved 95 → 271. This file also gained its own
+`create extension if not exists pgtap with schema extensions;` so it no
+longer depends on `00_setup.sql` having run first.
+
+**Hosted CI architecture corrected:** `.github/workflows/deploy-supabase-dev.yml`
+previously ran `supabase test db --linked` over the entire
+`supabase/tests/database/` directory — the same command and default path
+used against a freshly-reset local database in `.github/workflows/ci.yml`.
+Against the hosted development project (never reset, by design — see this
+file's Phase 2B entries below on why `db reset --linked` is out of scope),
+that full suite's `00_setup.sql` fixture users and every other file's
+un-rolled-back `begin;...commit;` writes committed real rows to the real
+project. The deploy workflow now runs only
+`supabase test db supabase/tests/database/12_hosted_structural_verification.sql --linked`
+— the one file in that directory that is 100% read-only and does not
+depend on `00_setup.sql`'s fixtures. The full 241+-assertion RLS/owner
+suite is unchanged and remains authoritative in `ci.yml`, against a
+database `supabase db reset --local` resets before every run. Considered
+moving hosted-safe tests into a separate `supabase/tests/hosted/`
+directory (the task's suggested alternative); kept the file in
+`supabase/tests/database/` instead so local CI continues to exercise the
+exact same check it always has, without a second, parallel copy that
+could drift — only the hosted workflow's invocation changed, to name that
+one file explicitly instead of the whole directory.
+
+**Fixture contamination from the two prior full-suite hosted runs**
+(30094181154, 30094254573): audited, not assumed. Every application table
+reaches `public.profiles`, and from there `auth.users`, through an
+unbroken `on delete cascade` FK chain (confirmed against every migration),
+so the two fixture identities' data spans effectively every table but is
+fully removable by deleting the two fixture `auth.users` rows alone.
+`08_bodyscan.sql` already deletes its own `storage.objects` row within the
+same file, so no storage residue is expected there. Three
+`public.exercises` reference rows are NOT profile-scoped and so do not
+cascade-delete: `rls-test-squat` (05), `rls-test-squat-feedback` (06),
+`rls-test-service-role-exercise` (11) — all `on conflict (slug) do
+nothing` or otherwise identified by an exact, hardcoded test slug, never a
+pattern match against the real catalog. `scripts/cleanup-hosted-test-fixtures.sql`
+is a narrow, idempotent, human-run script for this — deliberately not
+executed by, or wired into any workflow triggered by, this correction
+pass, per this task's explicit "do not deploy anything remotely from this
+Claude session" constraint.
+
+**Not done, on purpose:** no hosted project reset, no re-run of the full
+deployment workflow, no merge. This pass only adds a migration, extends
+the existing hosted-safe test file, and corrects the deploy workflow's
+verification step; it does not touch Phase 3 scope.

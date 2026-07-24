@@ -2,19 +2,35 @@
 -- the deployed schema actually matches what Phase 2A/2B built, independent
 -- of the owner/RLS-behaviour assertions in every other file in this
 -- directory. Runs as part of the same pgTAP suite everywhere that suite
--- runs — `supabase test db --local` (the authoritative CI job,
--- .github/workflows/ci.yml) and `supabase test db --linked` (the hosted
--- development project, .github/workflows/deploy-supabase-dev.yml) — so
--- there is exactly one implementation of these checks, not a duplicate
--- SQL script that could drift from it. See docs/DECISIONS.md's Phase 2B
--- correction-pass entries for why this replaced a standalone
--- scripts/verify-hosted-schema.sql run over a manually-constructed direct
--- Postgres connection: `supabase test db --linked` already solves hosted
--- connectivity (including GitHub Actions' lack of default IPv6 egress,
--- which a hand-built `db.<ref>.supabase.co` URL runs straight into) via
--- the Supabase CLI's own supported connection handling, so reusing it here
--- needs no extra secret and no hand-maintained connection string.
-select plan(95);
+-- runs locally (`supabase test db --local`, the authoritative CI job,
+-- .github/workflows/ci.yml) — so there is exactly one implementation of
+-- these checks, not a duplicate SQL script that could drift from it. See
+-- docs/DECISIONS.md's Phase 2B correction-pass entries for why this
+-- replaced a standalone scripts/verify-hosted-schema.sql run over a
+-- manually-constructed direct Postgres connection: `supabase test db`
+-- already solves hosted connectivity (including GitHub Actions' lack of
+-- default IPv6 egress, which a hand-built `db.<ref>.supabase.co` URL runs
+-- straight into) via the Supabase CLI's own supported connection handling,
+-- so reusing it here needs no extra secret and no hand-maintained
+-- connection string.
+--
+-- Also invoked standalone, by path, against the hosted development
+-- project (`supabase test db supabase/tests/database/12_hosted_structural_verification.sql
+-- --linked`, .github/workflows/deploy-supabase-dev.yml) — deliberately
+-- NOT the whole `supabase/tests/database` directory there (see
+-- docs/DECISIONS.md's Phase 2B hosted-verification-fix entry): the rest of
+-- this directory's suite depends on 00_setup.sql's persistent User A/User
+-- B fixtures and assumes a database that gets reset before every run
+-- (`supabase db reset --local`), neither of which is true, or safe, to do
+-- against the shared hosted development project. This file alone is safe
+-- to run standalone against a never-reset hosted project because it is,
+-- deliberately, 100% read-only (no insert/update/delete anywhere below)
+-- and self-contained: it does not reference the 00_setup.sql fixture rows
+-- or any other file's data, and installs pgTAP itself (below) rather than
+-- assuming 00_setup.sql already ran in this session.
+create extension if not exists pgtap with schema extensions;
+
+select plan(271);
 
 -- The one, explicit allowlist of Murphy Method application tables, used by
 -- every check below instead of scanning pg_tables directly. This is
@@ -120,5 +136,128 @@ select is(
   false,
   'bodyscans storage bucket is private'
 );
+
+-- 7. `authenticated` has exactly the intended raw SQL privileges on every
+-- one of the 44 expected tables — no more, no less (Phase 2B
+-- hosted-verification-fix correction pass, docs/DECISIONS.md). This is the
+-- gap that let GitHub Actions run 30094254573 fail: every migration
+-- already declares its intended `grant ... to authenticated` per table,
+-- but on the real hosted platform that declaration is additive on top of
+-- an unreviewed, broader platform-provisioning baseline (the
+-- `authenticated` counterpart of the `anon` gap check 5 above already
+-- guards), so a raw grant a migration never asked for (observed: UPDATE on
+-- five immutable/append-only tables) can silently survive deployment. RLS
+-- itself was not the failure here (none of those UPDATEs mutated a row —
+-- each has no UPDATE policy for `authenticated`), but this repo's stance,
+-- consistent with check 5, is that the raw grant must match intent
+-- exactly as a defense-in-depth layer independent of RLS, not merely rely
+-- on RLS to silently swallow an unintended write.
+--
+-- The matrix below is not this file inventing new intent — it is a literal
+-- transcription of the per-table `grant ... to authenticated` statement
+-- already present in that table's own migration (cross-check:
+-- supabase/migrations/20260724070000_revoke_authenticated_default_table_grants.sql
+-- restates this identical matrix as the corrective revoke+grant). Kept
+-- explicit and reviewable here, one row per table, rather than computed
+-- from whatever `information_schema.role_table_grants` currently reports —
+-- the whole point is to fail when the live grants and this file's stated
+-- intent diverge, so the intent side must not be allowed to just mirror
+-- reality back at itself.
+create temporary table expected_authenticated_privileges (
+  name text primary key,
+  can_select boolean not null,
+  can_insert boolean not null,
+  can_update boolean not null,
+  can_delete boolean not null
+);
+insert into expected_authenticated_privileges (name, can_select, can_insert, can_update, can_delete) values
+  ('audit_logs',                true,  true,  false, false),
+  ('body_area_goals',           true,  true,  true,  true),
+  ('body_area_muscle_map',      true,  false, false, false),
+  ('body_measurements',         true,  true,  true,  true),
+  ('body_scan_images',          true,  true,  false, true),
+  ('body_scans',                true,  true,  false, true),
+  ('coach_messages',            true,  true,  false, false),
+  ('coach_threads',             true,  true,  true,  false),
+  ('consent_records',           true,  true,  false, false),
+  ('decision_evidence',         true,  true,  false, false),
+  ('equipment',                 true,  false, false, false),
+  ('exercise_equipment',        true,  false, false, false),
+  ('exercise_feedback',         true,  true,  false, false),
+  ('exercise_muscles',          true,  false, false, false),
+  ('exercise_restrictions',     true,  false, false, false),
+  ('exercise_substitutions',    true,  false, false, false),
+  ('exercises',                 true,  false, false, false),
+  ('goals',                     true,  false, false, false),
+  ('health_screenings',         true,  true,  false, false),
+  ('motivation_profiles',       true,  false, false, false),
+  ('movement_patterns',         true,  false, false, false),
+  ('muscles',                   true,  false, false, false),
+  ('notification_preferences',  true,  false, true,  false),
+  ('notification_responses',    true,  true,  false, false),
+  ('notifications',             true,  false, false, false),
+  ('pain_reports',               true,  true,  false, false),
+  ('performance_metrics',       true,  false, false, false),
+  ('personal_records',          true,  true,  false, false),
+  ('personal_response_models',  true,  false, false, false),
+  ('preference_signals',        true,  true,  false, false),
+  ('profiles',                  true,  true,  true,  false),
+  ('programme_decisions',       true,  true,  false, false),
+  ('programme_versions',        true,  true,  false, false),
+  ('programmes',                true,  true,  true,  false),
+  ('readiness_entries',         true,  true,  true,  false),
+  ('scan_quality',              true,  false, false, false),
+  ('set_logs',                  true,  true,  true,  true),
+  ('subscriptions',             true,  false, false, false),
+  ('training_blocks',           true,  true,  false, false),
+  ('user_equipment',            true,  true,  true,  true),
+  ('user_goals',                true,  true,  true,  true),
+  ('workout_exercises',         true,  true,  true,  false),
+  ('workout_feedback',          true,  true,  false, false),
+  ('workouts',                  true,  true,  true,  false);
+
+select ok(
+  case
+    when exists (select 1 from pg_tables where schemaname = 'public' and tablename = eap.name)
+      then has_table_privilege('authenticated', format('public.%I', eap.name), 'SELECT') = eap.can_select
+    else false
+  end,
+  format('authenticated SELECT privilege on public.%s matches intent (expected %s)', eap.name, eap.can_select)
+)
+from expected_authenticated_privileges eap
+order by eap.name;
+
+select ok(
+  case
+    when exists (select 1 from pg_tables where schemaname = 'public' and tablename = eap.name)
+      then has_table_privilege('authenticated', format('public.%I', eap.name), 'INSERT') = eap.can_insert
+    else false
+  end,
+  format('authenticated INSERT privilege on public.%s matches intent (expected %s)', eap.name, eap.can_insert)
+)
+from expected_authenticated_privileges eap
+order by eap.name;
+
+select ok(
+  case
+    when exists (select 1 from pg_tables where schemaname = 'public' and tablename = eap.name)
+      then has_table_privilege('authenticated', format('public.%I', eap.name), 'UPDATE') = eap.can_update
+    else false
+  end,
+  format('authenticated UPDATE privilege on public.%s matches intent (expected %s)', eap.name, eap.can_update)
+)
+from expected_authenticated_privileges eap
+order by eap.name;
+
+select ok(
+  case
+    when exists (select 1 from pg_tables where schemaname = 'public' and tablename = eap.name)
+      then has_table_privilege('authenticated', format('public.%I', eap.name), 'DELETE') = eap.can_delete
+    else false
+  end,
+  format('authenticated DELETE privilege on public.%s matches intent (expected %s)', eap.name, eap.can_delete)
+)
+from expected_authenticated_privileges eap
+order by eap.name;
 
 select * from finish();

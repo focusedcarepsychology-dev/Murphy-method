@@ -100,21 +100,37 @@ jobs:
       # Supabase's IPv4 add-on, and GitHub-hosted Actions runners do not
       # have IPv6 egress — so that step was not reliably runnable here, and
       # has been removed rather than papered over with a second pooler
-      # secret. `supabase db push` above and `supabase test db --linked`
-      # below both go through the Supabase CLI's own connection handling
-      # (the same mechanism Supabase's own official GitHub Actions
-      # guidance uses for `db push` in CI), not a hand-rolled URL, so they
-      # do not hit this problem. Structural verification (44 tables, RLS,
-      # required functions, service_role grants, no anon grants, private
-      # BodyScan bucket) now lives in
-      # supabase/tests/database/12_hosted_structural_verification.sql —
-      # one pgTAP file, run as part of the one command below, both locally
-      # (.github/workflows/ci.yml's `database` job, `--local`) and here
-      # (`--linked`), instead of a second, separately-connected script.
-      # See docs/DECISIONS.md's Phase 2B correction-pass entry.
-      - name: Run pgTAP suite (RLS + hosted structural verification) against the linked project
+      # secret. `supabase db push` above and `supabase test db` below both
+      # go through the Supabase CLI's own connection handling (the same
+      # mechanism Supabase's own official GitHub Actions guidance uses for
+      # `db push` in CI), not a hand-rolled URL, so they do not hit this
+      # problem.
+      #
+      # --- Hosted verification scope note ----------------------------------
+      # This step deliberately runs ONE named pgTAP file, not the whole
+      # `supabase/tests/database` directory (Phase 2B hosted-verification-fix
+      # correction pass, docs/DECISIONS.md). The full RLS/owner-behaviour
+      # suite (`00_*.sql` through `11_*.sql`) depends on `00_setup.sql`'s
+      # persistent User A/User B fixtures and assumes the database was just
+      # reset (`supabase db reset --local` — .github/workflows/ci.yml's
+      # `database` job, the authoritative full run for that suite); this
+      # hosted development project is never reset here (see this file's
+      # "manual-only" note above) and running that fixture-dependent suite
+      # against it previously left real fixture rows behind (see
+      # docs/DECISIONS.md's fixture-contamination entry and
+      # scripts/cleanup-hosted-test-fixtures.sql). Only
+      # supabase/tests/database/12_hosted_structural_verification.sql is
+      # safe to run standalone here: it is 100% read-only (no
+      # insert/update/delete), installs pgTAP itself rather than assuming
+      # 00_setup.sql already ran, and does not reference any fixture row —
+      # it checks the deployed schema's shape and raw grants (44 expected
+      # tables, RLS enabled, required functions, service_role/anon/
+      # authenticated privilege matrices, private BodyScan bucket), which
+      # is exactly the class of drift a `supabase db push` against a
+      # never-reset hosted project can introduce.
+      - name: Run hosted-safe structural/security verification against the linked project
         id: verify
-        run: supabase test db --linked
+        run: supabase test db supabase/tests/database/12_hosted_structural_verification.sql --linked
 
       - name: Job summary
         if: always()
@@ -143,5 +159,5 @@ jobs:
             echo "- Target: hosted DEVELOPMENT project only (never production)"
             echo "- Source: \`main\` branch only, regardless of which branch this workflow run was triggered from"
             echo "- Migration mechanism: \`supabase db push\` (supabase/migrations/), no ad-hoc SQL"
-            echo "- Verification: \`supabase test db --linked\` (pgTAP RLS suite + structural checks, supabase/tests/database/)"
+            echo "- Verification: hosted-safe structural/security checks only (supabase/tests/database/12_hosted_structural_verification.sql, \`--linked\`). The full RLS/owner-behaviour suite runs in normal CI against a freshly-reset local stack (.github/workflows/ci.yml), not here."
           } >> "$GITHUB_STEP_SUMMARY"
