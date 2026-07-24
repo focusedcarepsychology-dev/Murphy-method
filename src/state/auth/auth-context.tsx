@@ -301,6 +301,7 @@ export function AuthProvider({ children, client: injectedClient }: AuthProviderP
 
   const value: AuthContextValue = {
     state,
+    client,
     signUp,
     signIn,
     signOut,

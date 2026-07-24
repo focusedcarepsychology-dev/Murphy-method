@@ -17,6 +17,8 @@ export type OnboardingScaffoldProps = {
   onNext: () => void;
   nextLabel?: string;
   nextDisabled?: boolean;
+  /** Shows a spinner on the primary action and disables it, for an in-flight save. */
+  nextLoading?: boolean;
 };
 
 /**
@@ -33,6 +35,7 @@ export function OnboardingScaffold({
   onNext,
   nextLabel = 'Next',
   nextDisabled = false,
+  nextLoading = false,
 }: OnboardingScaffoldProps) {
   const { spacing } = useTheme();
   const total = onboardingSteps.length;
@@ -57,7 +60,12 @@ export function OnboardingScaffold({
       {children ? <View style={{ gap: spacing.three, flex: 1 }}>{children}</View> : null}
 
       <View style={{ gap: spacing.two, marginTop: 'auto' }}>
-        <PrimaryButton label={nextLabel} onPress={onNext} disabled={nextDisabled} />
+        <PrimaryButton
+          label={nextLabel}
+          onPress={onNext}
+          disabled={nextDisabled}
+          loading={nextLoading}
+        />
         {onBack ? <TertiaryButton label="Back" onPress={onBack} fullWidth /> : null}
       </View>
     </ScrollScreen>

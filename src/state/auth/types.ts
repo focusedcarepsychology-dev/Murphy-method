@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
 
+import type { MurphySupabaseClient } from '@/services/supabase/client';
 import type { AuthDeepLinkKind } from '@/state/auth/process-auth-deep-link';
 
 /**
@@ -54,6 +55,15 @@ export type DeepLinkNotice = { kind: AuthDeepLinkKind; outcome: 'established' | 
 
 export type AuthContextValue = {
   state: AuthState;
+  /**
+   * The single shared Supabase client instance driving this provider
+   * (docs/IMPLEMENTATION_PLAN.md Phase 2 §4, §14 test/mocking boundary).
+   * Onboarding/domain services (`src/services/onboarding`) read this
+   * rather than calling `getSupabaseClient()` directly, so a test that
+   * injects `<AuthProvider client={mock}>` transparently covers every
+   * authenticated call the app makes, not just auth itself.
+   */
+  client: MurphySupabaseClient;
   signUp: (input: { email: string; password: string }) => Promise<SignUpResult>;
   signIn: (input: { email: string; password: string }) => Promise<AuthResult>;
   signOut: () => Promise<AuthResult>;

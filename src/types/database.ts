@@ -1504,7 +1504,21 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      // supabase/migrations/20260724080100_onboarding_rpc_functions.sql
+      set_user_goal_priorities: {
+        Args: { p_goal_keys: string[] };
+        Returns: Database['public']['Tables']['user_goals']['Row'][];
+      };
+      submit_safety_screening: {
+        Args: { p_screening_version: string; p_responses: Json };
+        Returns: Database['public']['Tables']['health_screenings']['Row'];
+      };
+      complete_onboarding: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

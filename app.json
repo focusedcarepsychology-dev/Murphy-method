@@ -32,6 +32,13 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Murphy Method uses your camera to capture optional BodyScan progress photos. Photos are stored privately in your account and are not publicly shared.",
+          "photosPermission": "Murphy Method can use a photo from your library for an optional BodyScan progress photo. Photos are stored privately in your account and are not publicly shared."
+        }
       ]
     ],
     "experiments": {
