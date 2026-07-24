@@ -1480,22 +1480,23 @@ merge.
   `eas build --profile preview --platform android --non-interactive --no-wait`,
   authenticating via the
   `EXPO_TOKEN` environment variable — the EAS CLI's own supported
-  non-interactive auth mechanism (mirrors how `deploy-supabase-dev.yml`
-  authenticates the Supabase CLI via `SUPABASE_ACCESS_TOKEN`, same
-  rationale: no credential ever appears as a command-line argument or in
-  workflow logs). Scoped to a GitHub Environment named `eas-preview` so
-  the secret and any required-reviewer protection live in repo settings,
-  not this file. Validates the secret is present before doing anything
-  else and runs `scripts/check-no-secrets.js` first, same
+  non-interactive auth mechanism (same rationale as
+  `deploy-supabase-dev.yml` authenticating the Supabase CLI via
+  `SUPABASE_ACCESS_TOKEN`: no credential ever appears as a command-line
+  argument or in workflow logs). Unlike `deploy-supabase-dev.yml`, this
+  workflow does **not** use a GitHub Environment — `EXPO_TOKEN` is a
+  plain repository Secret. Validates the secret is present before doing
+  anything else and runs `scripts/check-no-secrets.js` first, same
   defence-in-depth pattern as the existing `ci.yml` app job.
 - **`docs/ANDROID_BUILD.md` §7** (new): documents generating an Expo
-  access token, creating the `eas-preview` environment, and adding
-  `EXPO_TOKEN` as an environment secret. Explicit that this token
-  authenticates the EAS CLI only — it is never an `EXPO_PUBLIC_*`
-  variable, never inlined into the client bundle, and never passed to
-  `eas env:create`/committed anywhere in this repository, consistent with
-  `CLAUDE.md`'s "never expose secrets or privileged API keys
-  client-side." `EXPO_PUBLIC_SUPABASE_URL`/
+  access token and adding it as a repository **Secret** named
+  `EXPO_TOKEN` (explicitly not a repository **Variable** — those are
+  plaintext/visible in the GitHub UI, wrong for a credential). Explicit
+  that this token authenticates the EAS CLI only — it is never an
+  `EXPO_PUBLIC_*` variable, never inlined into the client bundle, and
+  never passed to `eas env:create`/committed anywhere in this repository,
+  consistent with `CLAUDE.md`'s "never expose secrets or privileged API
+  keys client-side." `EXPO_PUBLIC_SUPABASE_URL`/
   `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` continue to come from the
   `preview` EAS environment (§4 of the same doc), unrelated to and
   unaffected by this token.

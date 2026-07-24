@@ -154,20 +154,17 @@ To set it up:
    owns this app's EAS project (§6 item 2). Treat it like any other
    credential capable of triggering builds and reading project
    configuration under that account.
-2. Create a GitHub Environment named `eas-preview` in this repository's
-   settings (`Settings → Environments`), matching the
-   `supabase-development` pattern already used by
-   `.github/workflows/deploy-supabase-dev.yml`. This scopes the secret and
-   lets required-reviewer protection be configured without any workflow
-   file change.
-3. Add the token as an **Environment secret** named `EXPO_TOKEN` on that
-   environment (never as a repository variable, never committed to any
-   file in this repository — same rule as every other credential in this
-   project; see `docs/SUPABASE_SETUP.md` §6 step 4's warning against ever
-   putting an Expo access token into `eas env:create` or `.env`, which is
-   about a different, unrelated thing — this token authenticates the EAS
-   _CLI_, it is never inlined into the client bundle).
-4. Trigger the workflow manually (`Actions` → `EAS Build (Android Preview)`
+2. Add the token as a **repository Secret** named `EXPO_TOKEN`
+   (`Settings → Secrets and variables → Actions → Secrets` — the
+   **Secrets** tab, not **Variables**: repository Variables are plaintext
+   and visible in the UI, which is wrong for a credential like this).
+   Never commit it to any file in this repository, and never add it as a
+   `EXPO_PUBLIC_*` value or pass it to `eas env:create` — see
+   `docs/SUPABASE_SETUP.md` §6 step 4's warning against ever putting an
+   Expo access token into an EAS environment variable, which is a
+   different, unrelated thing — this token authenticates the EAS _CLI_,
+   it is never inlined into the client bundle.
+3. Trigger the workflow manually (`Actions` → `EAS Build (Android Preview)`
    → `Run workflow`). It submits the build and returns immediately
    (`--no-wait`); track progress and download the resulting APK from
    https://expo.dev.
