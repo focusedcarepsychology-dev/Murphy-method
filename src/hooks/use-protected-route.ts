@@ -29,6 +29,19 @@ export function useProtectedRoute() {
 
     const currentGroup = segments[0] as string | undefined;
 
+    if (state.status === 'password_recovery') {
+      // Deliberately does not fall through to the signed_in branches below
+      // — a recovery session must never route into (tabs)/(onboarding), it
+      // only ever goes to the reset-password screen (docs/ROUTES.md §3
+      // correction, Phase 2A).
+      const onResetPassword =
+        currentGroup === AUTH_GROUP && (segments as readonly string[])[1] === 'reset-password';
+      if (!onResetPassword) {
+        router.replace('/(auth)/reset-password');
+      }
+      return;
+    }
+
     if (state.status === 'signed_out' || state.status === 'error') {
       if (currentGroup !== AUTH_GROUP) {
         router.replace('/(auth)/welcome');

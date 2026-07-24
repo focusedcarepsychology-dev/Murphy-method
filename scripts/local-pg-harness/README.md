@@ -8,6 +8,19 @@ stand-in for the two pieces of Supabase-managed schema that the real
 migrations under `supabase/migrations/` assume already exist on any real
 Supabase project:
 
+**Known limitation — PostgreSQL version mismatch.** `supabase/config.toml`
+pins `major_version = 17` (the real local/hosted Supabase stack runs
+Postgres 17); this sandbox only has PostgreSQL 16.13 available via `apt`
+(no PGDG repository reachable to install 17), so this harness runs on 16.
+This was directly responsible for one real CI failure this phase (a
+Postgres-17-only Storage safety trigger, `storage.protect_delete`, that
+this harness did not reproduce until this correction pass — see the
+`storage.protect_delete` function below). Treat any harness result as a
+fast, supplementary signal only; `supabase test db --local` against the
+real stack (`.github/workflows/ci.yml`'s `database` job) is the
+authoritative result, precisely because gaps like this one are only
+guaranteed to surface there.
+
 - `auth.users` + `auth.uid()` (Supabase Auth's own schema/session function)
 - `storage.buckets` + `storage.objects` + `storage.foldername()` (Supabase
   Storage's own schema)
@@ -19,6 +32,20 @@ BodyScan storage policies call) needed to let the exact same migration SQL
 that ships to a real Supabase project run against plain PostgreSQL and have
 its RLS policies actually evaluated, so this phase's RLS claims are
 verified by execution, not just by reading the SQL.
+
+**Known limitation — `service_role` grant provisioning.** This harness's
+`alter default privileges ... grant ... to service_role` block (below)
+reproduces the assumption that the Supabase platform grants `service_role`
+full table access automatically at project-provisioning time. That
+assumption was wrong for this project's own migrations against the real
+local stack (CI run 30052333327 — every `service_role` write in
+`supabase/tests/database/11_privileged_service_role.sql` came back
+"permission denied"), so `supabase/migrations/20260723091900_service_role_grants.sql`
+now grants `service_role` explicitly instead of relying on platform
+provisioning. That migration also satisfies this harness's default
+privileges, so the harness passing is no longer contingent on this file's
+separate (now redundant, but left in place as defence-in-depth for a bare
+Postgres target) grant.
 
 **Never apply anything in this directory to a real Supabase project.** It
 is sandbox/CI-verification tooling only, applied _before_ the real

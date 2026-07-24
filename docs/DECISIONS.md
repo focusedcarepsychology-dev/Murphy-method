@@ -630,3 +630,102 @@ credentials were supplied this phase, per its own brief) — see
   in CI additionally against the `npx expo export --platform web` output
   directory, matching `docs/ACCEPTANCE_CRITERIA.md` #3's "verified by an
   automated build-artifact check."
+
+## 2026-07-24 — Phase 2A CI correction pass (PR #6, GitHub Actions run 30052333327)
+
+The Phase 2A PR's `database` CI job (`supabase test db --local` against the
+real local Supabase stack — the authoritative test path per
+`docs/SUPABASE_SETUP.md` §5) failed on the CI run following the PR's
+opening, despite the Docker-free `scripts/local-pg-harness/` run reporting
+all 145 assertions passing. This entry records the root causes and fixes;
+both were genuine defects the harness's own simplifications had masked,
+not flaky tests.
+
+- **`service_role` had no table privileges on any `public`-schema table.**
+  The prior Phase 2A entry above states the harness needed an explicit
+  default-privilege grant for `service_role` because "a real Supabase
+  project provisions `service_role`'s full-table access as a platform
+  default outside application migrations" — that assumption was wrong for
+  this project's own migrations against the real local stack:
+  `supabase/tests/database/11_privileged_service_role.sql` failed every
+  assertion with `permission denied for table profiles`/`exercises`/
+  `personal_response_models`/`performance_metrics`/`programmes`
+  (`42501`), because no migration ever granted `service_role` anything —
+  only `authenticated` was ever granted, per-table. `bypassrls` bypasses
+  RLS _policies_, not ordinary Postgres `GRANT`-based privilege checks, so
+  without an explicit grant `service_role` had no access at all. Fixed in
+  `supabase/migrations/20260723091900_service_role_grants.sql`: `grant all
+on all tables/sequences in schema public to service_role`, plus a
+  matching `alter default privileges` so later migrations don't need to
+  repeat it. This is a broad grant, but scoped to a role that is never
+  reachable by a client (server-only secret key, Edge Functions only) —
+  not a weakening of the `anon`/`authenticated` boundary, which is
+  untouched.
+- **A pgTAP test assumed a Postgres-level DELETE, not the real Supabase
+  Storage API's behaviour.** `supabase/tests/database/08_bodyscan.sql`
+  directly `delete from storage.objects ...` to assert ownership-scoped
+  RLS on Storage objects. Against the real stack this died on Supabase
+  Storage's `protect_delete` statement-level trigger — a safety net,
+  unrelated to RLS, that rejects any direct SQL `DELETE` on
+  `storage.objects` unless the session-local
+  `storage.allow_delete_query` setting is `true` (the Storage API sets
+  this itself before its own deletes, specifically to catch
+  orphaned-file bugs from raw SQL). Fixed by setting that flag
+  immediately before each direct `DELETE` in the test, mirroring what the
+  real Storage API does, so the RLS ownership policy is what's actually
+  exercised. Added one new regression assertion (`throws_like`,
+  `plan(17)` → `plan(18)`) confirming the trigger itself rejects a direct
+  delete without the flag — the exact defect class that let this slip
+  through undetected the first time.
+- **`scripts/local-pg-harness/` did not reproduce the `protect_delete`
+  trigger**, which is why it didn't catch the bug above. Added an
+  equivalent trigger to `00_auth_storage_shim.sql` so the harness now
+  fails the same way the real stack does when this class of bug
+  recurs. The harness's PostgreSQL-16-vs-`config.toml`'s-Postgres-17
+  version gap (no PGDG package reachable from the sandbox to install 17)
+  is the likely reason this specific trigger wasn't already present —
+  documented explicitly in the harness `README.md` as a known limitation
+  rather than left implicit, per this correction pass's brief not to
+  describe the harness as equivalent to the real stack. Re-verifying this
+  pass's fixes from a genuinely from-scratch database (`dropdb`/`createdb`,
+  no manual pre-setup) also surfaced a second, previously-masked harness
+  gap: the harness's `extensions` schema was never added to the database's
+  `search_path`, so `supabase/tests/database/00_setup.sql`'s own
+  `create extension pgtap with schema extensions` left `plan()` and every
+  other pgtap function unreachable by their unqualified names — this had
+  gone unnoticed only because an earlier manual verification step had
+  pre-installed pgtap into `public` directly, masking it. Real Supabase
+  projects put `extensions` on `search_path` by default for exactly this
+  reason; fixed with `alter database ... set search_path = public,
+extensions` in `00_auth_storage_shim.sql`.
+- **Table count arithmetic in the original PR description was wrong.**
+  It stated "40 P0 tables + 3 P1-reserved = 44." `docs/DATABASE_SCHEMA.md`
+  §17's table lists 41 P0 tables (recounted directly from the doc, not
+  from memory) + 3 P1-reserved = 44 — the total (44) was right, matching
+  all 44 `create table public.*` statements across
+  `supabase/migrations/`, but the P0/P1 breakdown was misstated. No
+  schema change; only the reported breakdown was wrong.
+- **Password-recovery completion was audited and found incomplete**, per
+  this correction pass's brief: `resetPasswordForEmail` sent no
+  `redirectTo`, `supabase/config.toml`'s `additional_redirect_urls` only
+  allowed localhost web URLs, no route existed to receive a recovery deep
+  link, and no UI existed to set a new password — the flow could send an
+  email but never complete. Implemented the full client-side lifecycle:
+  `resetPasswordForEmail` now sends `redirectTo: Linking.createURL('reset-password')`;
+  `supabase/config.toml` allows `murphymethod://**`/`exp://**` locally;
+  a new `AuthState` status (`password_recovery`, distinct from
+  `signed_in` — Supabase emits a real session on `PASSWORD_RECOVERY`, but
+  it must never be treated as an ordinary authenticated session) is set
+  from that `onAuthStateChange` event; `useProtectedRoute` gained a fourth
+  guard rule (`docs/ROUTES.md` §3) forcing that session onto
+  `(auth)/reset-password` exclusively, overriding the normal
+  signed-in-routes-into-the-app rules; the new screen collects and
+  confirms a new password (reusing `validatePassword`/
+  `validatePasswordConfirmation`) and calls a new
+  `updatePasswordAndSignOut` (`auth.updateUser` then `auth.signOut`, so
+  the user returns to Sign In with the new password rather than a
+  lingering recovery-scoped session). The one piece genuinely deferred to
+  Phase 2B is the remote project's own dashboard redirect-URL allow-list
+  entry (no remote project exists yet this phase) — documented precisely
+  in `docs/SUPABASE_SETUP.md` §6 rather than left for Phase 2B to
+  rediscover.

@@ -134,7 +134,7 @@ directly in that sandbox. Instead:
 - Every migration was applied to a clean database this way and confirmed
   to rebuild the schema with zero errors, with all 44 tables showing RLS
   enabled.
-- The full pgTAP suite (`supabase/tests/database/`, 145 assertions across
+- The full pgTAP suite (`supabase/tests/database/`, 146 assertions across
   12 files) was run against that harness database with `pg_prove` (pgtap
   installed via `apt-get install postgresql-16-pgtap`) and passed
   completely.
@@ -142,7 +142,14 @@ directly in that sandbox. Instead:
   the real `supabase start` stack on GitHub-hosted runners (where Docker
   is available) as the independent, authoritative source of truth —
   inspect that job's result on this PR before treating the database layer
-  as verified end-to-end.
+  as verified end-to-end. **This harness passing is not proof the real
+  stack will pass** — the Phase 2A correction pass (`docs/DECISIONS.md`,
+  2026-07-24 entry) found two real-stack-only failures (missing
+  `service_role` grants; a Storage safety trigger the harness didn't
+  reproduce at the time) that this harness's own simplifications had
+  masked. Both are now fixed and the harness updated to catch the second
+  class of gap going forward, but the real CI job remains the only
+  authoritative signal.
 
 ## 6. Phase 2B — connecting a remote project
 
@@ -157,9 +164,22 @@ When Phase 2B begins:
    the app's real deployment environment (EAS secrets, `.env` for local
    dev against the remote project, etc.) — still only ever the public
    URL/publishable key, never a service-role key or access token.
-5. Re-run `supabase test db --linked` (or `--local` against a pulled copy)
+5. **Password recovery redirect URL** (Phase 2A correction pass): the
+   client already builds and sends `redirectTo` on every
+   `resetPasswordForEmail` call (`src/state/auth/auth-context.tsx`,
+   `Linking.createURL('reset-password')` — resolves to
+   `murphymethod://reset-password` in a built/standalone app), and
+   `src/app/(auth)/reset-password.tsx` + the `PASSWORD_RECOVERY` handling
+   in `onAuthStateChange` already implement the full completion flow. The
+   remote project's dashboard (Authentication → URL Configuration →
+   Redirect URLs) must allow `murphymethod://**` — mirroring
+   `supabase/config.toml`'s local `additional_redirect_urls` — or Supabase
+   will reject `redirectTo` and silently fall back to `site_url`, which
+   breaks the flow for a mobile user. Nothing else in this flow depends on
+   the remote project; only this dashboard allow-list entry is deferred.
+6. Re-run `supabase test db --linked` (or `--local` against a pulled copy)
    to confirm RLS holds on the real project.
-6. Regenerate `src/types/database.ts` from the linked project if its
+7. Regenerate `src/types/database.ts` from the linked project if its
    schema has diverged from `supabase/migrations/` for any reason (it
    shouldn't have, if `db push` was used consistently).
 

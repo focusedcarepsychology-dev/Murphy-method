@@ -1,10 +1,20 @@
 import type { Session } from '@supabase/supabase-js';
+import * as Linking from 'expo-linking';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { getSupabaseClient, type MurphySupabaseClient } from '@/services/supabase/client';
 import { mapAuthErrorMessage } from '@/state/auth/auth-errors';
 import type { AuthContextValue, AuthResult, AuthState, SignUpResult } from '@/state/auth/types';
+
+/**
+ * Deep link the password-recovery email points at (`(auth)/reset-password`,
+ * matching the Expo Router path). Must be registered as an allowed redirect
+ * URL in the Supabase project's Auth settings — local dev's `supabase/config.toml`
+ * already allows `murphymethod://**`; Phase 2B must add the equivalent for
+ * the remote project (`docs/SUPABASE_SETUP.md` §6).
+ */
+const PASSWORD_RECOVERY_REDIRECT_PATH = 'reset-password';
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -123,8 +133,16 @@ export function AuthProvider({ children, client: injectedClient }: AuthProviderP
 
     const {
       data: { subscription },
-    } = client.auth.onAuthStateChange((_event, session) => {
+    } = client.auth.onAuthStateChange((event, session) => {
       if (!mountedRef.current) return;
+      // A password-recovery link opened as a deep link: this session is
+      // scoped to setting a new password, not to using the app as this
+      // user (see AuthState['password_recovery'] and useProtectedRoute).
+      if (event === 'PASSWORD_RECOVERY' && session) {
+        lastLoadedUserIdRef.current = null;
+        setState({ status: 'password_recovery', session });
+        return;
+      }
       applySession(session);
     });
 
@@ -163,8 +181,24 @@ export function AuthProvider({ children, client: injectedClient }: AuthProviderP
 
   const resetPasswordForEmail = useCallback<AuthContextValue['resetPasswordForEmail']>(
     async (email): Promise<AuthResult> => {
-      const { error } = await client.auth.resetPasswordForEmail(email);
+      const redirectTo = Linking.createURL(PASSWORD_RECOVERY_REDIRECT_PATH);
+      const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo });
       return { error: error ? mapAuthErrorMessage(error) : null };
+    },
+    [client],
+  );
+
+  const updatePasswordAndSignOut = useCallback<AuthContextValue['updatePasswordAndSignOut']>(
+    async (newPassword): Promise<AuthResult> => {
+      const { error } = await client.auth.updateUser({ password: newPassword });
+      if (error) {
+        return { error: mapAuthErrorMessage(error) };
+      }
+      // The recovery session's only purpose was setting this password —
+      // sign it out so the user lands back on Sign In with the new one,
+      // rather than leaving a recovery-scoped session live.
+      await client.auth.signOut();
+      return { error: null };
     },
     [client],
   );
@@ -196,6 +230,7 @@ export function AuthProvider({ children, client: injectedClient }: AuthProviderP
     signIn,
     signOut,
     resetPasswordForEmail,
+    updatePasswordAndSignOut,
     resendVerificationEmail,
     retryProfileLoad,
     refreshSession,

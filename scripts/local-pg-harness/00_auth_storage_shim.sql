@@ -41,6 +41,20 @@ alter default privileges in schema public grant usage, select on sequences to se
 create schema if not exists extensions;
 grant usage on schema extensions to anon, authenticated, service_role;
 
+-- Every real Supabase project puts `extensions` on the default
+-- `search_path` (alongside `public`) precisely so `create extension x with
+-- schema extensions` (as this project's own migrations and
+-- `supabase/tests/database/00_setup.sql`'s pgtap install do) still resolves
+-- unqualified calls like `plan(2)`/`auth.uid()`'s pgcrypto dependencies.
+-- Without this, pgtap's own functions are only reachable as
+-- `extensions.plan(...)`, which is not what any real Supabase project or
+-- this repo's own test files assume.
+do $$
+begin
+  execute format('alter database %I set search_path = public, extensions', current_database());
+end
+$$;
+
 -- Minimal auth schema: only what the migrations' FKs and RLS policies
 -- actually reference (auth.users.id, auth.uid()). Not a copy of Supabase
 -- Auth's real schema.
@@ -108,3 +122,32 @@ $$;
 
 grant select, insert, update, delete on all tables in schema storage to anon, authenticated, service_role;
 grant select, insert, update, delete on all tables in schema auth to anon, authenticated, service_role;
+
+-- CI correction (Phase 2A, GitHub Actions run 30052333327): the real
+-- Supabase Storage schema rejects any direct SQL DELETE on
+-- `storage.objects` ("Direct deletion from storage tables is not allowed.
+-- Use the Storage API instead.") unless the session-local
+-- `storage.allow_delete_query` setting is true — a safety net against
+-- orphaned files that the harness previously did not reproduce, which let
+-- `supabase/tests/database/08_bodyscan.sql`'s direct
+-- `delete from storage.objects` statements pass here while failing against
+-- the real stack. Reproduced as a statement-level trigger so the harness
+-- now catches this class of shim/real divergence itself instead of only
+-- discovering it in CI.
+create or replace function storage.protect_delete()
+returns trigger
+language plpgsql
+as $$
+begin
+  if coalesce(current_setting('storage.allow_delete_query', true), 'false') <> 'true' then
+    raise exception 'Direct deletion from storage tables is not allowed. Use the Storage API instead.'
+      using hint = 'This prevents accidental data loss from orphaned objects.';
+  end if;
+  return null;
+end;
+$$;
+
+drop trigger if exists protect_delete on storage.objects;
+create trigger protect_delete
+  before delete on storage.objects
+  for each statement execute function storage.protect_delete();

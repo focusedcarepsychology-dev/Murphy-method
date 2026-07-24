@@ -4,6 +4,14 @@ import type { PropsWithChildren } from 'react';
 import { AuthProvider, useAuth } from '@/state/auth/auth-context';
 import { createMockSession, createMockSupabaseClient } from '@/test-utils/mock-supabase-client';
 
+// `Linking.createURL` needs the Expo Constants manifest that only a full
+// `renderRouter`-driven app tree provides (see src/app/__tests__/route-guards.test.tsx);
+// this file drives AuthProvider directly via renderHook, so the manifest
+// is never populated — mock the one call this module makes.
+jest.mock('expo-linking', () => ({
+  createURL: jest.fn((path: string) => `murphymethod://${path}`),
+}));
+
 function wrapperFor(client: ReturnType<typeof createMockSupabaseClient>['client']) {
   return function Wrapper({ children }: PropsWithChildren) {
     return <AuthProvider client={client}>{children}</AuthProvider>;
@@ -188,6 +196,85 @@ describe('AuthProvider / useAuth', () => {
     });
 
     expect(response?.error).toBeNull();
+  });
+
+  it('password-reset request sends a redirectTo pointing at the reset-password deep link', async () => {
+    const mock = createMockSupabaseClient();
+    const { result } = await renderHook(() => useAuth(), { wrapper: wrapperFor(mock.client) });
+    await waitFor(() => expect(result.current.state.status).toBe('signed_out'));
+
+    await act(async () => {
+      await result.current.resetPasswordForEmail('user-a@example.com');
+    });
+
+    expect(mock.auth.resetPasswordForEmail).toHaveBeenCalledWith(
+      'user-a@example.com',
+      expect.objectContaining({ redirectTo: expect.stringContaining('reset-password') }),
+    );
+  });
+
+  it('opening a password-recovery link sets status: password_recovery, not signed_in', async () => {
+    const mock = createMockSupabaseClient();
+    const { result } = await renderHook(() => useAuth(), { wrapper: wrapperFor(mock.client) });
+    await waitFor(() => expect(result.current.state.status).toBe('signed_out'));
+
+    await act(async () => {
+      mock.emitAuthStateChange('PASSWORD_RECOVERY', createMockSession());
+    });
+
+    expect(result.current.state.status).toBe('password_recovery');
+    // Never treated as an ordinary signed-in session: no profile fetch.
+    expect(mock.from).not.toHaveBeenCalled();
+  });
+
+  it('updatePasswordAndSignOut saves the new password and signs the recovery session out', async () => {
+    const mock = createMockSupabaseClient();
+    const { result } = await renderHook(() => useAuth(), { wrapper: wrapperFor(mock.client) });
+    await waitFor(() => expect(result.current.state.status).toBe('signed_out'));
+
+    await act(async () => {
+      mock.emitAuthStateChange('PASSWORD_RECOVERY', createMockSession());
+    });
+    expect(result.current.state.status).toBe('password_recovery');
+
+    mock.auth.signOut.mockImplementationOnce(async () => {
+      mock.emitAuthStateChange('SIGNED_OUT', null);
+      return { error: null };
+    });
+
+    let response: Awaited<ReturnType<typeof result.current.updatePasswordAndSignOut>> | undefined;
+    await act(async () => {
+      response = await result.current.updatePasswordAndSignOut('a-new-strong-password');
+    });
+
+    expect(response?.error).toBeNull();
+    expect(mock.auth.updateUser).toHaveBeenCalledWith({ password: 'a-new-strong-password' });
+    expect(mock.auth.signOut).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(result.current.state.status).toBe('signed_out'));
+  });
+
+  it('updatePasswordAndSignOut surfaces an error without signing out', async () => {
+    const mock = createMockSupabaseClient();
+    mock.auth.updateUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: new Error('Password should be at least 8 characters'),
+    });
+
+    const { result } = await renderHook(() => useAuth(), { wrapper: wrapperFor(mock.client) });
+    await waitFor(() => expect(result.current.state.status).toBe('signed_out'));
+
+    await act(async () => {
+      mock.emitAuthStateChange('PASSWORD_RECOVERY', createMockSession());
+    });
+
+    let response: Awaited<ReturnType<typeof result.current.updatePasswordAndSignOut>> | undefined;
+    await act(async () => {
+      response = await result.current.updatePasswordAndSignOut('short');
+    });
+
+    expect(response?.error).toBe('Password should be at least 8 characters');
+    expect(mock.auth.signOut).not.toHaveBeenCalled();
+    expect(result.current.state.status).toBe('password_recovery');
   });
 
   it('sign-out clears the session back to signed_out', async () => {

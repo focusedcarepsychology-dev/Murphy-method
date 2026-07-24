@@ -1,7 +1,24 @@
 -- docs/DATABASE_SCHEMA.md §19 / docs/ARCHITECTURE.md §9.1: BodyScans —
 -- body_scans, body_scan_images, plus the underlying Storage objects
 -- (object-level access must be tested directly, not just the row).
-select plan(17);
+--
+-- CI correction (Phase 2A): against the real local Supabase stack, a
+-- statement-level trigger on `storage.objects` rejects any direct SQL
+-- DELETE ("Direct deletion from storage tables is not allowed. Use the
+-- Storage API instead.") unless the session-local
+-- `storage.allow_delete_query` setting is true — the Storage API sets this
+-- flag itself before issuing its own DELETEs, precisely so an orphaned-file
+-- bug can't slip in via a raw SQL DELETE. GitHub Actions run 30052333327,
+-- job 89356840526 caught this: the two direct
+-- `delete from storage.objects ...` statements below (added when this
+-- suite was first written, before the flag's necessity was known) died on
+-- the trigger before RLS was ever reached. The fix below sets the flag
+-- immediately before each direct DELETE, exactly mirroring what the real
+-- Storage API does, so what's actually exercised is the RLS ownership
+-- policy underneath — not the orphan-file safety net, which is a
+-- deliberately separate protection and is itself asserted directly (test
+-- below).
+select plan(18);
 
 begin;
   set local role authenticated;
@@ -83,6 +100,8 @@ begin;
     'User B cannot select User A''s bodyscans storage object'
   );
 
+  set local storage.allow_delete_query = true;
+
   with deleted as (
     delete from storage.objects
       where bucket_id = 'bodyscans'
@@ -108,6 +127,16 @@ begin;
       returning 1
   )
   select is((select count(*)::int from deleted), 1, 'User A can delete own body_scans');
+
+  select throws_like(
+    $$ delete from storage.objects
+       where bucket_id = 'bodyscans'
+         and (storage.foldername(name))[1] = 'a0000000-0000-4000-8000-000000000001' $$,
+    '%Direct deletion from storage tables is not allowed%',
+    'Direct DELETE from storage.objects without storage.allow_delete_query is rejected (orphan-file safety net, not RLS)'
+  );
+
+  set local storage.allow_delete_query = true;
 
   with deleted as (
     delete from storage.objects

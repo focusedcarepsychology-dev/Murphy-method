@@ -23,7 +23,20 @@ export type AuthState =
       profileStatus: 'loading' | 'ready' | 'error';
       onboardingCompletedAt: string | null;
     }
-  | { status: 'error'; message: string };
+  | { status: 'error'; message: string }
+  | {
+      /**
+       * Opening a password-recovery link establishes a real Supabase
+       * session (Supabase emits `PASSWORD_RECOVERY`, not `SIGNED_IN`), but
+       * that session is scoped to setting a new password, not to using the
+       * app as this user — it must never be treated as an ordinary
+       * `signed_in` session by the route guard (docs/ROUTES.md §3), or the
+       * guard would route the user straight into the app before they've
+       * set a new password. Kept as its own status for exactly that reason.
+       */
+      status: 'password_recovery';
+      session: Session;
+    };
 
 export type AuthResult = { error: string | null };
 export type SignUpResult = AuthResult & { needsVerification: boolean };
@@ -34,6 +47,14 @@ export type AuthContextValue = {
   signIn: (input: { email: string; password: string }) => Promise<AuthResult>;
   signOut: () => Promise<AuthResult>;
   resetPasswordForEmail: (email: string) => Promise<AuthResult>;
+  /**
+   * Completes the recovery flow `resetPasswordForEmail` started: only
+   * meaningful while `state.status === 'password_recovery'`. Signs the
+   * recovery session out on success so the user returns to Sign In with
+   * their new password, rather than leaving a recovery-scoped session
+   * live (docs/IMPLEMENTATION_PLAN.md Phase 2A correction pass).
+   */
+  updatePasswordAndSignOut: (newPassword: string) => Promise<AuthResult>;
   resendVerificationEmail: (email: string) => Promise<AuthResult>;
   /** Re-fetches the profile-routing fields after a `profileStatus: 'error'`. */
   retryProfileLoad: () => void;

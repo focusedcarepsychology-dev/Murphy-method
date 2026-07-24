@@ -160,7 +160,15 @@ site_url = "http://127.0.0.1:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# `murphymethod://**` allows the Expo app's password-recovery deep link
+# (auth-context.tsx's PASSWORD_RECOVERY_REDIRECT_PATH, built via
+# Linking.createURL, resolves to `murphymethod://reset-password` in a
+# built app / `exp://.../--/reset-password` in Expo Go dev) — without an
+# entry here Supabase rejects redirectTo and falls back to site_url, which
+# would send a mobile user to a web URL they can't complete the flow from.
+# Phase 2B must add the equivalent allow-list entry for the remote project
+# (docs/SUPABASE_SETUP.md §6) since this file only configures local dev.
+additional_redirect_urls = ["https://127.0.0.1:3000", "murphymethod://**", "exp://**"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.

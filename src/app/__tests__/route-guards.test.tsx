@@ -1,4 +1,4 @@
-import { renderRouter, screen } from 'expo-router/testing-library';
+import { act, renderRouter, screen } from 'expo-router/testing-library';
 
 import { createMockSession, createMockSupabaseClient } from '@/test-utils/mock-supabase-client';
 
@@ -79,5 +79,30 @@ describe('route guards (docs/ROUTES.md §3)', () => {
     await renderRouter('src/app', { initialUrl: '/(tabs)/plan' });
 
     expect(await screen.findByText('My Plan')).toBeTruthy();
+  });
+
+  it('forces a password-recovery session onto Reset Password from a private tab, not the app', async () => {
+    mockSupabase.setInitialSession(createMockSession());
+    mockSupabase.mockProfileResponse({ onboarding_completed_at: '2026-01-01T00:00:00.000Z' });
+
+    await renderRouter('src/app', { initialUrl: '/(tabs)/today' });
+    expect(await screen.findByText(/What's next/i)).toBeTruthy();
+
+    await act(async () => {
+      mockSupabase.emitAuthStateChange('PASSWORD_RECOVERY', createMockSession());
+    });
+
+    expect(await screen.findByText('Set a new password')).toBeTruthy();
+  });
+
+  it('forces a password-recovery session onto Reset Password even from Sign In (not the ordinary auth flow)', async () => {
+    await renderRouter('src/app', { initialUrl: '/(auth)/sign-in' });
+    expect(await screen.findByText('Sign in')).toBeTruthy();
+
+    await act(async () => {
+      mockSupabase.emitAuthStateChange('PASSWORD_RECOVERY', createMockSession());
+    });
+
+    expect(await screen.findByText('Set a new password')).toBeTruthy();
   });
 });

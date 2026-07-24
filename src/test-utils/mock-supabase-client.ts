@@ -32,6 +32,10 @@ export function createMockSupabaseClient() {
     })),
     signOut: jest.fn(async () => ({ error: null as AuthError | null })),
     resetPasswordForEmail: jest.fn(async () => ({ data: {}, error: null as AuthError | null })),
+    updateUser: jest.fn(async () => ({
+      data: { user: null as unknown },
+      error: null as unknown,
+    })),
     resend: jest.fn(async () => ({ data: {}, error: null as AuthError | null })),
     startAutoRefresh: jest.fn(),
     stopAutoRefresh: jest.fn(),
