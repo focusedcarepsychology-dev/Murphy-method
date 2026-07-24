@@ -18,6 +18,16 @@ are in [`ACCEPTANCE_CRITERIA.md`](ACCEPTANCE_CRITERIA.md).
   the full supporting document set replaced from placeholder to
   authoritative content. No product code was written in this phase, per
   its own instructions.
+- **Phase 1 — Design System / Application Shell:** Murphy Method design
+  system (theme tokens, typography, shared UI primitives), the full route
+  shell (auth/onboarding/tabs/workout groups), light/dark support.
+- **Phase 2A/2B — Supabase / Auth / Database / RLS:** every P0/P1-reserved
+  table and its RLS policies deployed to a real hosted Supabase project;
+  email/password auth with native deep-link verification and password
+  recovery; hosted structural/privilege verification passing.
+- **Phase 3 — Onboarding** (this work): see below — the full 16-screen
+  flow now writes real data, with resume, forward-navigation guarding, and
+  a trusted server-side completion path.
 
 ## Phase 0 — Architecture / Foundation Verification
 
@@ -71,6 +81,18 @@ format:check` pass on the unmodified codebase.
   content seeded yet (Phase 4); no programme generation yet.
 
 ## Phase 3 — Onboarding
+
+**Status: complete.** All 16 screens (`SCREEN_SPECIFICATIONS.md` §2) write
+real Supabase data with resume/forward-navigation guarding;
+`completeOnboarding` is implemented as a `security definer` Postgres RPC
+rather than an Edge Function (no Deno runtime available in this sandbox —
+full rationale in `docs/DECISIONS.md` 2026-07-24 "Phase 3: Onboarding"),
+including the deterministic Phase 3 programme stand-in. Biological sex is
+not collected (`docs/OPEN_QUESTIONS.md` #1, resolved for MVP). See
+`docs/DECISIONS.md` for the complete list of decisions and known gaps
+(pgTAP not installed in this sandbox — verified by hand against real
+PostgreSQL instead; BodyScan camera capture not exercised on a real
+device).
 
 - **Dependencies:** Phase 2 (needs real auth + `profiles`/`user_goals`/etc.
   tables).
