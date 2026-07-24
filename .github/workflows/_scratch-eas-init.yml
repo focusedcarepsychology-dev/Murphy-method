@@ -72,6 +72,13 @@ jobs:
       - name: Show the resulting app.json change (no secrets in this diff)
         run: git --no-pager diff app.json
 
+      - name: Check for a GitHub repository connection on this EAS project
+        run: |
+          echo "--- eas-cli top-level help (looking for a github-connection subcommand) ---"
+          npx eas-cli --help || true
+          echo "--- eas-cli project:info --json (looking for a github/repository field) ---"
+          npx eas-cli project:info --json || true
+
       - name: Job summary
         if: always()
         run: |
