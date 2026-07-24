@@ -23,11 +23,16 @@
 -- B fixtures and assumes a database that gets reset before every run
 -- (`supabase db reset --local`), neither of which is true, or safe, to do
 -- against the shared hosted development project. This file alone is safe
--- to run standalone against a never-reset hosted project because it is,
--- deliberately, 100% read-only (no insert/update/delete anywhere below)
--- and self-contained: it does not reference the 00_setup.sql fixture rows
--- or any other file's data, and installs pgTAP itself (below) rather than
--- assuming 00_setup.sql already ran in this session.
+-- to run standalone against a never-reset hosted project because it is
+-- non-destructive and free of application-data mutations: nothing below
+-- inserts, updates, or deletes an application row, and it does not
+-- reference the 00_setup.sql fixture rows or any other file's data. (It
+-- is not literally read-only end to end — `create extension if not
+-- exists pgtap` and the `create temporary table` calls below do write,
+-- but only pgTAP's own catalog bookkeeping and a session-local temporary
+-- table that is dropped when the session ends, never a persistent
+-- application table.) Self-contained: installs pgTAP itself (below)
+-- rather than assuming 00_setup.sql already ran in this session.
 create extension if not exists pgtap with schema extensions;
 
 select plan(271);

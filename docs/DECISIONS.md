@@ -1180,8 +1180,11 @@ that full suite's `00_setup.sql` fixture users and every other file's
 un-rolled-back `begin;...commit;` writes committed real rows to the real
 project. The deploy workflow now runs only
 `supabase test db supabase/tests/database/12_hosted_structural_verification.sql --linked`
-— the one file in that directory that is 100% read-only and does not
-depend on `00_setup.sql`'s fixtures. The full 241+-assertion RLS/owner
+— the one file in that directory that is non-destructive and free of
+application-data mutations (no application-row insert/update/delete — its
+own `create extension if not exists pgtap` and a session-local temporary
+table are the only writes) and does not depend on `00_setup.sql`'s
+fixtures. The full 241+-assertion RLS/owner
 suite is unchanged and remains authoritative in `ci.yml`, against a
 database `supabase db reset --local` resets before every run. Considered
 moving hosted-safe tests into a separate `supabase/tests/hosted/`
@@ -1213,3 +1216,30 @@ Claude session" constraint.
 deployment workflow, no merge. This pass only adds a migration, extends
 the existing hosted-safe test file, and corrects the deploy workflow's
 verification step; it does not touch Phase 3 scope.
+
+### Follow-up correction (same PR, same day) — cleanup script + wording
+
+`scripts/cleanup-hosted-test-fixtures.sql`'s first draft claimed it could
+be pasted into the Supabase Dashboard SQL Editor but used `\echo`, a
+`psql`-only meta-command the Dashboard editor cannot parse — corrected to
+plain PostgreSQL SQL throughout, with the BEFORE/AFTER diagnostic queries
+kept as their own statements (most SQL clients, the Dashboard included,
+show one result set per statement) instead of psql-only output framing.
+Its `storage.allow_delete_query` `SET LOCAL` was previously issued outside
+any explicit transaction; wrapped the whole cleanup in an explicit
+`begin; ... commit;` so the setting is scoped to, and cannot outlive, that
+one transaction. Added an explicit preflight identity guard (a `do $$ $$`
+block) that aborts the whole transaction — deleting nothing — if either
+hardcoded fixture UUID exists with an email other than its known fixture
+identity (`user-a@example.com` / `user-b@example.com`), rather than
+trusting the UUID alone; the `auth.users` deletes themselves are now also
+scoped by `id and email` together as defense in depth on top of that
+guard. Also corrected this file's and the deploy workflow's/test file's
+"100% read-only" description of
+`12_hosted_structural_verification.sql` — it installs pgTAP
+(`create extension if not exists pgtap`) and creates session-local
+temporary tables, so it is not literally read-only end to end; restated
+as "non-destructive and free of application-data mutations" (no
+application-row insert/update/delete, no fixture users required), which
+is the property that actually matters for running it against a
+never-reset hosted project. No assertions changed.

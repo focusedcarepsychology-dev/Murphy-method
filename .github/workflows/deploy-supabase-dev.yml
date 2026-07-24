@@ -120,8 +120,11 @@ jobs:
       # docs/DECISIONS.md's fixture-contamination entry and
       # scripts/cleanup-hosted-test-fixtures.sql). Only
       # supabase/tests/database/12_hosted_structural_verification.sql is
-      # safe to run standalone here: it is 100% read-only (no
-      # insert/update/delete), installs pgTAP itself rather than assuming
+      # safe to run standalone here: it is non-destructive and free of
+      # application-data mutations (no application-row insert/update/
+      # delete — see that file's own header comment for the narrow
+      # exception, pgTAP's own catalog bookkeeping and a session-local
+      # temporary table), installs pgTAP itself rather than assuming
       # 00_setup.sql already ran, and does not reference any fixture row —
       # it checks the deployed schema's shape and raw grants (44 expected
       # tables, RLS enabled, required functions, service_role/anon/
