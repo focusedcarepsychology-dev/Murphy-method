@@ -5,7 +5,7 @@ export default function ExerciseSwapScreen() {
     <PlaceholderScreen
       icon="swap"
       title="Swap exercise"
-      description="Ranked substitution candidates with plain-language reasons connect to the substitution engine in Phase 7."
+      description="Automatic workout swapping is not available yet. Open the exercise instructions from Plan to review any published alternatives and regressions."
     />
   );
 }

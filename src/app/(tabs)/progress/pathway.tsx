@@ -11,12 +11,13 @@ export default function AdaptiveWorkPathwayScreen() {
       <Heading variant="title">Adaptive Work Pathway</Heading>
       <Card style={{ gap: spacing.one }}>
         <Caption>CUMULATIVE WORK</Caption>
-        <AppText color="secondary">
-          A motivational view of your cumulative training work over time lands here in Phase 10.
+        <AppText color="secondary" style={{ flexShrink: 1 }}>
+          A cumulative training-work visual is not available yet. Your completed workouts and sets
+          continue to be stored for future summaries.
         </AppText>
       </Card>
-      <AppText color="tertiary">
-        Estimates adapt as you train — this view is a motivational guide, not a guarantee.
+      <AppText color="tertiary" style={{ flexShrink: 1 }}>
+        Future estimates should remain motivational guides rather than guarantees.
       </AppText>
     </ScrollScreen>
   );

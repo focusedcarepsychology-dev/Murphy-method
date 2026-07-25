@@ -1,45 +1,36 @@
+import { useRouter } from 'expo-router';
 import { View } from 'react-native';
 
 import { AppText, Heading } from '@/components/ui/app-text';
-import { InteractiveCard } from '@/components/ui/card';
+import { PrimaryButton } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { ScrollScreen } from '@/components/ui/scroll-screen';
 import { useTheme } from '@/hooks/use-theme';
 
-const options = [
-  'Shorter workouts',
-  'Fewer days',
-  'Change days',
-  'Change exercises',
-  'Reduce difficulty',
-  'Pause and restart',
-];
-
 export default function ResetMyPlanScreen() {
+  const router = useRouter();
   const { spacing } = useTheme();
 
   return (
     <ScrollScreen>
       <View style={{ gap: spacing.one }}>
-        <Heading variant="title">Let&apos;s adapt your plan to your life</Heading>
-        <AppText color="secondary">
-          Life gets busy — that&apos;s normal. Pick what would help most right now.
+        <Heading variant="title">Adapt your plan to your life</Heading>
+        <AppText color="secondary" style={{ flexShrink: 1 }}>
+          Update your goals, equipment or availability first when those have changed. You can then
+          create a new programme version while keeping the previous plan in history.
         </AppText>
       </View>
-      <View style={{ gap: spacing.two }}>
-        {options.map((option) => (
-          <InteractiveCard
-            key={option}
-            accessibilityLabel={`${option} (preview only)`}
-            disabled
-            showChevron={false}
-          >
-            <AppText variant="bodyEmphasis">{option}</AppText>
-          </InteractiveCard>
-        ))}
-      </View>
-      <AppText color="tertiary">
-        These options connect to the adherence-rescue flow in Phase 8.
-      </AppText>
+      <Card style={{ gap: spacing.one }}>
+        <AppText variant="bodyEmphasis">A workout already in progress?</AppText>
+        <AppText color="secondary" style={{ flexShrink: 1 }}>
+          Finish or resume it before restructuring so the active workout remains consistent with the
+          programme it came from.
+        </AppText>
+      </Card>
+      <PrimaryButton
+        label="Open programme restructure"
+        onPress={() => router.push('/(tabs)/plan/reset')}
+      />
     </ScrollScreen>
   );
 }

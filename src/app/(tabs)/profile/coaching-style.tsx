@@ -5,7 +5,7 @@ export default function ProfileCoachingStyleScreen() {
     <PlaceholderScreen
       icon="coach"
       title="Coach style"
-      description="Change your coaching style any time — wired to Coach architecture in Phase 9."
+      description="Your saved coaching preference remains on your profile. Editing it from this screen is not available yet."
     />
   );
 }

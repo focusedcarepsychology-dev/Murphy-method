@@ -5,7 +5,7 @@ export default function ProfileAvailabilityScreen() {
     <PlaceholderScreen
       icon="plan"
       title="Training availability"
-      description="Reuses the onboarding availability interaction, editable here once real data exists (Phase 3)."
+      description="Your saved training days continue to shape the programme. Editing availability from Profile is not available yet."
     />
   );
 }

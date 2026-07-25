@@ -5,7 +5,7 @@ export default function MotivationProfileScreen() {
     <PlaceholderScreen
       icon="coach"
       title="Motivation profile"
-      description="This is a P1 screen — not built in Phase 1."
+      description="A personalised motivation profile is not available yet. Coach messages remain quiet until they can be based on your real training history and feedback."
     />
   );
 }

@@ -5,7 +5,7 @@ export default function ProfileGoalsScreen() {
     <PlaceholderScreen
       icon="flag"
       title="Goals"
-      description="Reuses the Main Goal, Goal Prioritisation, and Body Goal Map interactions from onboarding, editable here once real data exists (Phase 3)."
+      description="Your saved goal priorities and body-area choices continue to shape the programme. Editing them from Profile is not available yet."
     />
   );
 }

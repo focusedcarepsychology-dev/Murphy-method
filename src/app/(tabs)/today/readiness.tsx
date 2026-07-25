@@ -5,7 +5,7 @@ export default function DailyReadinessScreen() {
     <PlaceholderScreen
       icon="bolt"
       title="Daily readiness"
-      description="An optional check-in on sleep, soreness, and energy. This is a P1 screen — not built in Phase 1."
+      description="An optional sleep, soreness and energy check-in is not available yet. No readiness score is estimated without real answers from you."
     />
   );
 }

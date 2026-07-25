@@ -5,7 +5,7 @@ export default function DataExportScreen() {
     <PlaceholderScreen
       icon="share"
       title="Export your data"
-      description="Queued/processing/ready/failed export states connect to a real export job in Phase 11."
+      description="Self-service data export is not available yet. This screen does not claim that an export request has been created or queued."
     />
   );
 }

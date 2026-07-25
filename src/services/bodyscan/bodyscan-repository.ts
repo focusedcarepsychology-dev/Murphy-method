@@ -90,6 +90,40 @@ export async function createBodyScanSignedUrls(
   return urls;
 }
 
+/**
+ * Permanently deletes the caller's private storage objects before deleting
+ * their metadata rows. If Storage deletion fails, database rows are left in
+ * place so the user can retry without creating orphaned private files.
+ */
+export async function deleteAllBodyScans(
+  client: MurphySupabaseClient,
+  userId: string,
+): Promise<{ scansDeleted: number; photosDeleted: number }> {
+  const scans = await listBodyScans(client, userId);
+  if (scans.length === 0) return { scansDeleted: 0, photosDeleted: 0 };
+
+  const images = scans.flatMap((scan) => scan.images);
+  const storagePaths = images.map((image) => image.storagePath);
+  if (storagePaths.length > 0) {
+    const { error: storageError } = await client.storage.from('bodyscans').remove(storagePaths);
+    if (storageError) fail('delete your private BodyScan photos', storageError);
+  }
+
+  const scanIds = scans.map((scan) => scan.id);
+  if (scanIds.length > 0) {
+    const { error: imageError } = await client
+      .from('body_scan_images')
+      .delete()
+      .in('body_scan_id', scanIds);
+    if (imageError) fail('delete your BodyScan photo records', imageError);
+  }
+
+  const { error: scanError } = await client.from('body_scans').delete().eq('profile_id', userId);
+  if (scanError) fail('delete your BodyScan history', scanError);
+
+  return { scansDeleted: scans.length, photosDeleted: images.length };
+}
+
 export function imageForAngle(
   scan: BodyScanRecord,
   angle: BodyScanImageAngle,
