@@ -66,7 +66,12 @@ jobs:
             (item.artifacts?.applicationArchiveUrl || item.artifacts?.buildUrl || item.artifactUrl)
           );
           if (!build) throw new Error('No completed Android preview APK was found.');
+          const apkUrl =
+            build.artifacts?.applicationArchiveUrl ||
+            build.artifacts?.buildUrl ||
+            build.artifactUrl;
           fs.writeFileSync('build-id.txt', build.id);
+          fs.writeFileSync('apk-url.txt', apkUrl);
           fs.writeFileSync(
             'build-details-url.txt',
             build.buildDetailsPageUrl ||
@@ -74,16 +79,10 @@ jobs:
           );
           NODE
 
-      - name: Download completed APK with EAS
+      - name: Download completed APK
         shell: bash
         run: |
-          mkdir -p downloaded-apk
-          cd downloaded-apk
-          eas build:download --build-id "$(cat ../build-id.txt)" --non-interactive
-          APK_PATH="$(find . -type f -name '*.apk' -print -quit)"
-          test -n "$APK_PATH"
-          cp "$APK_PATH" ../Murphy-Method-latest.apk
-          cd ..
+          curl --fail --location "$(cat apk-url.txt)" --output Murphy-Method-latest.apk
           test -s Murphy-Method-latest.apk
 
       - name: Add build links to run summary
