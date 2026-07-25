@@ -44,8 +44,9 @@ export default function ResetPlanScreen() {
       <Card style={{ gap: spacing.one }}>
         <AppText variant="bodyEmphasis">Before continuing</AppText>
         <Caption style={{ flexShrink: 1 }}>
-          Review your profile settings first if your circumstances have changed. You cannot restructure
-          while a workout is in progress; resume and finish that workout before returning here.
+          Review your profile settings first if your circumstances have changed. You cannot
+          restructure while a workout is in progress; resume and finish that workout before
+          returning here.
         </Caption>
       </Card>
 

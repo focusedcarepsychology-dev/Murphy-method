@@ -9,7 +9,7 @@
 -- Brings its own fixture users for the same reason
 -- 13_onboarding_rpc_functions.sql does: earlier files in the suite commit
 -- their changes, and these assertions need an exact starting state.
-select no_plan();
+select plan(14);
 
 insert into auth.users (id, email) values
   ('14000000-0000-4000-8000-000000000001', 'user-g@example.com'),
@@ -29,7 +29,7 @@ begin;
     null,
     'authenticated cannot INSERT user_equipment directly (RPC is the only writer)'
   );
-rollback;
+commit;
 
 begin;
   set local role authenticated;
@@ -41,7 +41,7 @@ begin;
     null,
     'authenticated cannot UPDATE user_equipment directly'
   );
-rollback;
+commit;
 
 begin;
   set local role authenticated;
@@ -53,7 +53,7 @@ begin;
     null,
     'authenticated cannot DELETE user_equipment directly'
   );
-rollback;
+commit;
 
 -- ===== bodyweight-only is a genuine, unambiguous state =================
 begin;
@@ -167,6 +167,6 @@ begin;
     array['bodyweight'],
     'User H''s call never touched User G''s rows (identity comes from auth.uid())'
   );
-rollback;
+commit;
 
 select * from finish();

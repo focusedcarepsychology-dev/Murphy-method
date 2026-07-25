@@ -1,7 +1,4 @@
-import {
-  imageForAngle,
-  type BodyScanRecord,
-} from '@/services/bodyscan/bodyscan-repository';
+import { imageForAngle, type BodyScanRecord } from '@/services/bodyscan/bodyscan-repository';
 
 const SCAN: BodyScanRecord = {
   id: 'scan-1',

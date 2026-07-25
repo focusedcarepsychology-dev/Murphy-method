@@ -4,9 +4,7 @@ import { renderWithProviders } from '@/test-utils/render-with-providers';
 describe('BodyScanAlignmentGuide', () => {
   it('renders the front, side and back positioning guides', async () => {
     for (const angle of ['front', 'side', 'back'] as const) {
-      const { unmount } = await renderWithProviders(
-        <BodyScanAlignmentGuide angle={angle} />,
-      );
+      const { unmount } = await renderWithProviders(<BodyScanAlignmentGuide angle={angle} />);
       unmount();
     }
   });

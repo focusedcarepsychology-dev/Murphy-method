@@ -2,7 +2,7 @@
 -- (supabase/migrations/20260724090300_real_programme_engine_v1.sql).
 -- Uses its own fixture users, following 13_onboarding_rpc_functions.sql's
 -- convention (this file commits, so later files see its state too).
-select plan(15);
+select plan(16);
 
 insert into auth.users (id, email) values
   ('15000000-0000-4000-8000-000000000001', 'bodyweight-user@example.com'),
@@ -282,11 +282,14 @@ select is(
   'the new version uses the real deterministic engine'
 );
 
-select throws_ok(
-  $$ select public.build_real_programme_structure('15000000-0000-4000-8000-000000000001') $$,
-  '42501',
-  null,
-  'build_real_programme_structure is not directly callable by authenticated clients'
+select is(
+  has_function_privilege(
+    'authenticated',
+    'public.build_real_programme_structure(uuid)',
+    'EXECUTE'
+  ),
+  false,
+  'build_real_programme_structure is not executable by authenticated clients'
 );
 
 select * from finish();
