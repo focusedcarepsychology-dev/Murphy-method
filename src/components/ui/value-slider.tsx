@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   PanResponder,
   View,
@@ -36,19 +36,19 @@ export function ValueSlider({
   style,
 }: ValueSliderProps) {
   const { colors, radius } = useTheme();
-  const widthRef = useRef(0);
+  const [trackWidth, setTrackWidth] = useState(0);
   const safeRange = Math.max(Number.EPSILON, max - min);
   const clampedValue = clamp(value, min, max);
   const progress = (clampedValue - min) / safeRange;
 
   const setFromPosition = useCallback(
     (x: number) => {
-      if (widthRef.current <= 0) return;
-      const raw = min + clamp(x / widthRef.current, 0, 1) * safeRange;
+      if (trackWidth <= 0) return;
+      const raw = min + clamp(x / trackWidth, 0, 1) * safeRange;
       const stepped = min + Math.round((raw - min) / step) * step;
       onChange(clamp(Number(stepped.toFixed(4)), min, max));
     },
-    [max, min, onChange, safeRange, step],
+    [max, min, onChange, safeRange, step, trackWidth],
   );
 
   const panResponder = useMemo(
@@ -63,7 +63,7 @@ export function ValueSlider({
   );
 
   function handleLayout(event: LayoutChangeEvent) {
-    widthRef.current = event.nativeEvent.layout.width;
+    setTrackWidth(event.nativeEvent.layout.width);
   }
 
   function handleAccessibilityAction(event: AccessibilityActionEvent) {
