@@ -10,11 +10,6 @@
  * time: literal fabricated personal values pasted straight into a screen.
  */
 
-// This static audit runs in Jest's Node environment. `@types/node` is
-// deliberately not in tsconfig's `types` allowlist — adding it would pull
-// Node's globals into React Native app code and change the type of things
-// like `setTimeout` — so the three Node APIs this file needs are declared
-// locally instead.
 declare const __dirname: string;
 declare function require(id: 'fs'): {
   readdirSync(path: string): string[];
@@ -57,6 +52,13 @@ function relative(file: string): string {
   return file.slice(SRC.length + 1);
 }
 
+function stripCommentsAndImports(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '')
+    .replace(/^import[\s\S]*?;\s*$/gm, '');
+}
+
 describe('authenticated source contains no fictional user data', () => {
   it('scans a non-trivial number of files', () => {
     expect(AUTHENTICATED_SOURCE.length).toBeGreaterThan(50);
@@ -80,9 +82,6 @@ describe('authenticated source contains no fictional user data', () => {
   });
 
   it('never hard-codes a personal name for the signed-in user', () => {
-    // "Alex" was the Phase 1 preview first name that reached the real
-    // device build. A real user's name only ever comes from
-    // `profiles.display_name`.
     const offenders = AUTHENTICATED_SOURCE.filter((file) =>
       /\bfirstName\b|['"]Alex['"]/.test(readFileSync(file, 'utf8')),
     ).map(relative);
@@ -91,8 +90,6 @@ describe('authenticated source contains no fictional user data', () => {
   });
 
   it('never hard-codes previous lifting performance or personal records', () => {
-    // e.g. `previous: '22 kg × 10'` / "Previous: 55 kg x 8". Genuine
-    // previous performance is always read from the user's own set_logs.
     const literalPerformance = /['"][^'"\n]*\b\d+\s?kg\s*[×x]\s*\d+/i;
     const offenders = AUTHENTICATED_SOURCE.filter((file) =>
       literalPerformance.test(readFileSync(file, 'utf8')),
@@ -111,6 +108,16 @@ describe('authenticated source contains no fictional user data', () => {
         /plannedSessions=\{\s*\d/.test(source)
       );
     }).map(relative);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('does not expose internal roadmap or placeholder language to users', () => {
+    const userFacingDevelopmentLanguage =
+      /\b(?:phase\s+\d+|wired\s+in|lands\s+in\s+phase|preview\s+data|placeholder\s+screen)\b/i;
+    const offenders = AUTHENTICATED_SOURCE.filter((file) =>
+      userFacingDevelopmentLanguage.test(stripCommentsAndImports(readFileSync(file, 'utf8'))),
+    ).map(relative);
 
     expect(offenders).toEqual([]);
   });
