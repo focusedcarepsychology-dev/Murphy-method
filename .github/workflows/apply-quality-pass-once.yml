@@ -28,9 +28,19 @@ jobs:
 
       - name: Decode audited source patch
         run: |
-          set -euxo pipefail
-          base64 --decode .github/quality-pass.patch.gz.b64 | gzip --decompress > /tmp/quality-pass.patch
-          test -s /tmp/quality-pass.patch
+          python - <<'PY'
+          import base64
+          import gzip
+          from pathlib import Path
+
+          source = Path('.github/quality-pass.patch.gz.b64').read_text(encoding='ascii')
+          decoded = base64.b64decode(source, validate=True)
+          patch = gzip.decompress(decoded)
+          if not patch:
+              raise RuntimeError('Decoded patch was empty')
+          Path('/tmp/quality-pass.patch').write_bytes(patch)
+          print(f'Decoded {len(patch)} patch bytes')
+          PY
 
       - name: Check audited source patch
         run: git apply --check --verbose --binary /tmp/quality-pass.patch
