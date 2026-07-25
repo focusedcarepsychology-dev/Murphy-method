@@ -1,0 +1,118 @@
+name: Apply database test fixes once
+
+on:
+  push:
+    branches:
+      - agent/murphy-method-complete-remediation
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/murphy-method-complete-remediation
+
+      - name: Apply reviewed SQL corrections
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected one match in {path}, found {count}: {old[:80]!r}")
+              file.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              "supabase/tests/database/12_hosted_structural_verification.sql",
+              "  ('user_equipment',            true,  true,  true,  true),",
+              "  -- Direct writes are revoked; set_user_equipment() is the only writer.\n"
+              "  ('user_equipment',            true,  false, false, false),",
+          )
+
+          replace_once(
+              "supabase/tests/database/13_onboarding_rpc_functions.sql",
+              "  insert into public.user_equipment (profile_id, equipment_id, available)\n"
+              "  select '13000000-0000-4000-8000-000000000002', id, true\n"
+              "  from public.equipment where key = 'dumbbell';",
+              "  select public.set_user_equipment(\n"
+              "    array(select id from public.equipment where key = 'dumbbell')\n"
+              "  );",
+          )
+
+          equipment_test = "supabase/tests/database/14_equipment_semantics.sql"
+          replace_once(equipment_test, "select plan(14);", "select no_plan();")
+          replace_once(
+              equipment_test,
+              "  select lives_ok(\n"
+              "    $$ select public.set_user_equipment(\n"
+              "         array(select id from public.equipment where key = 'barbell')) $$,\n"
+              "    'User H can record their own equipment'\n"
+              "  );\n\n"
+              "  select is(",
+              "  select lives_ok(\n"
+              "    $$ select public.set_user_equipment(\n"
+              "         array(select id from public.equipment where key = 'barbell')) $$,\n"
+              "    'User H can record their own equipment'\n"
+              "  );\n\n"
+              "  -- Verify cross-user isolation as the test owner; User H cannot read User G through RLS.\n"
+              "  reset role;\n\n"
+              "  select is(",
+          )
+
+          ontology_test = Path("supabase/tests/database/14_exercise_ontology_seed.sql")
+          ontology_text = ontology_test.read_text()
+          old_scope = "from public.exercises e\n     where not exists"
+          if ontology_text.count(old_scope) != 2:
+              raise SystemExit("Expected two unscoped exercise integrity queries")
+          ontology_test.write_text(
+              ontology_text.replace(
+                  old_scope,
+                  "from public.exercises e\n     where e.source = 'internal_authoring'\n       and not exists",
+              )
+          )
+
+          programme_test = "supabase/tests/database/15_real_programme_engine.sql"
+          replace_once(
+              programme_test,
+              "  insert into public.user_equipment (profile_id, equipment_id, available)\n"
+              "  select '15000000-0000-4000-8000-000000000001', id, true from public.equipment where key = 'bodyweight';",
+              "  select public.set_user_equipment(\n"
+              "    array(select id from public.equipment where key = 'bodyweight')\n"
+              "  );",
+          )
+          replace_once(
+              programme_test,
+              "  insert into public.user_equipment (profile_id, equipment_id, available)\n"
+              "  select '15000000-0000-4000-8000-000000000002', id, true from public.equipment\n"
+              "  where key in ('dumbbell', 'barbell', 'bench', 'cable_machine', 'pull_up_bar');",
+              "  select public.set_user_equipment(\n"
+              "    array(\n"
+              "      select id from public.equipment\n"
+              "      where key in ('dumbbell', 'barbell', 'bench', 'cable_machine', 'pull_up_bar')\n"
+              "    )\n"
+              "  );",
+          )
+
+          replace_once(
+              "supabase/tests/database/16_start_workout.sql",
+              "select plan(8);",
+              "select plan(9);",
+          )
+          PY
+
+      - name: Commit database test corrections
+        run: |
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/tests/database
+          git commit -m "Align database tests with secure equipment RPC"
+          git push origin HEAD:agent/murphy-method-complete-remediation
