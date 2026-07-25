@@ -1,0 +1,58 @@
+name: Fix movement pattern fixture once
+
+on:
+  push:
+    branches:
+      - agent/murphy-method-complete-remediation
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/murphy-method-complete-remediation
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Add missing reference-table fixture
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected one match in {path}, found {count}: {old!r}")
+              file.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              'src/test-utils/fake-onboarding-backend.ts',
+              "    exercises: [],\n    muscles: [],",
+              "    exercises: [],\n    movement_patterns: [{ id: 'movement-squat', key: 'squat', label: 'Squat' }],\n    muscles: [],",
+          )
+          replace_once(
+              'src/app/__tests__/new-user-zero-state.test.tsx',
+              "    movement_patterns: { key: 'squat', label: 'Squat' },\n    active: true,",
+              "    movement_pattern_id: 'movement-squat',\n    active: true,",
+          )
+          PY
+
+      - name: Format and commit
+        run: |
+          npm ci
+          npm run format
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/test-utils/fake-onboarding-backend.ts src/app/__tests__/new-user-zero-state.test.tsx
+          git commit -m "Add movement pattern fixture for real exercise reads"
+          git push origin HEAD:agent/murphy-method-complete-remediation
