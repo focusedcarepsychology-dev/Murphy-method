@@ -11,6 +11,7 @@ import { ScrollScreen } from '@/components/ui/scroll-screen';
 import { SectionHeader } from '@/components/ui/section-header';
 import { useAuthenticatedData } from '@/hooks/use-authenticated-data';
 import { useTheme } from '@/hooks/use-theme';
+import { loadGamificationDashboard } from '@/services/gamification/gamification-repository';
 import {
   loadPersonalRecords,
   loadTrainingHistorySummary,
@@ -29,7 +30,7 @@ function SnapshotMetric({
   const { spacing } = useTheme();
 
   return (
-    <View style={{ flex: 1, minWidth: 120, gap: spacing.one }}>
+    <View style={{ flex: 1, minWidth: 110, gap: spacing.one }}>
       <Caption>{label.toUpperCase()}</Caption>
       <Heading variant="title">{value}</Heading>
       <Caption color="tertiary">{supporting}</Caption>
@@ -45,11 +46,12 @@ export default function ProgressScreen() {
 
   const { status, data, reload } = useAuthenticatedData(async (client, userId) => {
     const profile = await loadViewerProfile(client, userId);
-    const [history, records] = await Promise.all([
+    const [history, records, gamification] = await Promise.all([
       loadTrainingHistorySummary(client, userId, profile.availableTrainingDays.length),
       loadPersonalRecords(client, userId),
+      loadGamificationDashboard(client),
     ]);
-    return { history, records };
+    return { history, records, gamification };
   });
 
   const sections: {
@@ -58,6 +60,18 @@ export default function ProgressScreen() {
     icon: IconName;
     href: Href;
   }[] = [
+    {
+      label: 'Momentum Cup',
+      supporting: 'Join an optional monthly consistency tournament.',
+      icon: 'trophy',
+      href: '/(tabs)/progress/league',
+    },
+    {
+      label: 'Achievements',
+      supporting: 'Positive milestones that never disappear after a missed day.',
+      icon: 'star',
+      href: '/(tabs)/progress/achievements',
+    },
     {
       label: 'Strength',
       supporting: 'Review logged performance by exercise.',
@@ -105,6 +119,7 @@ export default function ProgressScreen() {
           <View
             style={{
               flexDirection: narrow ? 'column' : 'row',
+              flexWrap: narrow ? 'nowrap' : 'wrap',
               gap: spacing.four,
             }}
           >
@@ -114,9 +129,22 @@ export default function ProgressScreen() {
               supporting="completed all time"
             />
             <SnapshotMetric
+              label="Momentum"
+              value={String(data.gamification.lifetimePoints)}
+              supporting="consistency points"
+            />
+            <SnapshotMetric
+              label="Achievements"
+              value={String(
+                data.gamification.achievements.filter((achievement) => achievement.achievedAt)
+                  .length,
+              )}
+              supporting="positive milestones"
+            />
+            <SnapshotMetric
               label="Records"
               value={String(data.records.length)}
-              supporting={data.records.length === 0 ? 'none recorded yet' : 'genuine improvements'}
+              supporting="genuine improvements"
             />
           </View>
           {data.history.completedTotal === 0 ? (

@@ -18,7 +18,6 @@ type Row = { label: string; icon: IconName; href: Href };
 
 const account: Row[] = [
   { label: 'Personal details', icon: 'accountCircle', href: '/(tabs)/profile/personal-details' },
-  { label: 'Subscription', icon: 'star', href: '/(tabs)/profile/subscription' },
 ];
 
 const training: Row[] = [
@@ -29,14 +28,14 @@ const training: Row[] = [
 ];
 
 const preferences: Row[] = [
+  { label: 'Momentum & tournament', icon: 'trophy', href: '/(tabs)/profile/gamification' },
   { label: 'Notifications', icon: 'notifications', href: '/(tabs)/profile/notifications' },
   { label: 'Units & appearance', icon: 'tune', href: '/(tabs)/profile/units' },
 ];
 
 const privacy: Row[] = [
-  { label: 'Privacy', icon: 'privacy', href: '/(tabs)/profile/privacy' },
+  { label: 'Privacy & data', icon: 'shield', href: '/(tabs)/profile/privacy' },
   { label: 'BodyScan privacy', icon: 'camera', href: '/(tabs)/profile/bodyscan-privacy' },
-  { label: 'Data & account', icon: 'shield', href: '/(tabs)/profile/data-export' },
 ];
 
 function RowGroup({ title, rows }: { title: string; rows: Row[] }) {

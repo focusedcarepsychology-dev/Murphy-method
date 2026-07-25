@@ -174,8 +174,8 @@ export default function ProgrammePreviewScreen() {
         </Card>
 
         <Caption color="tertiary" style={{ flexShrink: 1 }}>
-          You can review individual exercise explanations and restructure the programme later without
-          deleting your history.
+          You can review individual exercise explanations and restructure the programme later
+          without deleting your history.
         </Caption>
       </View>
     </OnboardingScaffold>

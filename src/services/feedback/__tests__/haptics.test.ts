@@ -3,7 +3,9 @@ import { Platform } from 'react-native';
 
 import {
   actionFeedback,
+  resetCelebrationEffectsForTests,
   selectionFeedback,
+  setCelebrationEffectsEnabled,
   successFeedback,
 } from '@/services/feedback/haptics';
 
@@ -28,8 +30,9 @@ function setPlatform(os: 'ios' | 'android' | 'web') {
 }
 
 describe('haptic feedback service', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+    await resetCelebrationEffectsForTests();
   });
 
   afterAll(() => {
@@ -62,6 +65,15 @@ describe('haptic feedback service', () => {
     expect(Haptics.notificationAsync).toHaveBeenCalledWith(
       Haptics.NotificationFeedbackType.Success,
     );
+  });
+
+  it('respects the persisted celebration-effects preference', async () => {
+    setPlatform('ios');
+    await setCelebrationEffectsEnabled(false);
+
+    await successFeedback();
+
+    expect(Haptics.notificationAsync).not.toHaveBeenCalled();
   });
 
   it('never rejects when the native haptics engine is unavailable', async () => {

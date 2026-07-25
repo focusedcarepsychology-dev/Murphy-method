@@ -9,22 +9,35 @@ select 'Test Squat (feedback)', 'rls-test-squat-feedback', id, 'low', 'beginner'
 from public.movement_patterns where key = 'squat'
 on conflict (slug) do nothing;
 
+insert into public.workouts (id, profile_id, mode, client_generated_id)
+values (
+  'b0000000-0000-4000-8000-000000000020',
+  'a0000000-0000-4000-8000-000000000001',
+  'full',
+  'b0000000-0000-4000-8000-000000000021'
+)
+on conflict (id) do nothing;
+
+insert into public.workout_exercises (
+  id, workout_id, exercise_id, order_index, target_sets, target_rep_range_low,
+  target_rep_range_high, client_generated_id
+)
+select
+  'b0000000-0000-4000-8000-000000000022',
+  'b0000000-0000-4000-8000-000000000020',
+  e.id,
+  0,
+  3,
+  8,
+  12,
+  'b0000000-0000-4000-8000-000000000023'
+from public.exercises e
+where e.slug = 'rls-test-squat-feedback'
+on conflict (id) do nothing;
+
 begin;
   set local role authenticated;
   set local request.jwt.claim.sub = 'a0000000-0000-4000-8000-000000000001';
-
-  insert into public.workouts (profile_id, mode, client_generated_id)
-  values ('a0000000-0000-4000-8000-000000000001', 'full', gen_random_uuid());
-
-  insert into public.workout_exercises (
-    workout_id, exercise_id, order_index, target_sets, target_rep_range_low,
-    target_rep_range_high, client_generated_id
-  )
-  select w.id, e.id, 0, 3, 8, 12, gen_random_uuid()
-  from public.workouts w, public.exercises e
-  where w.profile_id = 'a0000000-0000-4000-8000-000000000001'
-    and e.slug = 'rls-test-squat-feedback'
-  order by w.created_at desc limit 1;
 
   select lives_ok(
     $$ insert into public.exercise_feedback (workout_exercise_id, enjoyment, difficulty)

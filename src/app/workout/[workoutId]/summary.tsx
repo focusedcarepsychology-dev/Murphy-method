@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { View } from 'react-native';
 
-import { Heading } from '@/components/ui/app-text';
+import { AppText, Heading } from '@/components/ui/app-text';
 import { PrimaryButton } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ErrorState } from '@/components/ui/error-state';
@@ -10,22 +10,25 @@ import { LoadingState } from '@/components/ui/loading-state';
 import { Screen } from '@/components/ui/screen';
 import { ScrollScreen } from '@/components/ui/scroll-screen';
 import { StatChip } from '@/components/ui/stat-chip';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { useAuthenticatedData } from '@/hooks/use-authenticated-data';
 import { useTheme } from '@/hooks/use-theme';
 import { loadWorkoutSummary } from '@/services/training/training-repository';
+import { loadPendingWorkoutCompletion } from '@/services/workouts/offline-workout-completion-queue';
 
-/**
- * Every figure here is counted from the sets the user actually logged for
- * this workout. A session where nothing was logged reports zero, and no
- * personal record is claimed unless a genuine record exists.
- */
+/** Every figure is counted from genuinely logged sets, including locally queued sets. */
 export default function WorkoutSummaryScreen() {
   const { workoutId } = useLocalSearchParams<{ workoutId: string }>();
   const router = useRouter();
   const { colors, spacing, radius } = useTheme();
 
   const { status, data, reload } = useAuthenticatedData(
-    (client, userId) => loadWorkoutSummary(client, userId, workoutId ?? ''),
+    async (client, userId) => {
+      const pending = await loadPendingWorkoutCompletion(userId, workoutId ?? '');
+      if (pending) return { summary: pending.summary, pendingSync: true };
+      const summary = await loadWorkoutSummary(client, userId, workoutId ?? '');
+      return { summary, pendingSync: false };
+    },
     [workoutId],
   );
 
@@ -66,9 +69,19 @@ export default function WorkoutSummaryScreen() {
           <Heading variant="title" align="center">
             Workout complete
           </Heading>
+          {data?.pendingSync ? (
+            <>
+              <StatusBadge label="Saved on this device" tone="warning" />
+              <AppText color="secondary" align="center" style={{ flexShrink: 1 }}>
+                Your workout will sync automatically when the app next has a connection.
+              </AppText>
+            </>
+          ) : (
+            <StatusBadge label="Synced" tone="positive" />
+          )}
         </View>
 
-        {data ? (
+        {data?.summary ? (
           <View
             style={{
               flexDirection: 'row',
@@ -79,14 +92,18 @@ export default function WorkoutSummaryScreen() {
           >
             <StatChip
               icon="checkCircle"
-              label={`${data.completedExercises} ${data.completedExercises === 1 ? 'exercise' : 'exercises'}`}
+              label={`${data.summary.completedExercises} ${
+                data.summary.completedExercises === 1 ? 'exercise' : 'exercises'
+              }`}
             />
             <StatChip
               icon="checkCircle"
-              label={`${data.completedSets} ${data.completedSets === 1 ? 'set' : 'sets'}`}
+              label={`${data.summary.completedSets} ${
+                data.summary.completedSets === 1 ? 'set' : 'sets'
+              }`}
             />
-            {data.durationMinutes ? (
-              <StatChip icon="timer" label={`${data.durationMinutes} min`} />
+            {data.summary.durationMinutes ? (
+              <StatChip icon="timer" label={`${data.summary.durationMinutes} min`} />
             ) : null}
           </View>
         ) : null}

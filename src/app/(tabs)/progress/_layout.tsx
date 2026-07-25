@@ -20,14 +20,14 @@ export default function ProgressLayout() {
       <Stack.Screen name="measurements" options={{ title: 'Measurements' }} />
       <Stack.Screen name="records" options={{ title: 'Personal Records' }} />
       <Stack.Screen name="consistency" options={{ title: 'Consistency' }} />
+      <Stack.Screen name="league" options={{ title: 'Momentum Cup' }} />
+      <Stack.Screen name="achievements" options={{ title: 'Achievements' }} />
       <Stack.Screen name="bodyscan/index" options={{ title: 'BodyScan' }} />
       <Stack.Screen
         name="bodyscan/new"
         options={{ presentation: 'modal', title: 'New BodyScan' }}
       />
       <Stack.Screen name="bodyscan/compare" options={{ title: 'Compare Scans' }} />
-      <Stack.Screen name="review" options={{ title: 'Progress Review' }} />
-      <Stack.Screen name="pathway" options={{ title: 'Adaptive Work Pathway' }} />
     </Stack>
   );
 }

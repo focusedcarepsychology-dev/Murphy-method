@@ -88,10 +88,7 @@ export async function listPendingSetLogs(
   );
 }
 
-export async function enqueuePendingSetLog(
-  userId: string,
-  input: LogSetInput,
-): Promise<void> {
+export async function enqueuePendingSetLog(userId: string, input: LogSetInput): Promise<void> {
   const queue = await readQueue();
   const next: PendingSetLog = { ...input, userId, queuedAt: new Date().toISOString() };
   const existingIndex = queue.findIndex(
@@ -148,6 +145,8 @@ export async function flushPendingSetLogs(
   };
 }
 
-export async function clearPendingSetLogsForTests(): Promise<void> {
+export async function clearAllPendingSetLogs(): Promise<void> {
   await AsyncStorage.removeItem(STORAGE_KEY);
 }
+
+export const clearPendingSetLogsForTests = clearAllPendingSetLogs;

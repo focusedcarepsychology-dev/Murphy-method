@@ -35,7 +35,7 @@
 -- rather than assuming 00_setup.sql already ran in this session.
 create extension if not exists pgtap with schema extensions;
 
-select plan(274);
+select plan(310);
 
 -- The one, explicit allowlist of Murphy Method application tables, used by
 -- every check below instead of scanning pg_tables directly. This is
@@ -52,6 +52,8 @@ insert into expected_tables (name) values
   ('body_scan_images'), ('body_scans'), ('coach_messages'), ('coach_threads'),
   ('consent_records'), ('decision_evidence'), ('equipment'), ('exercise_equipment'),
   ('exercise_feedback'), ('exercise_muscles'), ('exercise_restrictions'),
+  ('gamification_achievements'), ('gamification_entries'), ('gamification_point_events'),
+  ('gamification_profiles'), ('gamification_seasons'), ('gamification_user_achievements'),
   ('exercise_substitutions'), ('exercises'), ('goals'), ('health_screenings'),
   ('motivation_profiles'), ('movement_patterns'), ('muscles'),
   ('notification_preferences'), ('notification_responses'), ('notifications'),
@@ -61,7 +63,7 @@ insert into expected_tables (name) values
   ('set_logs'), ('subscriptions'), ('training_blocks'), ('user_equipment'),
   ('user_goals'), ('workout_exercises'), ('workout_feedback'), ('workouts');
 
--- 1. Exactly the 44 approved tables exist in public — no fewer, no
+-- 1. Exactly the 50 approved tables exist in public — no fewer, no
 -- unreviewed extras. tables_are() checks the full set in one assertion,
 -- catching both "missing" and "unexpected" in either direction. This is
 -- the only check in this file allowed to vary with what's actually in
@@ -71,15 +73,15 @@ insert into expected_tables (name) values
 select tables_are(
   'public',
   array(select name from expected_tables order by name),
-  'public schema contains exactly the 44 approved P0 + P1-reserved tables'
+  'public schema contains exactly the 50 approved P0 + P1-reserved tables'
 );
 
--- 2. RLS enabled on every one of the 44 expected tables, no exceptions
+-- 2. RLS enabled on every one of the 50 expected tables, no exceptions
 -- (docs/DATABASE_SCHEMA.md, docs/ARCHITECTURE.md §8). LEFT JOIN (not an
 -- inner join against pg_tables) so a table missing entirely still
 -- produces a named, failing assertion here too, on top of check 1 above —
 -- and, together with the fixed expected_tables row count, guarantees
--- exactly 44 assertions regardless of what else exists in pg_tables.
+-- exactly 50 assertions regardless of what else exists in pg_tables.
 select ok(
   coalesce(pt.rowsecurity, false),
   format('RLS enabled on public.%s', et.name)
@@ -94,7 +96,7 @@ select has_function('public', 'set_updated_at', 'set_updated_at() exists');
 select has_function('public', 'handle_new_user', 'handle_new_user() exists');
 select has_function('public', 'handle_new_profile', 'handle_new_profile() exists');
 
--- 4. service_role has table privileges on every one of the 44 expected
+-- 4. service_role has table privileges on every one of the 50 expected
 -- tables (Phase 2A correction pass, docs/DECISIONS.md 2026-07-24 entry —
 -- bypassrls alone is not sufficient; 20260723091900_service_role_grants.sql
 -- must be deployed). The CASE guard (not "exists(...) and
@@ -189,6 +191,12 @@ insert into expected_authenticated_privileges (name, can_select, can_insert, can
   ('equipment',                 true,  false, false, false),
   ('exercise_equipment',        true,  false, false, false),
   ('exercise_feedback',         true,  true,  false, false),
+  ('gamification_achievements', true,  false, false, false),
+  ('gamification_entries',     true,  false, false, false),
+  ('gamification_point_events', true, false, false, false),
+  ('gamification_profiles',    true,  false, false, false),
+  ('gamification_seasons',     true,  false, false, false),
+  ('gamification_user_achievements', true, false, false, false),
   ('exercise_muscles',          true,  false, false, false),
   ('exercise_restrictions',     true,  false, false, false),
   ('exercise_substitutions',    true,  false, false, false),
@@ -226,9 +234,9 @@ insert into expected_authenticated_privileges (name, can_select, can_insert, can
   -- Direct writes are revoked; set_user_equipment() is the only writer.
   ('user_equipment',            true,  false, false, false),
   ('user_goals',                true,  true,  true,  true),
-  ('workout_exercises',         true,  true,  true,  false),
+  ('workout_exercises',         true,  false, false, false),
   ('workout_feedback',          true,  true,  false, false),
-  ('workouts',                  true,  true,  true,  false);
+  ('workouts',                  true,  false, true,  false);
 
 select ok(
   case

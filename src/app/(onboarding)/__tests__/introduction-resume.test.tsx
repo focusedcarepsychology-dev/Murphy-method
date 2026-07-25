@@ -104,7 +104,7 @@ describe('Onboarding resume after relaunch (docs/IMPLEMENTATION_PLAN.md Phase 3 
     // is idempotent and fast against the fake backend) — either the
     // meaningful loading state or the resolved preview is a valid outcome
     // to observe, but Introduction must never be what's shown.
-    expect(await screen.findByText('Your programme is ready')).toBeTruthy();
+    expect(await screen.findByText('Your starting plan')).toBeTruthy();
     expect(screen.queryByText("Let's build your plan")).toBeNull();
   });
 });

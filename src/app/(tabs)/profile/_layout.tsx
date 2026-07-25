@@ -20,6 +20,7 @@ export default function ProfileLayout() {
       <Stack.Screen name="equipment" options={{ title: 'Equipment' }} />
       <Stack.Screen name="availability" options={{ title: 'Training Availability' }} />
       <Stack.Screen name="coaching-style" options={{ title: 'Coaching Style' }} />
+      <Stack.Screen name="gamification" options={{ title: 'Momentum' }} />
       <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
       <Stack.Screen name="units" options={{ title: 'Units & Appearance' }} />
       <Stack.Screen name="privacy" options={{ title: 'Privacy' }} />
@@ -28,7 +29,6 @@ export default function ProfileLayout() {
       <Stack.Screen name="data-export" options={{ title: 'Data Export' }} />
       <Stack.Screen name="delete-data" options={{ title: 'Delete Data' }} />
       <Stack.Screen name="delete-account" options={{ title: 'Delete Account' }} />
-      <Stack.Screen name="subscription" options={{ title: 'Subscription' }} />
     </Stack>
   );
 }

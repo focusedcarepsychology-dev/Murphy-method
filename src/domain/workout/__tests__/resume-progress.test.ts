@@ -17,9 +17,7 @@ describe('resolveWorkoutResumeProgress', () => {
 
   it('counts locally queued sets when choosing where to resume', () => {
     expect(
-      resolveWorkoutResumeProgress(exercises, [
-        { workoutExerciseId: 'exercise-1', setNumber: 3 },
-      ]),
+      resolveWorkoutResumeProgress(exercises, [{ workoutExerciseId: 'exercise-1', setNumber: 3 }]),
     ).toEqual({
       exerciseIndex: 1,
       setNumber: 1,
@@ -30,9 +28,7 @@ describe('resolveWorkoutResumeProgress', () => {
 
   it('does not double-count the same synced and queued set number', () => {
     expect(
-      resolveWorkoutResumeProgress(exercises, [
-        { workoutExerciseId: 'exercise-1', setNumber: 2 },
-      ]),
+      resolveWorkoutResumeProgress(exercises, [{ workoutExerciseId: 'exercise-1', setNumber: 2 }]),
     ).toEqual({
       exerciseIndex: 0,
       setNumber: 3,

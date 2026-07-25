@@ -1,9 +1,9 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, View } from 'react-native';
 
 import { AppText, Caption, Heading } from '@/components/ui/app-text';
-import { IconButton, SecondaryButton } from '@/components/ui/button';
+import { IconButton, PrimaryButton, SecondaryButton } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
@@ -13,51 +13,134 @@ import { ProgressBar } from '@/components/ui/progress-bar';
 import { Screen } from '@/components/ui/screen';
 import { ScrollScreen } from '@/components/ui/scroll-screen';
 import { StatChip } from '@/components/ui/stat-chip';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { RestTimer } from '@/components/workout/rest-timer';
 import { SetLogger } from '@/components/workout/set-logger';
+import { resolveWorkoutResumeProgress } from '@/domain/workout/resume-progress';
 import { useAuthenticatedClient } from '@/hooks/use-authenticated-client';
 import { useAuthenticatedData } from '@/hooks/use-authenticated-data';
 import { useTheme } from '@/hooks/use-theme';
-import { getExercisesByIds } from '@/services/exercises/exercise-repository';
+import { getExercisesByIds, type ExerciseDetail } from '@/services/exercises/exercise-repository';
 import { actionFeedback, successFeedback } from '@/services/feedback/haptics';
 import { createClientGeneratedId } from '@/services/training/client-id';
 import {
   formatPerformance,
   loadWorkoutDetail,
-  logSet,
-  markWorkoutCompleted,
   markWorkoutInProgress,
+  type WorkoutDetail,
 } from '@/services/training/training-repository';
+import {
+  cacheActiveWorkout,
+  clearCachedActiveWorkout,
+  loadCachedActiveWorkout,
+} from '@/services/workouts/active-workout-cache';
+import {
+  flushPendingSetLogs,
+  listPendingSetLogs,
+  saveSetWithOfflineFallback,
+} from '@/services/workouts/offline-set-queue';
+import { saveWorkoutCompletionWithOfflineFallback } from '@/services/workouts/offline-workout-completion-queue';
 
 const DEFAULT_REST_SECONDS = 90;
+
+type WorkoutLoadData = {
+  workout: WorkoutDetail | null;
+  details: Map<string, ExerciseDetail>;
+  pending: { workoutExerciseId: string; setNumber: number }[];
+  source: 'server' | 'device';
+  unsyncedCount: number;
+};
+
+type SyncState = 'synced' | 'saved-on-device' | 'restored-on-device';
 
 export default function ActiveWorkoutScreen() {
   const { workoutId } = useLocalSearchParams<{ workoutId: string }>();
   const router = useRouter();
   const { spacing } = useTheme();
-  const { client } = useAuthenticatedClient();
+  const { client, userId } = useAuthenticatedClient();
 
-  const { status, data, reload } = useAuthenticatedData(
-    async (authClient, userId) => {
-      const workout = await loadWorkoutDetail(authClient, userId, workoutId ?? '');
-      const details = workout
-        ? await getExercisesByIds(
-            authClient,
-            workout.exercises.map((exercise) => exercise.exerciseId),
-          )
-        : new Map();
-      return { workout, details };
+  const { status, data, reload } = useAuthenticatedData<WorkoutLoadData>(
+    async (authClient, authenticatedUserId) => {
+      const requestedWorkoutId = workoutId ?? '';
+      try {
+        const flushResult = await flushPendingSetLogs(authClient, authenticatedUserId);
+        const workout = await loadWorkoutDetail(
+          authClient,
+          authenticatedUserId,
+          requestedWorkoutId,
+        );
+        const details = workout
+          ? await getExercisesByIds(
+              authClient,
+              workout.exercises.map((exercise) => exercise.exerciseId),
+            )
+          : new Map<string, ExerciseDetail>();
+        if (workout) {
+          await cacheActiveWorkout(authenticatedUserId, workout, details);
+        }
+        const pending = workout
+          ? await listPendingSetLogs(
+              authenticatedUserId,
+              workout.exercises.map((exercise) => exercise.workoutExerciseId),
+            )
+          : [];
+        return {
+          workout,
+          details,
+          pending,
+          source: 'server',
+          unsyncedCount: Math.max(flushResult.remaining.length, pending.length),
+        };
+      } catch (error) {
+        const cached = await loadCachedActiveWorkout(authenticatedUserId, requestedWorkoutId);
+        if (!cached) throw error;
+        const pending = await listPendingSetLogs(
+          authenticatedUserId,
+          cached.workout.exercises.map((exercise) => exercise.workoutExerciseId),
+        );
+        return {
+          workout: cached.workout,
+          details: new Map(cached.exerciseDetails.map((detail) => [detail.id, detail])),
+          pending,
+          source: 'device',
+          unsyncedCount: pending.length,
+        };
+      }
     },
     [workoutId],
   );
 
   const [exerciseIndex, setExerciseIndex] = useState(0);
   const [setNumber, setSetNumber] = useState(1);
+  const [completedSetCount, setCompletedSetCount] = useState(0);
+  const [allSetsLogged, setAllSetsLogged] = useState(false);
+  const [positionReady, setPositionReady] = useState(false);
   const [weightKg, setWeightKg] = useState(0);
   const [reps, setReps] = useState(0);
   const [resting, setResting] = useState(false);
   const [savingSet, setSavingSet] = useState(false);
+  const [finishing, setFinishing] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [syncState, setSyncState] = useState<SyncState>('synced');
+  const initialisedWorkoutId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!data?.workout || initialisedWorkoutId.current === data.workout.id) return;
+    const progress = resolveWorkoutResumeProgress(data.workout.exercises, data.pending);
+    setExerciseIndex(progress.exerciseIndex);
+    setSetNumber(progress.setNumber);
+    setCompletedSetCount(progress.completedSetCount);
+    setAllSetsLogged(progress.allSetsLogged);
+    setSyncState(
+      data.source === 'device'
+        ? 'restored-on-device'
+        : data.unsyncedCount > 0
+          ? 'saved-on-device'
+          : 'synced',
+    );
+    setPositionReady(true);
+    initialisedWorkoutId.current = data.workout.id;
+  }, [data]);
 
   const startedWorkoutId = data?.workout?.status === 'planned' ? data.workout.id : null;
   useEffect(() => {
@@ -74,7 +157,7 @@ export default function ActiveWorkoutScreen() {
     });
   }, [completedWorkoutId, router]);
 
-  if (status === 'loading') {
+  if (status === 'loading' || (status === 'ready' && data?.workout && !positionReady)) {
     return (
       <ScrollScreen>
         <LoadingState accessibilityLabel="Loading this session" rows={4} />
@@ -114,24 +197,26 @@ export default function ActiveWorkoutScreen() {
   const totalSets = exercise.targetSets;
   const isLastExercise = exerciseIndex >= workout.exercises.length - 1;
   const allTargetSets = workout.exercises.reduce((total, item) => total + item.targetSets, 0);
-  const completedBeforeCurrentExercise = workout.exercises
-    .slice(0, exerciseIndex)
-    .reduce((total, item) => total + item.targetSets, 0);
-  const completedSetPosition = completedBeforeCurrentExercise + Math.max(0, setNumber - 1);
-  const workoutProgress = allTargetSets > 0 ? completedSetPosition / allTargetSets : 0;
+  const workoutProgress = allTargetSets > 0 ? completedSetCount / allTargetSets : 0;
 
   async function handleCompleteSet() {
-    if (reps <= 0 || savingSet) return;
+    if (reps <= 0 || savingSet || !userId) return;
     setSaveError(null);
     setSavingSet(true);
     try {
-      await logSet(client, {
+      const result = await saveSetWithOfflineFallback(client, userId, {
         workoutExerciseId: exercise.workoutExerciseId,
         setNumber,
         weightKg: weightKg > 0 ? weightKg : null,
         reps,
         clientGeneratedId: createClientGeneratedId(),
       });
+      let remaining = result === 'saved-on-device' ? 1 : 0;
+      if (result === 'synced') {
+        remaining = (await flushPendingSetLogs(client, userId)).remaining.length;
+      }
+      setSyncState(remaining > 0 ? 'saved-on-device' : 'synced');
+      setCompletedSetCount((current) => Math.min(allTargetSets, current + 1));
       void actionFeedback();
       setResting(true);
     } catch (caught) {
@@ -141,35 +226,56 @@ export default function ActiveWorkoutScreen() {
     }
   }
 
+  async function finishWorkout() {
+    if (!userId || finishing) return;
+    setFinishing(true);
+    setSaveError(null);
+    try {
+      const result = await saveWorkoutCompletionWithOfflineFallback(client, {
+        userId,
+        workoutId: workout.id,
+        completedAt: new Date().toISOString(),
+        summary: {
+          completedExercises: workout.exercises.length,
+          completedSets: allTargetSets,
+          durationMinutes: null,
+        },
+      });
+      setSyncState(result === 'synced' ? 'synced' : 'saved-on-device');
+      await clearCachedActiveWorkout(userId, workout.id);
+      void successFeedback();
+      router.replace({
+        pathname: '/workout/[workoutId]/summary',
+        params: { workoutId: workout.id },
+      });
+    } catch (caught) {
+      setSaveError(caught instanceof Error ? caught.message : 'Could not finish the workout.');
+    } finally {
+      setFinishing(false);
+    }
+  }
+
   async function handleRestComplete() {
     setResting(false);
+    setWeightKg(0);
+    setReps(0);
     if (setNumber < totalSets) {
       setSetNumber((current) => current + 1);
       return;
     }
     if (isLastExercise) {
-      try {
-        await markWorkoutCompleted(client, workout.id);
-        void successFeedback();
-        router.replace({
-          pathname: '/workout/[workoutId]/summary',
-          params: { workoutId: workout.id },
-        });
-      } catch (caught) {
-        setSaveError(caught instanceof Error ? caught.message : 'Could not finish the workout.');
-      }
+      setAllSetsLogged(true);
+      await finishWorkout();
       return;
     }
     setExerciseIndex((current) => current + 1);
     setSetNumber(1);
-    setWeightKg(0);
-    setReps(0);
   }
 
   function confirmStopWorkout() {
     Alert.alert(
       'Leave workout?',
-      'Completed sets remain saved and you can resume this workout later.',
+      'Completed sets stay saved on this device and sync when a connection is available.',
       [
         { text: 'Keep going', style: 'cancel' },
         {
@@ -180,6 +286,13 @@ export default function ActiveWorkoutScreen() {
       ],
     );
   }
+
+  const syncBadge =
+    syncState === 'synced'
+      ? { label: 'Synced', tone: 'positive' as const }
+      : syncState === 'restored-on-device'
+        ? { label: 'Restored from this device', tone: 'warning' as const }
+        : { label: 'Saved on this device', tone: 'warning' as const };
 
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>
@@ -199,8 +312,9 @@ export default function ActiveWorkoutScreen() {
         </View>
         <ProgressBar
           value={workoutProgress}
-          accessibilityLabel={`${completedSetPosition} of ${allTargetSets} planned sets reached`}
+          accessibilityLabel={`${completedSetCount} of ${allTargetSets} planned sets completed`}
         />
+        <StatusBadge label={syncBadge.label} tone={syncBadge.tone} />
       </View>
 
       <View style={{ flex: 1, gap: spacing.three, justifyContent: 'center' }}>
@@ -211,7 +325,7 @@ export default function ActiveWorkoutScreen() {
               {detail?.name ?? exercise.name}
             </Heading>
             <AppText color="secondary">
-              Set {setNumber} of {totalSets}
+              {allSetsLogged ? 'All prescribed sets logged' : `Set ${setNumber} of ${totalSets}`}
             </AppText>
           </View>
         </View>
@@ -271,7 +385,17 @@ export default function ActiveWorkoutScreen() {
           </AppText>
         ) : null}
 
-        {resting ? (
+        {allSetsLogged ? (
+          <Card variant="hero" elevated={false} style={{ gap: spacing.two }}>
+            <Heading variant="section" align="center">
+              Ready to finish
+            </Heading>
+            <AppText color="secondary" align="center">
+              Every prescribed set is saved. Finish now to update Progress and Momentum Points.
+            </AppText>
+            <PrimaryButton label="Finish workout" loading={finishing} onPress={finishWorkout} />
+          </Card>
+        ) : resting ? (
           <Card variant="hero" elevated={false}>
             <RestTimer
               totalSeconds={DEFAULT_REST_SECONDS}

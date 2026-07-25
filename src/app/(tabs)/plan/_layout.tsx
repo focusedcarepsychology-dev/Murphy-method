@@ -18,10 +18,6 @@ export default function PlanLayout() {
       <Stack.Screen name="schedule" options={{ title: 'Weekly Schedule' }} />
       <Stack.Screen name="workout/[workoutId]" options={{ title: 'Workout' }} />
       <Stack.Screen name="exercise/[exerciseId]" options={{ title: 'Exercise' }} />
-      <Stack.Screen
-        name="swap/[workoutExerciseId]"
-        options={{ presentation: 'modal', title: 'Swap Exercise' }}
-      />
       <Stack.Screen name="history" options={{ title: 'Programme History' }} />
       <Stack.Screen
         name="why-changed/[decisionId]"

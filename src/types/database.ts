@@ -587,6 +587,162 @@ export type Database = {
         };
         Relationships: [];
       };
+      gamification_achievements: {
+        Row: {
+          key: string;
+          label: string;
+          description: string;
+          icon_key: string;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          key: string;
+          label: string;
+          description: string;
+          icon_key: string;
+          sort_order: number;
+          created_at?: string;
+        };
+        Update: {
+          key?: string;
+          label?: string;
+          description?: string;
+          icon_key?: string;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      gamification_entries: {
+        Row: {
+          season_id: string;
+          profile_id: string;
+          joined_at: string;
+        };
+        Insert: {
+          season_id: string;
+          profile_id: string;
+          joined_at?: string;
+        };
+        Update: {
+          season_id?: string;
+          profile_id?: string;
+          joined_at?: string;
+        };
+        Relationships: [];
+      };
+      gamification_point_events: {
+        Row: {
+          id: string;
+          profile_id: string;
+          event_type: 'daily_completion' | 'weekly_target';
+          points: number;
+          period_start: string;
+          source_workout_id: string | null;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          event_type: 'daily_completion' | 'weekly_target';
+          points: number;
+          period_start: string;
+          source_workout_id?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          event_type?: 'daily_completion' | 'weekly_target';
+          points?: number;
+          period_start?: string;
+          source_workout_id?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      gamification_profiles: {
+        Row: {
+          profile_id: string;
+          public_alias: string | null;
+          leaderboard_opt_in: boolean;
+          celebration_effects: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          profile_id: string;
+          public_alias?: string | null;
+          leaderboard_opt_in?: boolean;
+          celebration_effects?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          profile_id?: string;
+          public_alias?: string | null;
+          leaderboard_opt_in?: boolean;
+          celebration_effects?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      gamification_seasons: {
+        Row: {
+          id: string;
+          key: string;
+          name: string;
+          starts_on: string;
+          ends_on: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          key: string;
+          name: string;
+          starts_on: string;
+          ends_on: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          key?: string;
+          name?: string;
+          starts_on?: string;
+          ends_on?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      gamification_user_achievements: {
+        Row: {
+          profile_id: string;
+          achievement_key: string;
+          achieved_at: string;
+          source_workout_id: string | null;
+          progress_snapshot: Json;
+        };
+        Insert: {
+          profile_id: string;
+          achievement_key: string;
+          achieved_at?: string;
+          source_workout_id?: string | null;
+          progress_snapshot?: Json;
+        };
+        Update: {
+          profile_id?: string;
+          achievement_key?: string;
+          achieved_at?: string;
+          source_workout_id?: string | null;
+          progress_snapshot?: Json;
+        };
+        Relationships: [];
+      };
       goals: {
         Row: {
           id: string;
@@ -1549,6 +1705,36 @@ export type Database = {
           p_mode: 'full' | 'quick' | 'minimum';
           p_client_generated_id: string;
         };
+        Returns: Json;
+      };
+      // supabase/migrations/20260725110000_gamification_v1.sql
+      get_gamification_dashboard: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+      set_gamification_preferences: {
+        Args: {
+          p_public_alias: string;
+          p_leaderboard_opt_in: boolean;
+          p_celebration_effects: boolean;
+        };
+        Returns: Json;
+      };
+      get_gamification_leaderboard: {
+        Args: { p_limit?: number };
+        Returns: Json;
+      };
+      // supabase/migrations/20260725111000_privacy_self_service.sql
+      get_my_data_export: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+      delete_my_training_history: {
+        Args: { p_confirmation: string };
+        Returns: Json;
+      };
+      delete_my_account: {
+        Args: { p_confirmation: string };
         Returns: Json;
       };
     };

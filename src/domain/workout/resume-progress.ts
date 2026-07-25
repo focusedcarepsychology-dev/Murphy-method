@@ -22,7 +22,8 @@ function completedSetsForExercise(
 ): Set<number> {
   const completed = new Set(
     exercise.loggedSetNumbers.filter(
-      (setNumber) => Number.isInteger(setNumber) && setNumber >= 1 && setNumber <= exercise.targetSets,
+      (setNumber) =>
+        Number.isInteger(setNumber) && setNumber >= 1 && setNumber <= exercise.targetSets,
     ),
   );
 

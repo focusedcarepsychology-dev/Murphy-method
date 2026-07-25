@@ -14,10 +14,6 @@ import {
   saveSetWithOfflineFallback,
 } from '@/services/workouts/offline-set-queue';
 
-jest.mock('@react-native-async-storage/async-storage', () =>
-  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
-);
-
 jest.mock('@/services/training/training-repository', () => {
   const actual = jest.requireActual('@/services/training/training-repository');
   return { ...actual, logSet: jest.fn() };

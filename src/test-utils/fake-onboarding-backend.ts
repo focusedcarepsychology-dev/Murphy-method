@@ -90,6 +90,51 @@ const GOAL_SEED: Row[] = [
   },
 ];
 
+const GAMIFICATION_ACHIEVEMENT_SEED: Row[] = [
+  {
+    key: 'first_session',
+    label: 'First step',
+    description: 'Complete your first fully logged session.',
+    icon_key: 'flag',
+    sort_order: 10,
+  },
+  {
+    key: 'three_sessions',
+    label: 'Building momentum',
+    description: 'Complete a session on three different days.',
+    icon_key: 'bolt',
+    sort_order: 20,
+  },
+  {
+    key: 'ten_sessions',
+    label: 'Consistent ten',
+    description: 'Complete a session on ten different days.',
+    icon_key: 'checkCircle',
+    sort_order: 30,
+  },
+  {
+    key: 'fifty_sessions',
+    label: 'Fifty strong',
+    description: 'Complete a session on fifty different days.',
+    icon_key: 'trophy',
+    sort_order: 40,
+  },
+  {
+    key: 'minimum_counts',
+    label: 'Minimum counts',
+    description: 'Complete a minimum-mode session when time or energy is limited.',
+    icon_key: 'star',
+    sort_order: 50,
+  },
+  {
+    key: 'weekly_target',
+    label: 'Week completed',
+    description: 'Meet your planned session target within one week.',
+    icon_key: 'verified',
+    sort_order: 60,
+  },
+];
+
 const EQUIPMENT_SEED: Row[] = [
   { id: 'equip-bodyweight', key: 'bodyweight', label: 'Bodyweight only', category: 'bodyweight' },
   { id: 'equip-dumbbell', key: 'dumbbell', label: 'Dumbbells', category: 'free_weight' },
@@ -120,6 +165,13 @@ export class FakeOnboardingBackend {
     muscles: [],
     exercise_muscles: [],
     exercise_equipment: [],
+    gamification_profiles: [],
+    gamification_point_events: [],
+    gamification_achievements: [...GAMIFICATION_ACHIEVEMENT_SEED],
+    gamification_user_achievements: [],
+    gamification_seasons: [],
+    gamification_entries: [],
+    notification_preferences: [],
   };
 
   currentUserId: string | null = null;
@@ -139,6 +191,16 @@ export class FakeOnboardingBackend {
       onboarding_completed_at: null,
       timezone: 'UTC',
       ...overrides,
+    });
+    this.tables.notification_preferences.push({
+      id: generateId(),
+      profile_id: userId,
+      workout_reminders_enabled: true,
+      missed_start_nudges_enabled: true,
+      progress_notifications_enabled: true,
+      bodyscan_reminders_enabled: true,
+      created_at: generateTimestamp(),
+      updated_at: generateTimestamp(),
     });
   }
 
@@ -251,6 +313,180 @@ export class FakeOnboardingBackend {
       };
       this.tables.health_screenings.push(row);
       return { data: row, error: null };
+    }
+
+    if (name === 'get_gamification_dashboard') {
+      let gamificationProfile = this.tables.gamification_profiles.find(
+        (row) => row.profile_id === userId,
+      );
+      if (!gamificationProfile) {
+        gamificationProfile = {
+          profile_id: userId,
+          public_alias: null,
+          leaderboard_opt_in: false,
+          celebration_effects: true,
+        };
+        this.tables.gamification_profiles.push(gamificationProfile);
+      }
+      let season = this.tables.gamification_seasons[0];
+      if (!season) {
+        season = {
+          id: 'season-current',
+          key: '2026-07',
+          name: 'July 2026 Momentum Cup',
+          starts_on: '2026-07-01',
+          ends_on: '2026-08-01',
+        };
+        this.tables.gamification_seasons.push(season);
+      }
+      const events = this.tables.gamification_point_events.filter(
+        (row) => row.profile_id === userId,
+      );
+      const earned = new Map(
+        this.tables.gamification_user_achievements
+          .filter((row) => row.profile_id === userId)
+          .map((row) => [row.achievement_key, row]),
+      );
+      return {
+        data: {
+          enabled: true,
+          leaderboardOptIn: gamificationProfile.leaderboard_opt_in === true,
+          publicAlias: gamificationProfile.public_alias ?? null,
+          celebrationEffects: gamificationProfile.celebration_effects !== false,
+          lifetimePoints: events.reduce((sum, row) => sum + Number(row.points ?? 0), 0),
+          scoredDays: events.filter((row) => row.event_type === 'daily_completion').length,
+          season: {
+            id: season.id,
+            name: season.name,
+            startsOn: season.starts_on,
+            endsOn: season.ends_on,
+            points: events.reduce((sum, row) => sum + Number(row.points ?? 0), 0),
+            rank: null,
+            participants: gamificationProfile.leaderboard_opt_in ? 1 : null,
+          },
+          achievements: this.tables.gamification_achievements.map((achievement) => ({
+            key: achievement.key,
+            label: achievement.label,
+            description: achievement.description,
+            iconKey: achievement.icon_key,
+            achievedAt: earned.get(achievement.key)?.achieved_at ?? null,
+          })),
+        },
+        error: null,
+      };
+    }
+
+    if (name === 'set_gamification_preferences') {
+      const alias = String(args.p_public_alias ?? '').trim();
+      const optedIn = args.p_leaderboard_opt_in === true;
+      if (optedIn && !/^[\p{L}\p{N}][\p{L}\p{N} _-]{2,23}$/u.test(alias)) {
+        return { data: null, error: { message: 'leaderboard_alias_required' } };
+      }
+      const taken = this.tables.gamification_profiles.some(
+        (row) =>
+          row.profile_id !== userId &&
+          typeof row.public_alias === 'string' &&
+          row.public_alias.trim().toLowerCase() === alias.toLowerCase(),
+      );
+      if (alias && taken) return { data: null, error: { message: 'leaderboard_alias_taken' } };
+
+      const existing = this.tables.gamification_profiles.find((row) => row.profile_id === userId);
+      const next = {
+        profile_id: userId,
+        public_alias: alias || null,
+        leaderboard_opt_in: optedIn,
+        celebration_effects: args.p_celebration_effects !== false,
+      };
+      if (existing) Object.assign(existing, next);
+      else this.tables.gamification_profiles.push(next);
+      return this.rpc('get_gamification_dashboard', {});
+    }
+
+    if (name === 'get_gamification_leaderboard') {
+      const dashboard = this.rpc('get_gamification_dashboard', {});
+      if (dashboard.error) return dashboard;
+      const season = (dashboard.data as Record<string, unknown>).season as Record<string, unknown>;
+      const entries = this.tables.gamification_profiles
+        .filter((row) => row.leaderboard_opt_in && row.public_alias)
+        .map((row, index) => ({
+          rank: index + 1,
+          alias: row.public_alias,
+          points: 0,
+          scoredDays: 0,
+          isCurrentUser: row.profile_id === userId,
+        }));
+      return {
+        data: {
+          season: {
+            id: season.id,
+            name: season.name,
+            startsOn: season.startsOn,
+            endsOn: season.endsOn,
+          },
+          entries,
+          currentUser: entries.find((entry) => entry.isCurrentUser) ?? null,
+          rules: {
+            fullSessionPoints: 100,
+            quickSessionPoints: 75,
+            minimumSessionPoints: 50,
+            weeklyTargetBonus: 75,
+            dailyCap: 'highest completed mode per UTC day',
+          },
+        },
+        error: null,
+      };
+    }
+
+    if (name === 'get_my_data_export') {
+      return {
+        data: {
+          exportedAt: generateTimestamp(),
+          profile: this.tables.profiles.find((row) => row.id === userId) ?? null,
+          goals: this.tables.user_goals.filter((row) => row.profile_id === userId),
+          workouts: this.tables.workouts.filter((row) => row.profile_id === userId),
+          consentHistory: this.tables.consent_records.filter((row) => row.profile_id === userId),
+          bodyScanMetadata: this.tables.body_scans.filter((row) => row.profile_id === userId),
+        },
+        error: null,
+      };
+    }
+
+    if (name === 'delete_my_training_history') {
+      if (args.p_confirmation !== 'DELETE WORKOUT HISTORY') {
+        return { data: null, error: { message: 'confirmation_required' } };
+      }
+      const workoutIds = this.tables.workouts
+        .filter((row) => row.profile_id === userId)
+        .map((row) => row.id);
+      const exerciseIds = this.tables.workout_exercises
+        .filter((row) => workoutIds.includes(row.workout_id))
+        .map((row) => row.id);
+      const deleted = workoutIds.length;
+      this.tables.set_logs = this.tables.set_logs.filter(
+        (row) => !exerciseIds.includes(row.workout_exercise_id),
+      );
+      this.tables.workout_exercises = this.tables.workout_exercises.filter(
+        (row) => !workoutIds.includes(row.workout_id),
+      );
+      this.tables.workouts = this.tables.workouts.filter((row) => row.profile_id !== userId);
+      this.tables.gamification_point_events = this.tables.gamification_point_events.filter(
+        (row) => row.profile_id !== userId,
+      );
+      this.tables.gamification_user_achievements =
+        this.tables.gamification_user_achievements.filter((row) => row.profile_id !== userId);
+      return { data: { workoutsDeleted: deleted }, error: null };
+    }
+
+    if (name === 'delete_my_account') {
+      if (args.p_confirmation !== 'DELETE MY ACCOUNT') {
+        return { data: null, error: { message: 'confirmation_required' } };
+      }
+      for (const table of Object.keys(this.tables)) {
+        this.tables[table] = this.tables[table].filter(
+          (row) => row.id !== userId && row.profile_id !== userId,
+        );
+      }
+      return { data: { deleted: true }, error: null };
     }
 
     if (name === 'complete_onboarding') {

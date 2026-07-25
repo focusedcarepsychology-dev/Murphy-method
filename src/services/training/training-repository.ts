@@ -13,6 +13,7 @@
  * (`src/services/training/programme-repository.ts` wraps those RPCs) —
  * the client is never the programme authority.
  */
+import type { CoachingStyle } from '@/domain/onboarding/types';
 import type { MurphySupabaseClient } from '@/services/supabase/client';
 
 export class TrainingRepositoryError extends Error {
@@ -63,6 +64,7 @@ export type ViewerProfile = {
   displayName: string | null;
   availableTrainingDays: string[];
   preferredSessionDurationMinutes: number | null;
+  coachingStyle: CoachingStyle | null;
 };
 
 export function normaliseDisplayName(value: string | null | undefined): string | null {
@@ -76,7 +78,9 @@ export async function loadViewerProfile(
 ): Promise<ViewerProfile> {
   const { data, error } = await client
     .from('profiles')
-    .select('display_name, available_training_days, preferred_session_duration_minutes')
+    .select(
+      'display_name, available_training_days, preferred_session_duration_minutes, coaching_style',
+    )
     .eq('id', userId)
     .single();
   if (error) fail('load your profile', error);
@@ -84,6 +88,7 @@ export async function loadViewerProfile(
     displayName: normaliseDisplayName(data.display_name),
     availableTrainingDays: data.available_training_days ?? [],
     preferredSessionDurationMinutes: data.preferred_session_duration_minutes,
+    coachingStyle: data.coaching_style,
   };
 }
 
