@@ -11,6 +11,8 @@ concurrency:
 
 permissions:
   contents: read
+  issues: write
+  pull-requests: write
 
 jobs:
   deploy:
@@ -30,6 +32,7 @@ jobs:
           ref: ${{ github.sha }}
 
       - name: Validate protected staging configuration
+        id: validate
         run: |
           set -euo pipefail
           missing=()
@@ -54,24 +57,30 @@ jobs:
         run: mkdir -p deploy-artifacts
 
       - name: Link to hosted staging project
+        id: link
         run: set -o pipefail; supabase link --project-ref "$SUPABASE_PROJECT_ID" 2>&1 | tee deploy-artifacts/link.log
 
       - name: Record migration state before deployment
+        id: before
         run: set -o pipefail; supabase migration list --linked 2>&1 | tee deploy-artifacts/migrations-before.log
 
       - name: Migration dry run
+        id: dryrun
         run: set -o pipefail; supabase db push --dry-run 2>&1 | tee deploy-artifacts/dry-run.log
 
       - name: Apply migrations to staging
+        id: push
         run: set -o pipefail; supabase db push 2>&1 | tee deploy-artifacts/push.log
 
       - name: Run hosted-safe structural and security verification
+        id: verify
         run: |
           set -o pipefail
           supabase test db supabase/tests/database/12_hosted_structural_verification.sql --linked \
             2>&1 | tee deploy-artifacts/hosted-verification.log
 
       - name: Record migration state after deployment
+        id: after
         if: always()
         run: set -o pipefail; supabase migration list --linked 2>&1 | tee deploy-artifacts/migrations-after.log
 
@@ -83,6 +92,51 @@ jobs:
           path: deploy-artifacts/
           if-no-files-found: warn
           retention-days: 30
+
+      - name: Post deployment result to PR 19
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          VALIDATE_OUTCOME: ${{ steps.validate.outcome }}
+          LINK_OUTCOME: ${{ steps.link.outcome }}
+          BEFORE_OUTCOME: ${{ steps.before.outcome }}
+          DRYRUN_OUTCOME: ${{ steps.dryrun.outcome }}
+          PUSH_OUTCOME: ${{ steps.push.outcome }}
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+          AFTER_OUTCOME: ${{ steps.after.outcome }}
+          SOURCE_SHA: ${{ github.sha }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const results = [
+              ['Protected configuration', process.env.VALIDATE_OUTCOME],
+              ['Link staging project', process.env.LINK_OUTCOME],
+              ['Migration state before', process.env.BEFORE_OUTCOME],
+              ['Migration dry run', process.env.DRYRUN_OUTCOME],
+              ['Apply migrations', process.env.PUSH_OUTCOME],
+              ['Hosted structural/security verification', process.env.VERIFY_OUTCOME],
+              ['Migration state after', process.env.AFTER_OUTCOME],
+            ];
+            const mark = (outcome) => outcome === 'success' ? '✅' : outcome === 'skipped' ? '⏭️' : '❌';
+            const success = process.env.PUSH_OUTCOME === 'success' && process.env.VERIFY_OUTCOME === 'success';
+            const body = [
+              `## Stage 3 hosted staging deployment ${success ? 'passed' : 'needs attention'}`,
+              '',
+              `Source commit: \`${process.env.SOURCE_SHA}\``,
+              `Workflow: ${process.env.RUN_URL}`,
+              '',
+              ...results.map(([label, outcome]) => `- ${mark(outcome)} ${label}: \`${outcome || 'not run'}\``),
+              '',
+              success
+                ? '**Staging migrations were applied and hosted structural/security verification passed. Production was untouched.**'
+                : '**Do not retry or repair migration history until the failed workflow step and private diagnostic artifact have been reviewed. Production was untouched.**',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: 19,
+              body,
+            });
 
       - name: Deployment summary
         if: always()
