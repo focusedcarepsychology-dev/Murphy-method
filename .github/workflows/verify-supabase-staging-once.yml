@@ -86,6 +86,21 @@ jobs:
               > staging-verification/configuration.log
           fi
 
+          failure_class="none"
+          if [ "$config_ok" -ne 1 ]; then
+            failure_class="protected_configuration_missing_or_invalid"
+          elif [ "$link_status" -ne 0 ]; then
+            failure_class="supabase_project_link_failed"
+          elif grep -Eiq 'password authentication failed|invalid password|authentication failed|SASL|P1000' staging-verification/*.log 2>/dev/null; then
+            failure_class="database_password_authentication_failed"
+          elif grep -Eiq 'remote migration versions not found|migration history|repair the migration history|migration.*mismatch' staging-verification/*.log 2>/dev/null; then
+            failure_class="migration_history_mismatch"
+          elif grep -Eiq 'connection refused|connection timed out|timeout expired|could not translate host|network is unreachable|dial tcp' staging-verification/*.log 2>/dev/null; then
+            failure_class="database_connection_failed"
+          elif [ "$migration_status" -ne 0 ] || [ "$dry_run_status" -ne 0 ] || [ "$structural_status" -ne 0 ]; then
+            failure_class="database_command_failed_unclassified"
+          fi
+
           if [ "$config_ok" -eq 1 ] && [ "$link_status" -eq 0 ] && \
              [ "$migration_status" -eq 0 ] && [ "$dry_run_status" -eq 0 ] && \
              [ "$structural_status" -eq 0 ]; then
@@ -104,6 +119,7 @@ jobs:
           - Verified at: \`${timestamp}\`
           - Configuration present and correctly shaped: \`${config_ok}\`
           - Missing or invalid configuration names: \`${missing_summary}\`
+          - Failure classification: \`${failure_class}\`
           - Hosted project link exit code: \`${link_status}\`
           - Migration-state command exit code: \`${migration_status}\`
           - Migration dry-run exit code: \`${dry_run_status}\`
