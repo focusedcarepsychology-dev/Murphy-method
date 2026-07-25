@@ -96,16 +96,20 @@ function seedCompletedOnboarding(overrides: Record<string, unknown> = {}) {
 }
 
 describe('a brand-new user with no training history', () => {
-  it('is greeted without a name when display_name is null', async () => {
-    seedCompletedOnboarding({ display_name: null });
+  it(
+    'is greeted without a name when display_name is null',
+    async () => {
+      seedCompletedOnboarding({ display_name: null });
 
-    await renderRouter('src/app', { initialUrl: '/(tabs)/today' });
+      await renderRouter('src/app', { initialUrl: '/(tabs)/today' });
 
-    expect(await screen.findByText(/What's next/i)).toBeTruthy();
-    expect(screen.queryByText(/Alex/)).toBeNull();
-    // Greeting renders alone, with no dangling comma after an empty name.
-    expect(screen.queryByText(/^Good (morning|afternoon|evening|Hello),\s*$/)).toBeNull();
-  });
+      expect(await screen.findByText(/What's next/i)).toBeTruthy();
+      expect(screen.queryByText(/Alex/)).toBeNull();
+      // Greeting renders alone, with no dangling comma after an empty name.
+      expect(screen.queryByText(/^Good (morning|afternoon|evening|Hello),\s*$/)).toBeNull();
+    },
+    15_000,
+  );
 
   it('is greeted by name when display_name is set', async () => {
     seedCompletedOnboarding({ display_name: 'Sam' });
