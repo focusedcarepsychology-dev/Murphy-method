@@ -55,6 +55,12 @@ jobs:
             missing+=("SUPABASE_PROJECT_ID_FORMAT")
           fi
 
+          if [ "${#missing[@]}" -eq 0 ]; then
+            missing_summary="none"
+          else
+            missing_summary="${missing[*]}"
+          fi
+
           link_status=99
           migration_status=99
           dry_run_status=99
@@ -76,7 +82,7 @@ jobs:
               structural_status=$?
             fi
           else
-            printf 'Missing or invalid protected configuration names: %s\n' "${missing[*]}" \
+            printf 'Missing or invalid protected configuration names: %s\n' "$missing_summary" \
               > staging-verification/configuration.log
           fi
 
@@ -97,6 +103,7 @@ jobs:
           - Reviewed application source: \`146eee2877e3a36949d3397dba63138ac85578b2\`
           - Verified at: \`${timestamp}\`
           - Configuration present and correctly shaped: \`${config_ok}\`
+          - Missing or invalid configuration names: \`${missing_summary}\`
           - Hosted project link exit code: \`${link_status}\`
           - Migration-state command exit code: \`${migration_status}\`
           - Migration dry-run exit code: \`${dry_run_status}\`
