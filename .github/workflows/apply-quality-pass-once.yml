@@ -73,28 +73,45 @@ jobs:
             .github/quality-pass.patch.gz.b64 \
             .github/workflows/apply-quality-pass-once.yml
 
-      - name: Install and format
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Format audited changes
         run: |
-          npm ci
           npm run format
           git add -A
           git diff --cached --check
 
-      - name: Verify application
-        run: |
-          npm run typecheck
-          npm run lint
-          npm run format:check
-          npm test -- --ci
-          npx expo export --platform web
-          node ./scripts/check-no-secrets.js --bundle-dir dist
+      - name: Typecheck
+        run: npm run typecheck
 
-      - name: Verify clean database
-        run: |
-          supabase start
-          trap 'supabase stop' EXIT
-          supabase db reset --local
-          supabase test db --local
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Unit and component tests
+        run: npm test -- --ci
+
+      - name: Expo web export
+        run: npx expo export --platform web
+
+      - name: Secret scan
+        run: node ./scripts/check-no-secrets.js --bundle-dir dist
+
+      - name: Start local Supabase
+        run: supabase start
+
+      - name: Reset clean database
+        run: supabase db reset --local
+
+      - name: Run database tests
+        run: supabase test db --local
+
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop
 
       - name: Commit verified quality pass
         run: |
