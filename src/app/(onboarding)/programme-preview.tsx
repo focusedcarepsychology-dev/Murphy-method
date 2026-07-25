@@ -23,11 +23,9 @@ function weekdayLabel(key: string): string {
 }
 
 /**
- * Calls `completeOnboarding` (`complete_onboarding` RPC) on mount —
- * generation is synchronous to completion (docs/SCREEN_SPECIFICATIONS.md
- * §2 "Programme Preview"), so this screen's loading state is meaningful,
- * not decorative. Safe to re-run (idempotent): navigating back here and
- * forward again does not create a second programme.
+ * Calls `completeOnboarding` (`complete_onboarding` RPC) on mount. Generation
+ * is synchronous and idempotent, so returning to this screen cannot create a
+ * competing programme.
  */
 export default function ProgrammePreviewScreen() {
   const router = useRouter();
@@ -64,14 +62,18 @@ export default function ProgrammePreviewScreen() {
       <OnboardingScaffold
         stepIndex={14}
         title="Building your programme"
+        description="Your answers are being turned into a real starting plan."
         onNext={() => {}}
         nextDisabled
       >
         <View style={{ gap: spacing.three }}>
-          <AppText color="secondary">
-            Putting together your starting structure from your goals, equipment, and safety
-            information — this only takes a moment.
-          </AppText>
+          <Card variant="quiet" elevated={false} style={{ gap: spacing.one }}>
+            <Caption>WHAT THE ENGINE IS USING</Caption>
+            <AppText color="secondary" style={{ flexShrink: 1 }}>
+              Goals, available equipment, training days, session length, experience and safety
+              information.
+            </AppText>
+          </Card>
           <LoadingState accessibilityLabel="Generating your programme" rows={3} />
         </View>
       </OnboardingScaffold>
@@ -106,8 +108,8 @@ export default function ProgrammePreviewScreen() {
   return (
     <OnboardingScaffold
       stepIndex={14}
-      title="Your programme is ready"
-      description="A preview of your starting structure — exercise selection builds from here."
+      title="Your starting plan"
+      description="Review how your answers shaped the programme before you begin."
       nextLabel="Start Training"
       onBack={() => router.back()}
       onNext={() => router.push('/(onboarding)/complete')}
@@ -119,24 +121,29 @@ export default function ProgrammePreviewScreen() {
               flexDirection: 'row',
               gap: spacing.three,
               padding: spacing.three,
-              borderRadius: radius.lg,
+              borderRadius: radius.md,
               backgroundColor: colors.status.warningSubtle,
             }}
           >
             <Icon name="info" color={colors.status.warning} size={22} />
             <AppText color="secondary" style={{ flex: 1 }}>
-              Based on your safety screening, confirm with a qualified professional before starting
-              certain training content.
+              Your safety answers indicate that appropriate professional clearance is needed before
+              starting some training content. The programme stays visible but protected.
             </AppText>
           </View>
         ) : null}
 
-        <Card style={{ gap: spacing.two }}>
-          <Heading variant="section">Weekly structure</Heading>
-          <AppText>
-            {weeklyDays.length > 0 ? weeklyDays.map(weekdayLabel).join(', ') : 'To be scheduled'}
+        <Card variant="hero" elevated={false} style={{ gap: spacing.three }}>
+          <Caption color="brand">WEEKLY STRUCTURE</Caption>
+          <Heading variant="section" style={{ flexShrink: 1 }}>
+            {weeklyDays.length > 0
+              ? `${weeklyDays.length} ${weeklyDays.length === 1 ? 'day' : 'days'} each week`
+              : 'Flexible weekly schedule'}
+          </Heading>
+          <AppText style={{ flexShrink: 1 }}>
+            {weeklyDays.length > 0 ? weeklyDays.map(weekdayLabel).join(' · ') : 'To be scheduled'}
           </AppText>
-          <Caption>
+          <Caption color="tertiary">
             {sessionMinutes
               ? `About ${sessionMinutes} minutes per session`
               : 'Session length to be confirmed'}
@@ -144,17 +151,32 @@ export default function ProgrammePreviewScreen() {
         </Card>
 
         {goalPriorities.length > 0 ? (
-          <Card style={{ gap: spacing.two }}>
-            <Heading variant="section">Your priorities</Heading>
+          <Card variant="quiet" elevated={false} style={{ gap: spacing.two }}>
+            <Caption>YOUR PRIORITIES</Caption>
             {goalPriorities.map((goal) => (
-              <AppText key={goal.priority}>
-                {goal.priority}. {goal.label}
-              </AppText>
+              <View
+                key={goal.priority}
+                style={{ flexDirection: 'row', alignItems: 'baseline', gap: spacing.two }}
+              >
+                <Caption color="brand">{goal.priority}</Caption>
+                <AppText style={{ flex: 1, flexShrink: 1 }}>{goal.label}</AppText>
+              </View>
             ))}
           </Card>
         ) : null}
 
-        <AppText color="secondary">{summary}</AppText>
+        <Card variant="quiet" elevated={false} style={{ gap: spacing.one }}>
+          <Caption>WHY IT LOOKS THIS WAY</Caption>
+          <AppText color="secondary" style={{ flexShrink: 1 }}>
+            {summary ||
+              'Exercise selection is filtered by your equipment and safety answers, then balanced around your priorities and available time.'}
+          </AppText>
+        </Card>
+
+        <Caption color="tertiary" style={{ flexShrink: 1 }}>
+          You can review individual exercise explanations and restructure the programme later without
+          deleting your history.
+        </Caption>
       </View>
     </OnboardingScaffold>
   );
