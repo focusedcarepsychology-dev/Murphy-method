@@ -47,16 +47,9 @@ function useToneColors(tone: Tone) {
 }
 
 /**
- * `{...pressableProps}` is spread *before* our own `accessibilityRole`/
- * `disabled`/`style` on every Pressable below, deliberately — `expo-router`'s
- * `Link asChild` clones its child and injects its own (often `undefined`)
- * `style`/`onPress`, and if that spread lands after ours it silently wins
- * and blanks out the button's visual styling (verified: a `Link asChild`-
- * wrapped `PrimaryButton` rendered with no background at all until this was
- * reordered). Callers should never pass `style` directly anyway — layout
- * overrides go through `containerStyle`.
+ * `{...pressableProps}` is spread before our own accessibility and style
+ * props so expo-router's `Link asChild` cannot blank out button styling.
  */
-
 export function PrimaryButton({
   label,
   tone = 'brand',
@@ -69,7 +62,7 @@ export function PrimaryButton({
   onColor = false,
   ...pressableProps
 }: BaseButtonProps) {
-  const { radius, spacing, colors } = useTheme();
+  const { radius, spacing, colors, motion } = useTheme();
   const toneColors = useToneColors(tone);
   const isDisabled = disabled || loading;
   const minHeight = size === 'large' ? WorkoutTouchTarget : MinTouchTarget;
@@ -90,6 +83,7 @@ export function PrimaryButton({
           paddingHorizontal: spacing.four,
           backgroundColor: background,
           opacity: isDisabled ? 0.5 : pressed ? 0.85 : 1,
+          transform: [{ scale: pressed ? motion.pressScale : 1 }],
           alignSelf: fullWidth ? 'stretch' : 'flex-start',
         },
         containerStyle,
@@ -100,10 +94,7 @@ export function PrimaryButton({
       ) : (
         <View style={styles.content}>
           {icon ? <Icon name={icon} color={foreground} size={20} /> : null}
-          <AppText
-            variant={size === 'large' ? 'bodyEmphasis' : 'bodyEmphasis'}
-            style={{ color: foreground }}
-          >
+          <AppText variant="bodyEmphasis" style={{ color: foreground }}>
             {label}
           </AppText>
         </View>
@@ -124,7 +115,7 @@ export function SecondaryButton({
   onColor = false,
   ...pressableProps
 }: BaseButtonProps) {
-  const { radius, spacing, colors } = useTheme();
+  const { radius, spacing, colors, motion } = useTheme();
   const toneColors = useToneColors(tone);
   const isDisabled = disabled || loading;
   const minHeight = size === 'large' ? WorkoutTouchTarget : MinTouchTarget;
@@ -147,6 +138,7 @@ export function SecondaryButton({
           borderWidth: 1.5,
           borderColor: border,
           opacity: isDisabled ? 0.5 : 1,
+          transform: [{ scale: pressed ? motion.pressScale : 1 }],
           alignSelf: fullWidth ? 'stretch' : 'flex-start',
         },
         containerStyle,
@@ -174,7 +166,7 @@ export function TertiaryButton({
   disabled,
   ...pressableProps
 }: Omit<BaseButtonProps, 'size' | 'loading'>) {
-  const { spacing } = useTheme();
+  const { spacing, motion } = useTheme();
   const toneColors = useToneColors(tone);
 
   return (
@@ -189,6 +181,7 @@ export function TertiaryButton({
           minHeight: MinTouchTarget,
           paddingHorizontal: spacing.two,
           opacity: disabled ? 0.5 : pressed ? 0.6 : 1,
+          transform: [{ scale: pressed ? motion.pressScale : 1 }],
           alignSelf: fullWidth ? 'stretch' : 'flex-start',
         },
       ]}
@@ -220,7 +213,7 @@ export function IconButton({
   disabled,
   ...pressableProps
 }: IconButtonProps) {
-  const { colors, radius } = useTheme();
+  const { colors, radius, motion } = useTheme();
   const toneColors = useToneColors(tone);
 
   return (
@@ -238,6 +231,7 @@ export function IconButton({
           alignItems: 'center',
           justifyContent: 'center',
           opacity: disabled ? 0.5 : pressed ? 0.7 : 1,
+          transform: [{ scale: pressed ? motion.pressScale : 1 }],
           backgroundColor:
             variant === 'filled'
               ? colors.surface.sunken
