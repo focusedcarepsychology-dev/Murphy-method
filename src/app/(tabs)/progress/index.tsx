@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import { View } from 'react-native';
+import { useRouter, type Href } from 'expo-router';
+import { useWindowDimensions, View } from 'react-native';
 
 import { AppText, Caption, Heading } from '@/components/ui/app-text';
 import { PrimaryButton } from '@/components/ui/button';
@@ -16,11 +16,12 @@ import {
   loadTrainingHistorySummary,
   loadViewerProfile,
 } from '@/services/training/training-repository';
-import type { Href } from 'expo-router';
 
 export default function ProgressScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
   const { colors, spacing } = useTheme();
+  const narrow = width < 430;
 
   const { status, data, reload } = useAuthenticatedData(async (client, userId) => {
     const profile = await loadViewerProfile(client, userId);
@@ -48,18 +49,20 @@ export default function ProgressScreen() {
           <ErrorState onRetry={reload} />
         </Card>
       ) : (
-        <View style={{ flexDirection: 'row', gap: spacing.three }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.three }}>
           <MetricCard
             label="Sessions done"
             value={String(data.history.completedTotal)}
             caption="all time"
             icon="checkCircle"
+            style={narrow ? { flexBasis: '100%' } : undefined}
           />
           <MetricCard
             label="Personal records"
             value={String(data.records.length)}
             caption={data.records.length === 0 ? 'none yet' : 'all time'}
             icon="trophy"
+            style={narrow ? { flexBasis: '100%' } : undefined}
           />
         </View>
       )}
@@ -71,9 +74,11 @@ export default function ProgressScreen() {
             accessibilityLabel={section.label}
             onPress={() => router.push(section.href)}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.three }}>
+            <View style={{ minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.three }}>
               <Icon name={section.icon} color={colors.text.secondary} size={20} />
-              <Heading variant="bodyEmphasis">{section.label}</Heading>
+              <Heading variant="bodyEmphasis" style={{ flexShrink: 1 }}>
+                {section.label}
+              </Heading>
             </View>
           </InteractiveCard>
         ))}
@@ -81,16 +86,20 @@ export default function ProgressScreen() {
           accessibilityLabel="Personal records"
           onPress={() => router.push('/(tabs)/progress/records')}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.three }}>
+          <View style={{ minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.three }}>
             <Icon name="trophy" color={colors.text.secondary} size={20} />
-            <Heading variant="bodyEmphasis">Personal records</Heading>
+            <Heading variant="bodyEmphasis" style={{ flexShrink: 1 }}>
+              Personal records
+            </Heading>
           </View>
         </InteractiveCard>
       </View>
 
       <Card style={{ gap: spacing.two }}>
         <Caption>BODYSCAN</Caption>
-        <AppText color="secondary">Track visual progress using standardised photos.</AppText>
+        <AppText color="secondary" style={{ flexShrink: 1 }}>
+          Track visual progress using standardised photos.
+        </AppText>
         <PrimaryButton
           label="View Timeline"
           fullWidth={false}
