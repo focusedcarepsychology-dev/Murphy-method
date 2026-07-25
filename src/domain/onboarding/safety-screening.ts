@@ -1,7 +1,7 @@
 /**
  * Safety Screening question catalog (`MASTER_SPEC.md` §8.1,
  * `DATABASE_SCHEMA.md` §4 `health_screenings`). The client only renders
- * these questions and collects yes/no answers — it never derives
+ * these questions and collects yes/no answers, it never derives
  * `requires_clearance`/`restriction_flags` itself; that happens exclusively
  * in the trusted, versioned, deterministic server-side rule set
  * (`public.submit_safety_screening`,
@@ -11,7 +11,7 @@
  * DEVELOPMENT WORDING NOTICE: this question set and its supportive/
  * non-alarmist framing is a complete, functional, deterministic screening
  * sufficient for Phase 3 to work end-to-end and for its rule-derivation
- * logic to be tested — it is explicitly **not** final legal/clinical
+ * logic to be tested, it is explicitly **not** final legal/clinical
  * copy. `docs/OPEN_QUESTIONS.md` #5 tracks that a qualified clinical/legal
  * reviewer must sign off on the exact wording and disclaimer before public
  * beta (`RISKS.md` #1).
@@ -19,7 +19,7 @@
  * These questions are original wording inspired by the general,
  * well-established category of physical-activity-readiness screening
  * (self-reported yes/no questions about cardiac symptoms, medication,
- * joint/bone limitations, and pregnancy) — not a reproduction of any
+ * joint/bone limitations, and pregnancy), not a reproduction of any
  * specific copyrighted instrument.
  */
 

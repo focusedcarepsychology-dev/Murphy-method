@@ -3,7 +3,7 @@
  * routes cannot rely on development preview fixtures as user data.
  *
  * This is a static source scan, deliberately independent of the ESLint
- * `no-restricted-imports` guard in `eslint.config.js` — two mechanisms,
+ * `no-restricted-imports` guard in `eslint.config.js`, two mechanisms,
  * because the whole class of defect this remediation fixed was a
  * fictional-data module quietly reaching a real signed-in user on a real
  * device. It also catches the shape of the leak that survived the first

@@ -28,7 +28,7 @@ function stepIdForSlug(slug: string): OnboardingStepId | null {
  * and only redirects when it actually detects a forward-skip, so ordinary
  * sequential navigation (the common case, where the check always passes)
  * has no visible effect. This is a UX convenience, not the security
- * boundary — `complete_onboarding` (supabase/migrations) is the
+ * boundary, `complete_onboarding` (supabase/migrations) is the
  * authoritative server-side check that can never be bypassed by racing
  * this client-side redirect.
  */
@@ -56,7 +56,7 @@ export function useOnboardingForwardGuard(): void {
         }
       })
       .catch(() => {
-        // Best-effort only — see doc comment above.
+        // Best-effort only, see doc comment above.
       });
 
     return () => {

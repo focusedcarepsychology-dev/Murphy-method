@@ -11,7 +11,7 @@ export type RestTimerProps = {
   onComplete: () => void;
 };
 
-/** Auto-starting rest timer — visually signals completion, skippable, extendable. */
+/** Auto-starting rest timer, visually signals completion, skippable, extendable. */
 export function RestTimer({ totalSeconds, onComplete }: RestTimerProps) {
   const { spacing } = useTheme();
   const [remaining, setRemaining] = useState(totalSeconds);

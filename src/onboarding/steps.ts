@@ -1,5 +1,5 @@
 /**
- * Onboarding step registry — drives the shared progress indicator
+ * Onboarding step registry, drives the shared progress indicator
  * (`OnboardingScaffold`) and the resume/forward-guard logic
  * (`src/domain/onboarding/progress.ts`). `required` marks steps a user
  * cannot skip (`ROUTES.md` §3 rule 2, `SCREEN_SPECIFICATIONS.md` §2);

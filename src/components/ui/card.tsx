@@ -60,7 +60,7 @@ export type InteractiveCardProps = PropsWithChildren<
   }
 >;
 
-/** Tappable card variant — navigates or opens a detail view. */
+/** Tappable card variant, navigates or opens a detail view. */
 export function InteractiveCard({
   children,
   style,

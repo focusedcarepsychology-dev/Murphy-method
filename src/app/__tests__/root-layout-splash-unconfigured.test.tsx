@@ -4,7 +4,7 @@ import { renderRouter, screen } from 'expo-router/testing-library';
  * Regression coverage for the startup deadlock: when Supabase isn't
  * configured, `AuthProvider`/`AppNavigation` never mount, so the
  * `SplashScreen.hideAsync()` call that normally lives in `AppNavigation`'s
- * effect never runs either — the native splash stayed up forever and
+ * effect never runs either, the native splash stayed up forever and
  * `ConfigurationErrorScreen` was rendered underneath it, invisibly.
  */
 const mockHideAsync = jest.fn(async () => {});

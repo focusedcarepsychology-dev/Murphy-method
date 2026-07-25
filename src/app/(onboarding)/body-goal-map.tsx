@@ -21,7 +21,7 @@ type LoadStatus = 'loading' | 'ready' | 'error';
 
 /**
  * Optional step (docs/SCREEN_SPECIFICATIONS.md §2 "Interactive Body Goal
- * Map") — zero selections is a fully valid outcome, so Next is never
+ * Map"), zero selections is a fully valid outcome, so Next is never
  * disabled here. The map is a visual convenience; the list below it is the
  * accessible, screen-reader-friendly equivalent selector covering the same
  * 13 regions (docs/DESIGN_SYSTEM.md §8).
@@ -104,7 +104,7 @@ export default function BodyGoalMapScreen() {
     <OnboardingScaffold
       stepIndex={4}
       title="Where would you like to focus?"
-      description="Optional — this guides emphasis within your plan. Training a body area can't selectively remove fat there; that's not physiologically possible."
+      description="This is optional and guides emphasis within your plan. Training a body area cannot selectively remove fat there; that is not physiologically possible."
       onBack={() => router.back()}
       onNext={handleNext}
       nextLoading={submitting}

@@ -107,7 +107,7 @@ export default function WorkoutExerciseScreen() {
       <Card style={{ gap: spacing.one }}>
         <Caption>TARGET IN THIS WORKOUT</Caption>
         <AppText variant="bodyEmphasis" style={{ flexShrink: 1 }}>
-          {data.workoutExercise.targetSets} sets · {data.workoutExercise.targetRepRangeLow}–
+          {data.workoutExercise.targetSets} sets · {data.workoutExercise.targetRepRangeLow} to{' '}
           {data.workoutExercise.targetRepRangeHigh} reps
         </AppText>
       </Card>

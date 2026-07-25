@@ -55,12 +55,12 @@ function handleAppStateChange(instance: MurphySupabaseClient, state: AppStateSta
 
 /**
  * Returns the single shared Supabase client, creating it on first call.
- * Never call `createClient` directly elsewhere — a new client per render/
+ * Never call `createClient` directly elsewhere, a new client per render/
  * call would duplicate auth state and AppState subscriptions.
  *
  * Throws if Supabase isn't configured (src/config/env.ts). Callers must
  * check `isSupabaseConfigured` first and render the
- * ConfigurationErrorScreen state instead of reaching this call — this
+ * ConfigurationErrorScreen state instead of reaching this call, this
  * function deliberately does not fall back to a fake/mock backend.
  */
 export function getSupabaseClient(): MurphySupabaseClient {
@@ -81,7 +81,7 @@ export function getSupabaseClient(): MurphySupabaseClient {
       persistSession: true,
       // `detectSessionInUrl` drives supabase-js's own browser-only
       // URL-parsing/history-cleanup behaviour, which does not exist on
-      // native — the app's incoming-link handling
+      // native, the app's incoming-link handling
       // (`state/auth/process-auth-deep-link.ts`, wired in
       // `state/auth/auth-context.tsx`) reads the URL itself via
       // `expo-linking` and establishes the session explicitly, so this

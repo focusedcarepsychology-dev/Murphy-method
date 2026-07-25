@@ -1,7 +1,7 @@
 /**
  * Maps Supabase Auth errors to safe, user-facing copy. Never surfaces raw
  * provider error text, stack traces, or SQL to the user
- * (docs/IMPLEMENTATION_PLAN.md Phase 2 §17 Failure States) — the original
+ * (docs/IMPLEMENTATION_PLAN.md Phase 2 §17 Failure States), the original
  * error is still logged for development diagnostics.
  */
 export function mapAuthErrorMessage(error: unknown): string {

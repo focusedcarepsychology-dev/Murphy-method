@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ProgressBarProps = {
-  /** 0–1 */
+  /** 0 to 1 */
   value: number;
   tone?: 'brand' | 'positive' | 'warning' | 'critical';
   accessibilityLabel: string;

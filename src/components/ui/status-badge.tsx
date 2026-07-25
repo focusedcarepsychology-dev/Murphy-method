@@ -19,7 +19,7 @@ export type StatusBadgeProps = {
 };
 
 /**
- * Colour is never the sole signal (docs/DESIGN_SYSTEM.md §3.4) — every
+ * Colour is never the sole signal (docs/DESIGN_SYSTEM.md §3.4), every
  * status badge pairs its tone with an icon and a text label.
  */
 export function StatusBadge({ label, tone = 'neutral' }: StatusBadgeProps) {

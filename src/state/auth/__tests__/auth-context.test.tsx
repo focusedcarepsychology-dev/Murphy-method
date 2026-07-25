@@ -7,7 +7,7 @@ import { createMockSession, createMockSupabaseClient } from '@/test-utils/mock-s
 // `Linking.createURL` needs the Expo Constants manifest that only a full
 // `renderRouter`-driven app tree provides (see src/app/__tests__/route-guards.test.tsx);
 // this file drives AuthProvider directly via renderHook, so the manifest
-// is never populated — mock the calls this module makes. `getInitialURL`/
+// is never populated, mock the calls this module makes. `getInitialURL`/
 // `addEventListener` are driven by the `mockInitial*`/`mockUrlListener`
 // module-scoped `let`s below (the "mock" prefix is required for
 // babel-plugin-jest-hoist to allow a jest.mock() factory to close over
@@ -52,7 +52,7 @@ describe('AuthProvider / useAuth', () => {
 
     // `renderHook` itself is async and lets the initial getSession() promise
     // resolve before returning, so `initialising` may already have flipped
-    // to `signed_out` by this point — asserting eventual convergence (not
+    // to `signed_out` by this point, asserting eventual convergence (not
     // a synchronous snapshot mid-transition) is what's actually observable
     // and meaningful here.
     expect(['initialising', 'signed_out']).toContain(result.current.state.status);
@@ -134,7 +134,7 @@ describe('AuthProvider / useAuth', () => {
     });
   });
 
-  it('does not reset profileStatus/onboardingCompletedAt on a same-user re-emission (e.g. token refresh) — no redirect flicker', async () => {
+  it('does not reset profileStatus/onboardingCompletedAt on a same-user re-emission (e.g. token refresh), no redirect flicker', async () => {
     const mock = createMockSupabaseClient();
     const session = createMockSession();
     mock.setInitialSession(session);

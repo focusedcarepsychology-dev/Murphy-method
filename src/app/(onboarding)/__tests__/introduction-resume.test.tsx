@@ -101,7 +101,7 @@ describe('Onboarding resume after relaunch (docs/IMPLEMENTATION_PLAN.md Phase 3 
     await renderRouter('src/app', { initialUrl: '/(onboarding)/introduction' });
 
     // Programme generation is synchronous to landing here (complete_onboarding
-    // is idempotent and fast against the fake backend) — either the
+    // is idempotent and fast against the fake backend), either the
     // meaningful loading state or the resolved preview is a valid outcome
     // to observe, but Introduction must never be what's shown.
     expect(await screen.findByText('Your starting plan')).toBeTruthy();

@@ -193,7 +193,7 @@ export default function BasicProfileScreen() {
     <OnboardingScaffold
       stepIndex={1}
       title="A little about you"
-      description="Used to size your programme correctly — stored privately in your account, and editable later in Profile."
+      description="Used to size your programme correctly. It is stored privately in your account and can be edited later in Profile."
       onBack={() => router.back()}
       onNext={handleNext}
       nextDisabled={!canSubmit}
@@ -251,7 +251,7 @@ export default function BasicProfileScreen() {
           ) : null}
           {isoDob && !dobResult.valid && dobResult.reason === 'implausible_age' ? (
             <AppText color="critical" variant="supporting">
-              That date of birth doesn&apos;t look right — please double-check it.
+              That date of birth does not look right. Please check it again.
             </AppText>
           ) : null}
           {dobHasAnyInput && !isoDob ? (
@@ -268,7 +268,7 @@ export default function BasicProfileScreen() {
             onChangeText={setHeightCmInput}
             keyboardType="decimal-pad"
             error={
-              heightHasInput && !heightValid ? 'Enter a height between 100–250 cm.' : undefined
+              heightHasInput && !heightValid ? 'Enter a height between 100 to 250 cm.' : undefined
             }
           />
         ) : (
@@ -308,8 +308,8 @@ export default function BasicProfileScreen() {
           error={
             weightHasInput && !weightValid
               ? unit === 'imperial'
-                ? 'Enter a weight between 66–660 lb.'
-                : 'Enter a weight between 30–300 kg.'
+                ? 'Enter a weight between 66 to 660 lb.'
+                : 'Enter a weight between 30 to 300 kg.'
               : undefined
           }
         />

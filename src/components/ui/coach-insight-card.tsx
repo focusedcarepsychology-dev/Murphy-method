@@ -14,7 +14,7 @@ export type CoachInsightCardProps = {
   actions?: CoachInsightAction[];
 };
 
-/** Murphy's coach message card — premium, not a generic chat bubble. */
+/** Murphy's coach message card, premium, not a generic chat bubble. */
 export function CoachInsightCard({ message, actions }: CoachInsightCardProps) {
   const { colors, spacing, radius } = useTheme();
 
@@ -35,7 +35,7 @@ export function CoachInsightCard({ message, actions }: CoachInsightCardProps) {
             M
           </AppText>
         </View>
-        <Caption color="tertiary">MURPHY · YOUR ADAPTIVE COACH</Caption>
+        <Caption color="tertiary">MURPHY · YOUR COACH</Caption>
       </View>
       <AppText variant="body">{message}</AppText>
       {actions?.length ? (

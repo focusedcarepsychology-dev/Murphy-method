@@ -11,7 +11,7 @@ const ThemePreferenceContext = createContext<ThemePreferenceContextValue | null>
 
 /**
  * Holds the user's manual light/dark override (docs/DESIGN_SYSTEM.md §9).
- * In-memory only for Phase 1 — there is no persistence layer yet, so the
+ * In-memory only for Phase 1, there is no persistence layer yet, so the
  * override resets on relaunch rather than being backed by fake persistence.
  */
 export function ThemePreferenceProvider({ children }: PropsWithChildren) {

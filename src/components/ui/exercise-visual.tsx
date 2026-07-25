@@ -6,7 +6,7 @@ import { useTheme } from '@/hooks/use-theme';
  * Original, internally-owned exercise illustrations (remediation Part 7):
  * a minimal line-art stick figure per pose category, never a scraped or
  * licensed third-party image. Each `visual_key` seeded on `exercises`
- * (docs/DATABASE_SCHEMA.md §5) maps to one distinct pose here — this is a
+ * (docs/DATABASE_SCHEMA.md §5) maps to one distinct pose here, this is a
  * deliberately small, lightweight v1 set (one pose per movement category,
  * not one drawing per exercise); the architecture allows a richer
  * illustration or short animation per exercise later without changing the

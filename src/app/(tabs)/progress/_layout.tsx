@@ -15,7 +15,7 @@ export default function ProgressLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="goal-journey" options={{ title: 'Goal Journey' }} />
+      <Stack.Screen name="goal-journey" options={{ title: 'Goal Progress' }} />
       <Stack.Screen name="strength" options={{ title: 'Strength' }} />
       <Stack.Screen name="measurements" options={{ title: 'Measurements' }} />
       <Stack.Screen name="records" options={{ title: 'Personal Records' }} />

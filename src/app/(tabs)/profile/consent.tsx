@@ -13,7 +13,7 @@ import { loadConsentHistory } from '@/services/settings/settings-repository';
 
 const LABELS: Record<string, string> = {
   bodyscan_capture: 'BodyScan capture',
-  bodyscan_ai_processing: 'BodyScan AI processing',
+  bodyscan_ai_processing: 'BodyScan automated processing',
   data_processing: 'Data processing',
   marketing: 'Marketing',
 };

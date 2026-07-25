@@ -24,7 +24,7 @@ export function OfflineBanner() {
     >
       <Icon name="offline" color={colors.status.warning} size={16} />
       <AppText variant="supporting" style={{ color: colors.status.warning }}>
-        You&apos;re offline — showing last-synced content
+        You&apos;re offline, showing last-synced content
       </AppText>
     </View>
   );
