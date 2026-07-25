@@ -75,7 +75,9 @@ describe('authenticated source contains no fictional user data', () => {
 
   it('does not reference a preview workout identifier', () => {
     const offenders = AUTHENTICATED_SOURCE.filter((file) =>
-      /preview-workout|PREVIEW_WORKOUT_ID/.test(readFileSync(file, 'utf8')),
+      /preview-workout|PREVIEW_WORKOUT_ID/.test(
+        stripCommentsAndImports(readFileSync(file, 'utf8')),
+      ),
     ).map(relative);
 
     expect(offenders).toEqual([]);

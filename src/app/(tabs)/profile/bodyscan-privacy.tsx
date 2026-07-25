@@ -10,10 +10,7 @@ import { ScrollScreen } from '@/components/ui/scroll-screen';
 import { useAuthenticatedClient } from '@/hooks/use-authenticated-client';
 import { useAuthenticatedData } from '@/hooks/use-authenticated-data';
 import { useTheme } from '@/hooks/use-theme';
-import {
-  deleteAllBodyScans,
-  listBodyScans,
-} from '@/services/bodyscan/bodyscan-repository';
+import { deleteAllBodyScans, listBodyScans } from '@/services/bodyscan/bodyscan-repository';
 import {
   hasGrantedBodyScanConsent,
   recordBodyScanConsent,
@@ -67,7 +64,9 @@ export default function BodyScanPrivacyScreen() {
       );
       reload();
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Could not delete your BodyScan data.');
+      setActionError(
+        error instanceof Error ? error.message : 'Could not delete your BodyScan data.',
+      );
     } finally {
       setDeleting(false);
     }

@@ -34,6 +34,64 @@ function seedCompletedOnboarding(overrides: Record<string, unknown> = {}) {
     coaching_style: 'supportive',
     ...overrides,
   });
+  const exerciseId = 'exercise-bodyweight-squat';
+  const programmeId = 'programme-real';
+  const versionId = 'programme-version-real';
+  backend.tables.exercises.push({
+    id: exerciseId,
+    name: 'Bodyweight Squat',
+    slug: 'bodyweight-squat',
+    description: 'A squat using only your bodyweight.',
+    visual_key: 'pose_squat',
+    starting_position: 'Stand with your feet about shoulder-width apart.',
+    instructions: ['Lower with control.', 'Stand back up.'],
+    coaching_cues: ['Keep your chest lifted.'],
+    common_mistakes: ['Letting the knees collapse inward.'],
+    movement_patterns: { key: 'squat', label: 'Squat' },
+    active: true,
+  });
+  backend.tables.programmes.push({
+    id: programmeId,
+    profile_id: USER_ID,
+    status: 'active',
+    current_version_id: versionId,
+    created_at: '2026-01-01T00:00:01.000Z',
+  });
+  backend.tables.programme_versions.push({
+    id: versionId,
+    programme_id: programmeId,
+    version_number: 1,
+    structure: {
+      engineVersion: 'deterministic-v1',
+      weeklyFrequencyDays: ['monday', 'wednesday', 'friday'],
+      sessionDurationMinutes: 40,
+      requiresClearance: false,
+      restrictionFlags: [],
+      limitationNotes: [],
+      sessions: [
+        {
+          sessionIndex: 0,
+          label: 'Full Body A',
+          focusSummary: 'A balanced full-body session.',
+          exercises: [
+            {
+              exerciseId,
+              orderIndex: 0,
+              targetSets: 3,
+              targetRepRangeLow: 8,
+              targetRepRangeHigh: 12,
+              whyIncluded: 'Matches your bodyweight-only starting plan.',
+            },
+          ],
+        },
+      ],
+    },
+    change_level: 0,
+    change_reason: 'Initial real programme.',
+    engine_version: 'deterministic-v1',
+    exercise_dataset_version: '1',
+    created_at: '2026-01-01T00:00:02.000Z',
+  });
   mockClient = createFakeOnboardingClient(backend, USER_ID);
 }
 

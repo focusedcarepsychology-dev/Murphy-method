@@ -360,7 +360,7 @@ export class FakeOnboardingBackend {
   }
 }
 
-type FilterOp = { col: string; val: unknown; op?: 'eq' | 'in' | 'gte' | 'lte' };
+type FilterOp = { col: string; val: unknown; op?: 'eq' | 'in' | 'gte' | 'lte' | 'lt' };
 
 type QueryResult = { data: unknown; error: unknown; count?: number };
 
@@ -369,6 +369,7 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
   private op: 'select' | 'insert' | 'update' | 'upsert' | 'delete' = 'select';
   private payload: Row | Row[] | undefined;
   private singleResult = false;
+  private maybeSingleResult = false;
   private orderCol?: string;
   private orderAscending = true;
   private limitN?: number;
@@ -402,6 +403,10 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
     this.filters.push({ col, val, op: 'lte' });
     return this;
   }
+  lt(col: string, val: unknown) {
+    this.filters.push({ col, val, op: 'lt' });
+    return this;
+  }
   order(col: string, opts?: { ascending?: boolean }) {
     this.orderCol = col;
     this.orderAscending = opts?.ascending !== false;
@@ -413,6 +418,10 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
   }
   single() {
     this.singleResult = true;
+    return this;
+  }
+  maybeSingle() {
+    this.maybeSingleResult = true;
     return this;
   }
   insert(payload: Row | Row[]) {
@@ -442,6 +451,7 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
       if (f.op === 'in') return (f.val as unknown[]).includes(value);
       if (f.op === 'gte') return value !== null && String(value) >= String(f.val);
       if (f.op === 'lte') return value !== null && String(value) <= String(f.val);
+      if (f.op === 'lt') return value !== null && String(value) < String(f.val);
       return value === f.val;
     });
   }
@@ -502,6 +512,12 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
     }
     if (this.limitN !== undefined) result = result.slice(0, this.limitN);
 
+    if (this.maybeSingleResult) {
+      if (result.length > 1) {
+        return { data: null, error: { message: 'multiple rows', code: 'PGRST116' } };
+      }
+      return { data: result[0] ?? null, error: null };
+    }
     if (this.singleResult) {
       if (result.length !== 1) {
         return { data: null, error: { message: 'no rows', code: 'PGRST116' } };
@@ -554,6 +570,11 @@ export function createFakeOnboardingClient(backend: FakeOnboardingBackend, userI
         return {
           upload: async (_path: string, _body: unknown, _opts: unknown) => ({
             data: { path: _path },
+            error: null,
+          }),
+          remove: async (_paths: string[]) => ({ data: _paths, error: null }),
+          createSignedUrl: async (_path: string) => ({
+            data: { signedUrl: `https://signed.example/${_path}` },
             error: null,
           }),
         };
