@@ -3,6 +3,7 @@ import { Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
 import { AppText } from '@/components/ui/app-text';
 import { MinTouchTarget } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { selectionFeedback } from '@/services/feedback/haptics';
 
 export type SegmentedControlOption<T extends string = string> = {
   value: T;
@@ -51,7 +52,11 @@ export function SegmentedControl<T extends string = string>({
             accessibilityRole="tab"
             accessibilityLabel={option.accessibilityLabel ?? option.label}
             accessibilityState={{ selected }}
-            onPress={() => onChange(option.value)}
+            onPress={() => {
+              if (selected) return;
+              void selectionFeedback();
+              onChange(option.value);
+            }}
             style={({ pressed }) => ({
               flex: 1,
               minWidth: 0,
