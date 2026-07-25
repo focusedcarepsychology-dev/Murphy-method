@@ -45,8 +45,8 @@ export function SetLogger({
         disabled={!canComplete}
       />
       <AppText color="tertiary" align="center" variant="caption" style={{ flexShrink: 1 }}>
-        Completed sets are saved securely to your account. Full offline workout persistence is not yet
-        available, so keep the app connected while logging.
+        Completed sets are saved securely to your account. Full offline workout persistence is not
+        yet available, so keep the app connected while logging.
       </AppText>
     </Card>
   );

@@ -92,7 +92,9 @@ export default function BodyScanTimelineScreen() {
               const thumbnailUrl = thumbnail ? data.signedUrls.get(thumbnail.id) : undefined;
               return (
                 <Card key={scan.id} style={{ gap: spacing.two }}>
-                  <View style={{ flexDirection: 'row', gap: spacing.three, alignItems: 'flex-start' }}>
+                  <View
+                    style={{ flexDirection: 'row', gap: spacing.three, alignItems: 'flex-start' }}
+                  >
                     {thumbnailUrl ? (
                       <View style={{ width: 96, position: 'relative' }}>
                         <Image
@@ -102,7 +104,13 @@ export default function BodyScanTimelineScreen() {
                           accessibilityLabel={`BodyScan from ${displayDate(scan.capturedOn)}`}
                         />
                         <BodyScanAlignmentGuide
-                          angle={thumbnail?.angle === 'side' ? 'side' : thumbnail?.angle === 'back' ? 'back' : 'front'}
+                          angle={
+                            thumbnail?.angle === 'side'
+                              ? 'side'
+                              : thumbnail?.angle === 'back'
+                                ? 'back'
+                                : 'front'
+                          }
                           transparent
                           style={{ position: 'absolute', inset: 0 }}
                         />
@@ -112,10 +120,12 @@ export default function BodyScanTimelineScreen() {
                       <Heading variant="bodyEmphasis" style={{ flexShrink: 1 }}>
                         {displayDate(scan.capturedOn)}
                       </Heading>
-                      <Caption>{scan.purpose === 'baseline' ? 'Baseline' : 'Progress check'}</Caption>
+                      <Caption>
+                        {scan.purpose === 'baseline' ? 'Baseline' : 'Progress check'}
+                      </Caption>
                       <AppText color="secondary" style={{ flexShrink: 1 }}>
-                        {scan.images.length} private {scan.images.length === 1 ? 'photo' : 'photos'} ·{' '}
-                        {scan.images.map((image) => image.angle.replace('_', ' ')).join(' · ')}
+                        {scan.images.length} private {scan.images.length === 1 ? 'photo' : 'photos'}{' '}
+                        · {scan.images.map((image) => image.angle.replace('_', ' ')).join(' · ')}
                       </AppText>
                     </View>
                   </View>
@@ -130,8 +140,8 @@ export default function BodyScanTimelineScreen() {
         <AppText variant="bodyEmphasis">Privacy and interpretation</AppText>
         <Caption style={{ flexShrink: 1 }}>
           Photos remain in a private bucket and are opened with short-lived signed links. Lighting,
-          distance, clothing and posture can change appearance; the app does not calculate body fat or
-          make medical claims from these images.
+          distance, clothing and posture can change appearance; the app does not calculate body fat
+          or make medical claims from these images.
         </Caption>
       </Card>
     </ScrollScreen>

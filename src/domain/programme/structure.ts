@@ -148,10 +148,7 @@ function parseSession(
 
   return {
     sessionIndex,
-    key:
-      typeof record.key === 'string'
-        ? record.key
-        : `session-${sessionIndex + 1}`,
+    key: typeof record.key === 'string' ? record.key : `session-${sessionIndex + 1}`,
     name:
       typeof record.name === 'string'
         ? record.name
@@ -161,7 +158,7 @@ function parseSession(
     dayOfWeek:
       typeof record.dayOfWeek === 'string'
         ? record.dayOfWeek
-        : trainingDays[sessionIndex] ?? null,
+        : (trainingDays[sessionIndex] ?? null),
     focus:
       typeof record.focus === 'string'
         ? record.focus

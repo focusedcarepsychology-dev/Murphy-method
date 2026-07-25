@@ -56,9 +56,10 @@ export default function TodayScreen() {
       userId,
       structure?.trainingDays.length ?? profile.availableTrainingDays.length,
     );
-    const exerciseIds = structure?.sessions.flatMap((session) =>
-      session.exercises.map((exercise) => exercise.exerciseId),
-    ) ?? [];
+    const exerciseIds =
+      structure?.sessions.flatMap((session) =>
+        session.exercises.map((exercise) => exercise.exerciseId),
+      ) ?? [];
     const exerciseDetails = await getExercisesByIds(authClient, exerciseIds);
     return { profile, programme, goals, history, exerciseDetails };
   });
@@ -132,9 +133,9 @@ export default function TodayScreen() {
             <Card style={{ gap: spacing.one }}>
               <Heading variant="bodyEmphasis">Clearance required before training</Heading>
               <AppText color="secondary" style={{ flexShrink: 1 }}>
-                Your safety answers indicate that you should obtain appropriate professional clearance
-                before starting this programme. The workout buttons remain disabled until that status is
-                reviewed.
+                Your safety answers indicate that you should obtain appropriate professional
+                clearance before starting this programme. The workout buttons remain disabled until
+                that status is reviewed.
               </AppText>
             </Card>
           ) : null}

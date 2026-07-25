@@ -55,7 +55,9 @@ export async function getCurrentProgramme(
 
   const { data: version, error: versionError } = await client
     .from('programme_versions')
-    .select('id, version_number, structure, engine_version, change_reason, change_level, created_at')
+    .select(
+      'id, version_number, structure, engine_version, change_reason, change_level, created_at',
+    )
     .eq('id', programme.current_version_id)
     .single();
   if (versionError) fail('load your programme', versionError);
@@ -106,7 +108,9 @@ export async function listProgrammeVersionHistory(
 
   const { data: versions, error: versionsError } = await client
     .from('programme_versions')
-    .select('id, version_number, structure, engine_version, change_reason, change_level, created_at')
+    .select(
+      'id, version_number, structure, engine_version, change_reason, change_level, created_at',
+    )
     .eq('programme_id', programme.id)
     .order('version_number', { ascending: false });
   if (versionsError) fail('load your programme history', versionsError);

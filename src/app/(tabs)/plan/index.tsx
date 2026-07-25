@@ -40,7 +40,8 @@ export default function PlanScreen() {
   });
 
   const structure = data?.programme?.parsedStructure ?? null;
-  const daysPerWeek = structure?.trainingDays.length ?? data?.profile.availableTrainingDays.length ?? 0;
+  const daysPerWeek =
+    structure?.trainingDays.length ?? data?.profile.availableTrainingDays.length ?? 0;
   const blockedByClearance = structure?.requiresClearance === true;
 
   async function handleStart(sessionIndex: number) {
@@ -108,8 +109,8 @@ export default function PlanScreen() {
             <Card style={{ gap: spacing.one }}>
               <Heading variant="bodyEmphasis">Training is paused pending clearance</Heading>
               <AppText color="secondary" style={{ flexShrink: 1 }}>
-                The sessions remain visible so you can understand the plan, but they cannot be started
-                until the clearance requirement is reviewed.
+                The sessions remain visible so you can understand the plan, but they cannot be
+                started until the clearance requirement is reviewed.
               </AppText>
             </Card>
           ) : null}

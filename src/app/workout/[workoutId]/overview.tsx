@@ -75,9 +75,7 @@ export default function WorkoutOverviewScreen() {
         <Heading variant="title">Your session</Heading>
         <AppText color="secondary" style={{ flexShrink: 1 }}>
           {[
-            workout.estimatedDurationMinutes
-              ? `${workout.estimatedDurationMinutes} min`
-              : null,
+            workout.estimatedDurationMinutes ? `${workout.estimatedDurationMinutes} min` : null,
             `${workout.exercises.length} ${
               workout.exercises.length === 1 ? 'exercise' : 'exercises'
             }`,

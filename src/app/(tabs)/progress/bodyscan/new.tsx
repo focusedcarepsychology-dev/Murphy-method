@@ -128,16 +128,20 @@ export default function NewBodyScanScreen() {
         <Heading variant="title">Private BodyScan consent</Heading>
         <Card style={{ gap: spacing.two }}>
           <AppText style={{ flexShrink: 1 }}>
-            BodyScan stores optional progress photos in a private Supabase bucket. Photos are used only
-            for your own timeline and comparisons. This version performs no AI analysis and makes no
-            body-fat or medical assessment.
+            BodyScan stores optional progress photos in a private Supabase bucket. Photos are used
+            only for your own timeline and comparisons. This version performs no AI analysis and
+            makes no body-fat or medical assessment.
           </AppText>
           <Caption style={{ flexShrink: 1 }}>
-            You can decline by going back. Nothing is captured or uploaded until you actively take and
-            save the photos.
+            You can decline by going back. Nothing is captured or uploaded until you actively take
+            and save the photos.
           </Caption>
           {actionError ? <AppText color="critical">{actionError}</AppText> : null}
-          <PrimaryButton label="I understand and continue" onPress={acceptConsent} loading={saving} />
+          <PrimaryButton
+            label="I understand and continue"
+            onPress={acceptConsent}
+            loading={saving}
+          />
           <SecondaryButton label="Not now" onPress={() => router.back()} />
         </Card>
       </ScrollScreen>
@@ -158,9 +162,9 @@ export default function NewBodyScanScreen() {
       <Card style={{ gap: spacing.one }}>
         <AppText variant="bodyEmphasis">Positioning guide</AppText>
         <Caption style={{ flexShrink: 1 }}>
-          Place the phone upright at roughly waist height. Keep the full body inside the frame, align
-          your head and torso with the centre line, and place both feet on the markers. Stand naturally
-          rather than flexing or forcing posture.
+          Place the phone upright at roughly waist height. Keep the full body inside the frame,
+          align your head and torso with the centre line, and place both feet on the markers. Stand
+          naturally rather than flexing or forcing posture.
         </Caption>
       </Card>
 
@@ -181,7 +185,9 @@ export default function NewBodyScanScreen() {
               <Caption>
                 {angle === 'side'
                   ? 'Turn exactly sideways and keep your feet together on the markers.'
-                  : 'Face directly ' + (angle === 'front' ? 'towards' : 'away from') + ' the camera.'}
+                  : 'Face directly ' +
+                    (angle === 'front' ? 'towards' : 'away from') +
+                    ' the camera.'}
               </Caption>
             </View>
 
@@ -206,7 +212,11 @@ export default function NewBodyScanScreen() {
             </View>
 
             <SecondaryButton
-              label={uri ? `Retake ${ANGLE_LABEL[angle].toLowerCase()} photo` : `Capture ${ANGLE_LABEL[angle].toLowerCase()} photo`}
+              label={
+                uri
+                  ? `Retake ${ANGLE_LABEL[angle].toLowerCase()} photo`
+                  : `Capture ${ANGLE_LABEL[angle].toLowerCase()} photo`
+              }
               onPress={() => capture(angle)}
               loading={busyAngle === angle}
               disabled={busyAngle !== null && busyAngle !== angle}
@@ -216,15 +226,19 @@ export default function NewBodyScanScreen() {
       })}
 
       <PrimaryButton
-        label={nextMissingAngle ? `Capture ${ANGLE_LABEL[nextMissingAngle].toLowerCase()} photo first` : 'Save private BodyScan'}
+        label={
+          nextMissingAngle
+            ? `Capture ${ANGLE_LABEL[nextMissingAngle].toLowerCase()} photo first`
+            : 'Save private BodyScan'
+        }
         onPress={saveScan}
         loading={saving}
         disabled={nextMissingAngle !== null}
       />
 
       <Caption color="tertiary" style={{ flexShrink: 1 }}>
-        Visual comparisons are affected by lighting, camera position, clothing, hydration and posture.
-        They should be treated as personal reference photos, not clinical measurements.
+        Visual comparisons are affected by lighting, camera position, clothing, hydration and
+        posture. They should be treated as personal reference photos, not clinical measurements.
       </Caption>
     </ScrollScreen>
   );

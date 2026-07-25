@@ -15,7 +15,10 @@ export class ExerciseRepositoryError extends Error {
 }
 
 function fail(action: string, error: unknown): never {
-  throw new ExerciseRepositoryError(`Couldn't ${action}. Check your connection and try again.`, error);
+  throw new ExerciseRepositoryError(
+    `Couldn't ${action}. Check your connection and try again.`,
+    error,
+  );
 }
 
 export type ExerciseMuscle = { label: string; role: 'primary' | 'secondary' };

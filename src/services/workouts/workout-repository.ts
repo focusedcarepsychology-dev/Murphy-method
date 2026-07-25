@@ -15,7 +15,10 @@ export class WorkoutRepositoryError extends Error {
 }
 
 function fail(action: string, error: unknown): never {
-  throw new WorkoutRepositoryError(`Couldn't ${action}. Check your connection and try again.`, error);
+  throw new WorkoutRepositoryError(
+    `Couldn't ${action}. Check your connection and try again.`,
+    error,
+  );
 }
 
 export type WorkoutMode = 'full' | 'quick' | 'minimum';
@@ -70,7 +73,9 @@ export async function getWorkout(
 
   const { data: exercises, error: exercisesError } = await client
     .from('workout_exercises')
-    .select('id, exercise_id, order_index, target_sets, target_rep_range_low, target_rep_range_high')
+    .select(
+      'id, exercise_id, order_index, target_sets, target_rep_range_low, target_rep_range_high',
+    )
     .eq('workout_id', workoutId)
     .order('order_index', { ascending: true });
   if (exercisesError) fail('load this workout', exercisesError);
@@ -105,7 +110,10 @@ export async function logSet(
   if (error) fail('log that set', error);
 }
 
-export async function completeWorkout(client: MurphySupabaseClient, workoutId: string): Promise<void> {
+export async function completeWorkout(
+  client: MurphySupabaseClient,
+  workoutId: string,
+): Promise<void> {
   const { error } = await client
     .from('workouts')
     .update({ status: 'completed', completed_at: new Date().toISOString() })

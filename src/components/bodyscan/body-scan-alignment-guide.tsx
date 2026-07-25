@@ -40,11 +40,57 @@ export function BodyScanAlignmentGuide({
       ]}
     >
       <Svg width="100%" height="100%" viewBox="0 0 300 400">
-        <Rect x="1" y="1" width="298" height="398" rx="18" fill="none" stroke={stroke} strokeOpacity={0.35} strokeWidth="2" />
-        <Line x1="150" y1="18" x2="150" y2="370" stroke={stroke} strokeOpacity={0.45} strokeWidth="2" strokeDasharray="8 8" />
-        <Line x1="55" y1="125" x2="245" y2="125" stroke={stroke} strokeOpacity={0.35} strokeWidth="2" strokeDasharray="7 7" />
-        <Line x1="70" y1="220" x2="230" y2="220" stroke={stroke} strokeOpacity={0.35} strokeWidth="2" strokeDasharray="7 7" />
-        <Ellipse cx="150" cy="70" rx={side ? 24 : 34} ry="42" fill="none" stroke={stroke} strokeOpacity={0.75} strokeWidth="4" />
+        <Rect
+          x="1"
+          y="1"
+          width="298"
+          height="398"
+          rx="18"
+          fill="none"
+          stroke={stroke}
+          strokeOpacity={0.35}
+          strokeWidth="2"
+        />
+        <Line
+          x1="150"
+          y1="18"
+          x2="150"
+          y2="370"
+          stroke={stroke}
+          strokeOpacity={0.45}
+          strokeWidth="2"
+          strokeDasharray="8 8"
+        />
+        <Line
+          x1="55"
+          y1="125"
+          x2="245"
+          y2="125"
+          stroke={stroke}
+          strokeOpacity={0.35}
+          strokeWidth="2"
+          strokeDasharray="7 7"
+        />
+        <Line
+          x1="70"
+          y1="220"
+          x2="230"
+          y2="220"
+          stroke={stroke}
+          strokeOpacity={0.35}
+          strokeWidth="2"
+          strokeDasharray="7 7"
+        />
+        <Ellipse
+          cx="150"
+          cy="70"
+          rx={side ? 24 : 34}
+          ry="42"
+          fill="none"
+          stroke={stroke}
+          strokeOpacity={0.75}
+          strokeWidth="4"
+        />
         {side ? (
           <Path
             d="M150 112 C175 126 177 172 165 208 C158 230 163 258 170 292 L171 355 M150 112 C135 145 136 185 145 215 C151 239 146 268 142 292 L140 355 M150 142 L202 196 M150 142 L105 194"
@@ -64,8 +110,24 @@ export function BodyScanAlignmentGuide({
             strokeLinecap="round"
           />
         )}
-        <Circle cx={side ? 140 : 105} cy="365" r="14" fill="none" stroke={stroke} strokeOpacity={0.75} strokeWidth="3" />
-        <Circle cx={side ? 171 : 195} cy="365" r="14" fill="none" stroke={stroke} strokeOpacity={0.75} strokeWidth="3" />
+        <Circle
+          cx={side ? 140 : 105}
+          cy="365"
+          r="14"
+          fill="none"
+          stroke={stroke}
+          strokeOpacity={0.75}
+          strokeWidth="3"
+        />
+        <Circle
+          cx={side ? 171 : 195}
+          cy="365"
+          r="14"
+          fill="none"
+          stroke={stroke}
+          strokeOpacity={0.75}
+          strokeWidth="3"
+        />
       </Svg>
     </View>
   );

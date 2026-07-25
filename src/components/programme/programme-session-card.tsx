@@ -69,9 +69,7 @@ export function ProgrammeSessionCard({
               .join(' · ')}
           </Caption>
         </View>
-        {onStart ? (
-          <PrimaryButton label={startLabel} onPress={onStart} loading={starting} />
-        ) : null}
+        {onStart ? <PrimaryButton label={startLabel} onPress={onStart} loading={starting} /> : null}
       </Card>
 
       <View style={{ gap: spacing.two }}>
@@ -91,9 +89,7 @@ export function ProgrammeSessionCard({
               description={detail?.description}
               visualKey={detail?.visualKey}
               why={exercise.rationale[0]}
-              onPress={
-                onExercisePress ? () => onExercisePress(exercise.exerciseId) : undefined
-              }
+              onPress={onExercisePress ? () => onExercisePress(exercise.exerciseId) : undefined}
             />
           );
         })}
@@ -101,7 +97,8 @@ export function ProgrammeSessionCard({
 
       {hiddenCount > 0 ? (
         <Caption color="tertiary">
-          Plus {hiddenCount} more {hiddenCount === 1 ? 'exercise' : 'exercises'} in the full session.
+          Plus {hiddenCount} more {hiddenCount === 1 ? 'exercise' : 'exercises'} in the full
+          session.
         </Caption>
       ) : null}
     </View>

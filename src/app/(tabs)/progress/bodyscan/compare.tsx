@@ -20,11 +20,7 @@ import {
   type BodyScanImageAngle,
 } from '@/services/bodyscan/bodyscan-repository';
 
-const ANGLES: Extract<BodyScanImageAngle, 'front' | 'side' | 'back'>[] = [
-  'front',
-  'side',
-  'back',
-];
+const ANGLES: Extract<BodyScanImageAngle, 'front' | 'side' | 'back'>[] = ['front', 'side', 'back'];
 
 function displayDate(value: string): string {
   return new Intl.DateTimeFormat('en-GB', {
@@ -37,21 +33,23 @@ function displayDate(value: string): string {
 export default function BodyScanCompareScreen() {
   const { olderId, newerId } = useLocalSearchParams<{ olderId?: string; newerId?: string }>();
   const { spacing } = useTheme();
-  const [angle, setAngle] = useState<Extract<BodyScanImageAngle, 'front' | 'side' | 'back'>>(
-    'front',
-  );
+  const [angle, setAngle] =
+    useState<Extract<BodyScanImageAngle, 'front' | 'side' | 'back'>>('front');
   const [opacity, setOpacity] = useState(0.5);
 
-  const { status, data, reload } = useAuthenticatedData(async (client, userId) => {
-    const scans = await listBodyScans(client, userId);
-    const defaultNewer = scans[0] ?? null;
-    const defaultOlder = scans[scans.length - 1] ?? null;
-    const older = scans.find((scan) => scan.id === olderId) ?? defaultOlder;
-    const newer = scans.find((scan) => scan.id === newerId) ?? defaultNewer;
-    const images = [...(older?.images ?? []), ...(newer?.images ?? [])];
-    const signedUrls = await createBodyScanSignedUrls(client, images);
-    return { scans, older, newer, signedUrls };
-  }, [olderId, newerId]);
+  const { status, data, reload } = useAuthenticatedData(
+    async (client, userId) => {
+      const scans = await listBodyScans(client, userId);
+      const defaultNewer = scans[0] ?? null;
+      const defaultOlder = scans[scans.length - 1] ?? null;
+      const older = scans.find((scan) => scan.id === olderId) ?? defaultOlder;
+      const newer = scans.find((scan) => scan.id === newerId) ?? defaultNewer;
+      const images = [...(older?.images ?? []), ...(newer?.images ?? [])];
+      const signedUrls = await createBodyScanSignedUrls(client, images);
+      return { scans, older, newer, signedUrls };
+    },
+    [olderId, newerId],
+  );
 
   if (status === 'loading') {
     return (
@@ -95,7 +93,8 @@ export default function BodyScanCompareScreen() {
       <View style={{ gap: spacing.one }}>
         <Heading variant="title">Compare BodyScans</Heading>
         <Caption style={{ flexShrink: 1 }}>
-          Earlier: {displayDate(data.older.capturedOn)} · Later: {displayDate(data.newer.capturedOn)}
+          Earlier: {displayDate(data.older.capturedOn)} · Later:{' '}
+          {displayDate(data.newer.capturedOn)}
         </Caption>
       </View>
 
@@ -197,9 +196,9 @@ export default function BodyScanCompareScreen() {
       <Card style={{ gap: spacing.one }}>
         <AppText variant="bodyEmphasis">Use comparisons cautiously</AppText>
         <Caption style={{ flexShrink: 1 }}>
-          Differences can reflect camera height, distance, lighting, clothing, hydration or posture. The
-          alignment overlay helps standardise positioning but does not turn photographs into clinical
-          measurements.
+          Differences can reflect camera height, distance, lighting, clothing, hydration or posture.
+          The alignment overlay helps standardise positioning but does not turn photographs into
+          clinical measurements.
         </Caption>
       </Card>
     </ScrollScreen>

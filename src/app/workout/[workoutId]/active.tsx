@@ -157,14 +157,18 @@ export default function ActiveWorkoutScreen() {
   }
 
   function confirmStopWorkout() {
-    Alert.alert('Leave workout?', 'Completed sets remain saved and you can resume this workout later.', [
-      { text: 'Keep going', style: 'cancel' },
-      {
-        text: 'Leave workout',
-        style: 'destructive',
-        onPress: () => router.replace('/(tabs)/today'),
-      },
-    ]);
+    Alert.alert(
+      'Leave workout?',
+      'Completed sets remain saved and you can resume this workout later.',
+      [
+        { text: 'Keep going', style: 'cancel' },
+        {
+          text: 'Leave workout',
+          style: 'destructive',
+          onPress: () => router.replace('/(tabs)/today'),
+        },
+      ],
+    );
   }
 
   return (
