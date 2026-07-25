@@ -1,18 +1,18 @@
+import type { Href } from 'expo-router';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, View } from 'react-native';
 
 import { Caption, Heading } from '@/components/ui/app-text';
-import { Card } from '@/components/ui/card';
 import { SecondaryButton } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import type { IconName } from '@/components/ui/icon';
 import { SettingRow } from '@/components/ui/list-row';
 import { ScrollScreen } from '@/components/ui/scroll-screen';
 import { useAuthenticatedData } from '@/hooks/use-authenticated-data';
 import { useTheme } from '@/hooks/use-theme';
 import { loadViewerProfile } from '@/services/training/training-repository';
 import { useAuth } from '@/state/auth/auth-context';
-import type { Href } from 'expo-router';
-import type { IconName } from '@/components/ui/icon';
 
 type Row = { label: string; icon: IconName; href: Href };
 
@@ -46,7 +46,7 @@ function RowGroup({ title, rows }: { title: string; rows: Row[] }) {
   return (
     <View style={{ gap: spacing.two }}>
       <Caption>{title}</Caption>
-      <Card style={{ gap: 0 }}>
+      <Card variant="quiet" elevated={false} style={{ gap: 0, paddingVertical: spacing.one }}>
         {rows.map((row) => (
           <SettingRow
             key={row.label}
@@ -72,7 +72,7 @@ export default function ProfileScreen() {
     Alert.alert('Sign out?', 'You can sign back in any time.', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Sign Out',
+        text: 'Sign out',
         style: 'destructive',
         onPress: async () => {
           setSigningOut(true);
@@ -81,10 +81,6 @@ export default function ProfileScreen() {
             if (result.error) {
               Alert.alert('Couldn’t sign out', result.error);
             }
-            // On success, AuthProvider's state flips to signed_out and the
-            // route guard (src/hooks/use-protected-route.ts) redirects to
-            // Welcome automatically — no stale private screen remains
-            // visible since the whole (tabs) stack unmounts with it.
           } finally {
             setSigningOut(false);
           }
@@ -106,7 +102,7 @@ export default function ProfileScreen() {
       <RowGroup title="PRIVACY & DATA" rows={privacy} />
 
       <SecondaryButton
-        label="Sign Out"
+        label="Sign out"
         tone="critical"
         icon="signOut"
         loading={signingOut}
