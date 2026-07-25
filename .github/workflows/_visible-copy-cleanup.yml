@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - agent/android-release-finishing-pass
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -14,7 +17,7 @@ concurrency:
 
 jobs:
   clean:
-    if: ${{ !startsWith(github.event.head_commit.message, 'fix(copy):') }}
+    if: ${{ github.event_name == 'pull_request' || !startsWith(github.event.head_commit.message, 'fix(copy):') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
