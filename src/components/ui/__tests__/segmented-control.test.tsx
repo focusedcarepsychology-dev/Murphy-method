@@ -19,7 +19,7 @@ describe('SegmentedControl', () => {
       />,
     );
 
-    expect(screen.getByRole('tab', { name: 'Full' })).toHaveAccessibilityState({
+    expect(screen.getByRole('tab', { name: 'Full' }).props.accessibilityState).toEqual({
       selected: true,
     });
 
