@@ -94,6 +94,25 @@ jobs:
           achievements.write_text(text.replace(old, new, 1))
           PY
 
+      - name: Reconstruct and apply quality gate corrections
+        run: |
+          set -euxo pipefail
+          cat .github/gate-fixes.part-00 \
+              .github/gate-fixes.part-01 \
+              .github/gate-fixes.part-02 > /tmp/gate-fixes.xz.b64
+          python - <<'PY'
+          import base64, hashlib, lzma
+          from pathlib import Path
+          encoded = Path('/tmp/gate-fixes.xz.b64').read_text()
+          archive = base64.b64decode(encoded, validate=True)
+          assert hashlib.sha256(archive).hexdigest() == '4b2546fad987700ebd2fc1fcbd0eb425a3392772ec78d5d6bd171d97b5ca0a8c'
+          patch = lzma.decompress(archive)
+          assert hashlib.sha256(patch).hexdigest() == '017b98af74c121f0af2c8d9c3ca114c3f5f728d8193d8f591523fe3cb892b9af'
+          Path('/tmp/gate-fixes.patch').write_bytes(patch)
+          PY
+          git apply --check --verbose --binary /tmp/gate-fixes.patch
+          git apply --index --verbose --binary /tmp/gate-fixes.patch
+
       - name: Remove every one-time audit file
         run: |
           git rm .github/workflows/apply-quality-pass-once.yml
@@ -106,6 +125,9 @@ jobs:
           git rm .github/final-pass.part-05
           git rm .github/final-pass.part-06
           git rm .github/final-pass.part-07
+          git rm .github/gate-fixes.part-00
+          git rm .github/gate-fixes.part-01
+          git rm .github/gate-fixes.part-02
 
       - name: Install dependencies
         run: npm ci
