@@ -1,10 +1,8 @@
 /**
- * Optional Baseline BodyScan capture + upload
- * (docs/IMPLEMENTATION_PLAN.md Phase 3 §18). Genuine minimal capture, not
- * the Phase 10 timeline/comparison/CV pipeline: takes one photo per angle
- * with `expo-image-picker`, uploads it to the private `bodyscans` storage
- * bucket at a user-scoped path, and records the metadata row — no AI/CV
- * analysis, no derived measurements, no public URL.
+ * Optional BodyScan capture + private upload. Captures standardised front,
+ * side and back photos with `expo-image-picker`, uploads to the private
+ * `bodyscans` bucket under the owning user's prefix, and records metadata.
+ * No AI/CV analysis or public URL is created.
  */
 import * as ImagePicker from 'expo-image-picker';
 
@@ -22,12 +20,10 @@ export type CaptureOutcome =
   | { outcome: 'cancelled' }
   | { outcome: 'permission_denied' };
 
-/** Opens the camera for one photo. Never uploads anything itself. */
+/** Opens the system camera for one photo. Never uploads anything itself. */
 export async function captureBodyScanPhoto(): Promise<CaptureOutcome> {
   const permission = await ImagePicker.requestCameraPermissionsAsync();
-  if (!permission.granted) {
-    return { outcome: 'permission_denied' };
-  }
+  if (!permission.granted) return { outcome: 'permission_denied' };
 
   const result = await ImagePicker.launchCameraAsync({
     mediaTypes: 'images',
@@ -35,28 +31,21 @@ export async function captureBodyScanPhoto(): Promise<CaptureOutcome> {
     allowsEditing: false,
   });
 
-  if (result.canceled || result.assets.length === 0) {
-    return { outcome: 'cancelled' };
-  }
+  if (result.canceled || result.assets.length === 0) return { outcome: 'cancelled' };
   return { outcome: 'captured', uri: result.assets[0].uri };
 }
 
-/**
- * Uploads every captured angle for one baseline scan. Creates the
- * `body_scans` row first so each image's storage path can be scoped under
- * its real id (`{user_id}/{scan_id}/{angle}.jpg`) — RLS on
- * `storage.objects` (supabase/migrations/20260723091300_bodyscan.sql)
- * independently enforces that only the owning user's prefix is writable,
- * so a wrong path fails the upload itself, not just this check.
- */
-export async function uploadBodyScanBaseline(
+export async function uploadBodyScan(
   client: MurphySupabaseClient,
   userId: string,
+  purpose: 'baseline' | 'progress_check',
   captures: { angle: BodyScanAngle; uri: string }[],
-): Promise<void> {
-  if (captures.length === 0) return;
+): Promise<{ scanId: string }> {
+  if (captures.length === 0) {
+    throw new OnboardingRepositoryError('No BodyScan photos were selected.');
+  }
 
-  const scan = await createBodyScan(client, userId, 'baseline');
+  const scan = await createBodyScan(client, userId, purpose);
 
   for (const capture of captures) {
     const storagePath = `${userId}/${scan.id}/${capture.angle}.jpg`;
@@ -83,4 +72,15 @@ export async function uploadBodyScanBaseline(
 
     await insertBodyScanImageRecord(client, scan.id, capture.angle, storagePath);
   }
+
+  return { scanId: scan.id };
+}
+
+/** Backwards-compatible onboarding wrapper. */
+export async function uploadBodyScanBaseline(
+  client: MurphySupabaseClient,
+  userId: string,
+  captures: { angle: BodyScanAngle; uri: string }[],
+): Promise<void> {
+  await uploadBodyScan(client, userId, 'baseline', captures);
 }
