@@ -101,10 +101,15 @@ export const Spacing = {
   six: 64,
 } as const;
 
+/**
+ * Concentric corner system: compact controls use tighter radii, ordinary
+ * surfaces stay structured, and only true hero surfaces use the largest
+ * radius. Pills remain reserved for one-line actions, filters and tags.
+ */
 export const Radius = {
-  sm: 12,
-  md: 20,
-  lg: 28,
+  sm: 10,
+  md: 16,
+  lg: 24,
   pill: 999,
 } as const;
 
@@ -117,6 +122,14 @@ export const Typography = {
   supporting: { fontSize: 14, lineHeight: 20, fontWeight: '400' },
   supportingEmphasis: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
   caption: { fontSize: 12, lineHeight: 16, fontWeight: '600' },
+} as const;
+
+/** Shared timing and tactile tokens for restrained, state-explaining motion. */
+export const Motion = {
+  fast: 160,
+  standard: 220,
+  slow: 320,
+  pressScale: 0.985,
 } as const;
 
 /**
