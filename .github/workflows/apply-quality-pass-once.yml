@@ -54,6 +54,46 @@ jobs:
       - name: Apply audited source patch
         run: git apply --index --verbose --binary /tmp/quality-pass.patch
 
+      - name: Apply exact TypeScript corrections
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          training = Path('src/services/training/training-repository.ts')
+          text = training.read_text()
+          old = "import type { MurphySupabaseClient } from '@/services/supabase/client';"
+          new = "import type { CoachingStyle } from '@/domain/onboarding/types';\nimport type { MurphySupabaseClient } from '@/services/supabase/client';"
+          assert old in text
+          text = text.replace(old, new, 1)
+          old = "  preferredSessionDurationMinutes: number | null;\n};"
+          new = "  preferredSessionDurationMinutes: number | null;\n  coachingStyle: CoachingStyle | null;\n};"
+          assert old in text
+          text = text.replace(old, new, 1)
+          old = ".select('display_name, available_training_days, preferred_session_duration_minutes')"
+          new = ".select('display_name, available_training_days, preferred_session_duration_minutes, coaching_style')"
+          assert old in text
+          text = text.replace(old, new, 1)
+          old = "    preferredSessionDurationMinutes: data.preferred_session_duration_minutes,\n  };"
+          new = "    preferredSessionDurationMinutes: data.preferred_session_duration_minutes,\n    coachingStyle: data.coaching_style,\n  };"
+          assert old in text
+          text = text.replace(old, new, 1)
+          training.write_text(text)
+
+          export_screen = Path('src/app/(tabs)/profile/data-export.tsx')
+          text = export_screen.read_text()
+          old = '<ErrorState title="Couldn\'t prepare the export" description={error} />'
+          new = '<ErrorState title="Couldn\'t prepare the export" description={error} onRetry={prepareAndShare} />'
+          assert old in text
+          export_screen.write_text(text.replace(old, new, 1))
+
+          achievements = Path('src/app/(tabs)/progress/achievements.tsx')
+          text = achievements.read_text()
+          old = "variant={earned ? 'default' : 'quiet'}"
+          new = "variant={earned ? 'standard' : 'quiet'}"
+          assert old in text
+          achievements.write_text(text.replace(old, new, 1))
+          PY
+
       - name: Remove every one-time audit file
         run: |
           git rm .github/workflows/apply-quality-pass-once.yml
