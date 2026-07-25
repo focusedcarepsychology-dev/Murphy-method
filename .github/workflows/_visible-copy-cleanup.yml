@@ -1,0 +1,172 @@
+name: Clean visible app copy
+
+on:
+  push:
+    branches:
+      - agent/android-release-finishing-pass
+
+permissions:
+  contents: write
+
+concurrency:
+  group: visible-copy-cleanup
+  cancel-in-progress: true
+
+jobs:
+  clean:
+    if: ${{ !startsWith(github.event.head_commit.message, 'fix(copy):') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/android-release-finishing-pass
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Rewrite visible copy
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+
+          const roots = ['src'];
+          const extensions = new Set(['.ts', '.tsx']);
+
+          const exact = new Map([
+            ['Guided front, side, and back photos. Fully skippable — you can add these later from Progress.', 'Guided front, side and back photos. You can skip this and add them later from Progress.'],
+            ['Used to size your programme correctly — stored privately in your account, and editable later in Profile.', 'Used to size your programme correctly. It is stored privately in your account and can be edited later in Profile.'],
+            ['That date of birth doesn&apos;t look right — please double-check it.', 'That date of birth does not look right. Please check it again.'],
+            ['This sets a sensible starting point — it adapts from here based on how training actually goes.', 'This sets a sensible starting point. Your plan will adapt based on how training actually goes.'],
+            ["This helps us build a programme that's appropriate for you — it can't be skipped. Answer honestly; if you're ever unsure, answer yes.", 'This helps us build a programme that is appropriate for you. It cannot be skipped. Answer honestly. When unsure, answer yes.'],
+            ["Select everything that applies — you'll prioritise them next.", 'Select everything that applies. You will prioritise them next.'],
+            ['Pick the tone that motivates you — changeable any time later in Profile.', 'Pick the tone that motivates you. You can change it later in Profile.'],
+            ["Optional — this guides emphasis within your plan. Training a body area can't selectively remove fat there; that's not physiologically possible.", 'This is optional and guides emphasis within your plan. Training a body area cannot selectively remove fat there; that is not physiologically possible.'],
+            ["Pick the days you're realistically able to train — at least one is required.", 'Pick the days you can realistically train. At least one is required.'],
+            ['A target, not a hard limit — your programme sizes sessions around it.', 'This is a target, not a hard limit. Your programme sizes sessions around it.'],
+            ['A few quick questions about your goals, experience, and schedule — about 3–6 minutes — so we can build a starting programme around you.', 'A few questions about your goals, experience and schedule. This takes about 3 to 6 minutes and helps us build your starting programme.'],
+            ["Every field is optional — there's no scale requirement. Enter in ${unitLabel}, or skip entirely.", 'Every field is optional. There is no scale requirement. Enter values in ${unitLabel}, or skip this step.'],
+            ["I've verified — Continue", 'I have verified my email'],
+            ['A training plan that learns what works for you — and adapts as you progress.', 'A training plan that responds to what works for you and adapts as you progress.'],
+            ['Complete a session and the coach can reflect on what actually happened—without inventing progress or performance.', 'Complete a session and the coach can reflect on what actually happened, without inventing progress or performance.'],
+            ["You're offline — showing last-synced content", 'You are offline. Showing the most recently synced content.'],
+            ['BodyScan AI processing', 'BodyScan automated processing'],
+            ['no AI analysis', 'no automated analysis'],
+            ['MURPHY · YOUR ADAPTIVE COACH', 'MURPHY · YOUR COACH'],
+            ['Goal journey', 'Goal progress'],
+            ['Goal Journey', 'Goal Progress'],
+            ['Loading your goal journey', 'Loading your goal progress'],
+          ]);
+
+          function walk(dir) {
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+              const full = path.join(dir, entry.name);
+              if (entry.isDirectory()) {
+                walk(full);
+                continue;
+              }
+              if (!extensions.has(path.extname(entry.name))) continue;
+
+              let source = fs.readFileSync(full, 'utf8');
+              const original = source;
+              for (const [from, to] of exact) source = source.split(from).join(to);
+
+              source = source
+                .replace(/(['"])—\1/g, '$1Not available$1')
+                .replace(/\s*—\s*/g, ', ')
+                .replace(/\s*–\s*/g, ' to ')
+                .replace(/\s+,/g, ',')
+                .replace(/,\s*,/g, ', ');
+
+              if (source !== original) fs.writeFileSync(full, source);
+            }
+          }
+
+          for (const root of roots) walk(root);
+          NODE
+
+      - name: Add copy regression test
+        run: |
+          cat > src/__tests__/visible-copy-style.test.ts <<'EOF'
+          declare const __dirname: string;
+          declare function require(id: 'fs'): {
+            readdirSync(path: string): string[];
+            readFileSync(path: string, encoding: 'utf8'): string;
+            statSync(path: string): { isDirectory(): boolean };
+          };
+          declare function require(id: 'path'): { join(...parts: string[]): string };
+
+          const { readdirSync, readFileSync, statSync } = require('fs');
+          const { join } = require('path');
+          const SRC = join(__dirname, '..');
+
+          function sourceFiles(dir: string): string[] {
+            const found: string[] = [];
+            function walk(current: string) {
+              for (const entry of readdirSync(current)) {
+                const full = join(current, entry);
+                if (statSync(full).isDirectory()) {
+                  if (entry !== '__tests__') walk(full);
+                } else if (/\.(ts|tsx)$/.test(entry)) {
+                  found.push(full);
+                }
+              }
+            }
+            walk(join(SRC, dir));
+            return found;
+          }
+
+          function withoutCommentsAndImports(source: string): string {
+            return source
+              .replace(/\/\*[\s\S]*?\*\//g, '')
+              .replace(/^\s*\/\/.*$/gm, '')
+              .replace(/^import[\s\S]*?;\s*$/gm, '');
+          }
+
+          const visibleSource = [
+            ...sourceFiles('app'),
+            ...sourceFiles('components'),
+            ...sourceFiles('domain'),
+            ...sourceFiles('services'),
+          ];
+
+          describe('visible copy style', () => {
+            it('contains no em or en dashes outside comments and imports', () => {
+              const offenders = visibleSource.filter((file) =>
+                /[—–]/.test(withoutCommentsAndImports(readFileSync(file, 'utf8'))),
+              );
+              expect(offenders).toEqual([]);
+            });
+
+            it('does not expose generated-product clichés or internal AI labels', () => {
+              const pattern =
+                /\b(?:AI[- ]powered|AI processing|adaptive coach|unlock your potential|seamless journey|game[- ]changing|revolutionary)\b/i;
+              const offenders = visibleSource.filter((file) =>
+                pattern.test(withoutCommentsAndImports(readFileSync(file, 'utf8'))),
+              );
+              expect(offenders).toEqual([]);
+            });
+          });
+          EOF
+
+      - name: Install and validate
+        run: |
+          npm ci
+          npm run format
+          npm run typecheck
+          npm run lint
+          npm run format:check
+          npm test -- --ci
+
+      - name: Commit cleaned copy
+        run: |
+          rm .github/workflows/_visible-copy-cleanup.yml
+          git config user.name focusedcarepsychology-dev
+          git config user.email 289400308+focusedcarepsychology-dev@users.noreply.github.com
+          git add -A
+          git commit -m "fix(copy): remove AI-style punctuation and product clichés"
+          git push origin HEAD:agent/android-release-finishing-pass
