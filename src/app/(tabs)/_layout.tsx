@@ -1,14 +1,7 @@
 import { useEffect, useState } from 'react';
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Tabs } from 'expo-router';
-import {
-  AccessibilityInfo,
-  Platform,
-  StyleSheet,
-  Text,
-  View,
-  type ColorValue,
-} from 'react-native';
+import { AccessibilityInfo, Platform, StyleSheet, Text, View, type ColorValue } from 'react-native';
 
 import { TabBarIcon } from '@/components/ui/tab-bar-icon';
 import { useTheme } from '@/hooks/use-theme';

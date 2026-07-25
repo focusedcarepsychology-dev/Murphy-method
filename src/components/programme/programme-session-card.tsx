@@ -55,7 +55,11 @@ export function ProgrammeSessionCard({
 
   return (
     <View style={{ gap: spacing.two }}>
-      <Card variant={isHero ? 'hero' : 'standard'} elevated={!isHero} style={{ gap: spacing.three }}>
+      <Card
+        variant={isHero ? 'hero' : 'standard'}
+        elevated={!isHero}
+        style={{ gap: spacing.three }}
+      >
         <View style={{ gap: spacing.one }}>
           {isHero ? <Caption color="brand">NEXT SESSION</Caption> : null}
           {session.dayOfWeek ? <Caption>{session.dayOfWeek.toUpperCase()}</Caption> : null}

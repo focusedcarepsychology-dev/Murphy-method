@@ -184,7 +184,11 @@ export default function ActiveWorkoutScreen() {
         <View
           style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
         >
-          <IconButton icon="close" accessibilityLabel="Leave workout" onPress={confirmStopWorkout} />
+          <IconButton
+            icon="close"
+            accessibilityLabel="Leave workout"
+            onPress={confirmStopWorkout}
+          />
           <Caption>
             EXERCISE {exerciseIndex + 1} OF {workout.exercises.length}
           </Caption>
