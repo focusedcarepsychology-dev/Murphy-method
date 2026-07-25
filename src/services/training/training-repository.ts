@@ -433,6 +433,8 @@ export type WorkoutExerciseDetail = {
   targetRepRangeHigh: number;
   /** Only present when the user has genuinely logged this exercise before. */
   previous: PreviousPerformance | null;
+  /** Sets genuinely logged for this exercise in the current workout. */
+  loggedSetNumbers: number[];
 };
 
 export type WorkoutDetail = {
@@ -483,6 +485,23 @@ export async function loadWorkoutDetail(
     loadPreviousPerformance(client, userId),
   ]);
 
+  const workoutExerciseIds = (workoutExercises ?? []).map((row) => row.id);
+  const loggedSetNumbers = new Map<string, number[]>();
+  if (workoutExerciseIds.length > 0) {
+    const { data: currentSetLogs, error: currentSetError } = await client
+      .from('set_logs')
+      .select('workout_exercise_id, set_number')
+      .in('workout_exercise_id', workoutExerciseIds)
+      .order('set_number', { ascending: true });
+    if (currentSetError) fail('load completed sets for that workout', currentSetError);
+
+    for (const row of currentSetLogs ?? []) {
+      const values = loggedSetNumbers.get(row.workout_exercise_id) ?? [];
+      if (!values.includes(row.set_number)) values.push(row.set_number);
+      loggedSetNumbers.set(row.workout_exercise_id, values);
+    }
+  }
+
   return {
     id: workout.id,
     mode: workout.mode,
@@ -500,6 +519,7 @@ export async function loadWorkoutDetail(
       targetRepRangeLow: row.target_rep_range_low,
       targetRepRangeHigh: row.target_rep_range_high,
       previous: previous.get(row.exercise_id) ?? null,
+      loggedSetNumbers: loggedSetNumbers.get(row.id) ?? [],
     })),
   };
 }
@@ -524,16 +544,15 @@ async function loadExerciseNamesAndSlugs(
  * data ever enters the app: "Previous", personal records and completion
  * counts all read back from rows written here.
  */
-export async function logSet(
-  client: MurphySupabaseClient,
-  input: {
-    workoutExerciseId: string;
-    setNumber: number;
-    weightKg: number | null;
-    reps: number;
-    clientGeneratedId: string;
-  },
-): Promise<void> {
+export type LogSetInput = {
+  workoutExerciseId: string;
+  setNumber: number;
+  weightKg: number | null;
+  reps: number;
+  clientGeneratedId: string;
+};
+
+export async function logSet(client: MurphySupabaseClient, input: LogSetInput): Promise<void> {
   const { error } = await client.from('set_logs').upsert(
     {
       workout_exercise_id: input.workoutExerciseId,
