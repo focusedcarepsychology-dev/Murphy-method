@@ -7,8 +7,8 @@ import { Card, InteractiveCard } from '@/components/ui/card';
 import { ErrorState } from '@/components/ui/error-state';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { LoadingState } from '@/components/ui/loading-state';
-import { MetricCard } from '@/components/ui/metric-card';
 import { ScrollScreen } from '@/components/ui/scroll-screen';
+import { SectionHeader } from '@/components/ui/section-header';
 import { useAuthenticatedData } from '@/hooks/use-authenticated-data';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -16,6 +16,26 @@ import {
   loadTrainingHistorySummary,
   loadViewerProfile,
 } from '@/services/training/training-repository';
+
+function SnapshotMetric({
+  label,
+  value,
+  supporting,
+}: {
+  label: string;
+  value: string;
+  supporting: string;
+}) {
+  const { spacing } = useTheme();
+
+  return (
+    <View style={{ flex: 1, minWidth: 120, gap: spacing.one }}>
+      <Caption>{label.toUpperCase()}</Caption>
+      <Heading variant="title">{value}</Heading>
+      <Caption color="tertiary">{supporting}</Caption>
+    </View>
+  );
+}
 
 export default function ProgressScreen() {
   const router = useRouter();
@@ -32,15 +52,46 @@ export default function ProgressScreen() {
     return { history, records };
   });
 
-  const sections: { label: string; icon: IconName; href: Href }[] = [
-    { label: 'Strength', icon: 'trending', href: '/(tabs)/progress/strength' },
-    { label: 'Measurements', icon: 'measurements', href: '/(tabs)/progress/measurements' },
-    { label: 'Consistency', icon: 'checkCircle', href: '/(tabs)/progress/consistency' },
+  const sections: {
+    label: string;
+    supporting: string;
+    icon: IconName;
+    href: Href;
+  }[] = [
+    {
+      label: 'Strength',
+      supporting: 'Review logged performance by exercise.',
+      icon: 'trending',
+      href: '/(tabs)/progress/strength',
+    },
+    {
+      label: 'Measurements',
+      supporting: 'Keep optional measurements separate from performance.',
+      icon: 'measurements',
+      href: '/(tabs)/progress/measurements',
+    },
+    {
+      label: 'Consistency',
+      supporting: 'See completed sessions without streak pressure.',
+      icon: 'checkCircle',
+      href: '/(tabs)/progress/consistency',
+    },
+    {
+      label: 'Personal records',
+      supporting: 'Records appear only after a genuine improvement.',
+      icon: 'trophy',
+      href: '/(tabs)/progress/records',
+    },
   ];
 
   return (
     <ScrollScreen>
-      <Heading variant="hero">Progress</Heading>
+      <View style={{ gap: spacing.one }}>
+        <Heading variant="hero">Progress</Heading>
+        <AppText color="secondary" style={{ flexShrink: 1 }}>
+          Evidence from workouts you have actually completed.
+        </AppText>
+      </View>
 
       {status === 'loading' ? (
         <LoadingState accessibilityLabel="Loading your progress" rows={2} />
@@ -49,27 +100,38 @@ export default function ProgressScreen() {
           <ErrorState onRetry={reload} />
         </Card>
       ) : (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.three }}>
-          <MetricCard
-            label="Sessions done"
-            value={String(data.history.completedTotal)}
-            caption="all time"
-            icon="checkCircle"
-            style={narrow ? { flexBasis: '100%' } : undefined}
-          />
-          <MetricCard
-            label="Personal records"
-            value={String(data.records.length)}
-            caption={data.records.length === 0 ? 'none yet' : 'all time'}
-            icon="trophy"
-            style={narrow ? { flexBasis: '100%' } : undefined}
-          />
-        </View>
+        <Card variant="hero" elevated={false} style={{ gap: spacing.three }}>
+          <Caption color="brand">YOUR SNAPSHOT</Caption>
+          <View
+            style={{
+              flexDirection: narrow ? 'column' : 'row',
+              gap: spacing.four,
+            }}
+          >
+            <SnapshotMetric
+              label="Sessions"
+              value={String(data.history.completedTotal)}
+              supporting="completed all time"
+            />
+            <SnapshotMetric
+              label="Records"
+              value={String(data.records.length)}
+              supporting={data.records.length === 0 ? 'none recorded yet' : 'genuine improvements'}
+            />
+          </View>
+          {data.history.completedTotal === 0 ? (
+            <Caption color="tertiary" style={{ flexShrink: 1 }}>
+              Your progress view will become more useful as you complete and log real sessions.
+            </Caption>
+          ) : null}
+        </Card>
       )}
 
       <View style={{ gap: spacing.two }}>
+        <SectionHeader title="Explore" />
         {sections.map((section) => (
           <InteractiveCard
+            variant="quiet"
             key={section.label}
             accessibilityLabel={section.label}
             onPress={() => router.push(section.href)}
@@ -83,34 +145,28 @@ export default function ProgressScreen() {
               }}
             >
               <Icon name={section.icon} color={colors.text.secondary} size={20} />
-              <Heading variant="bodyEmphasis" style={{ flexShrink: 1 }}>
-                {section.label}
-              </Heading>
+              <View style={{ flex: 1, minWidth: 0, gap: spacing.half }}>
+                <Heading variant="bodyEmphasis" style={{ flexShrink: 1 }}>
+                  {section.label}
+                </Heading>
+                <Caption color="tertiary" style={{ flexShrink: 1 }}>
+                  {section.supporting}
+                </Caption>
+              </View>
             </View>
           </InteractiveCard>
         ))}
-        <InteractiveCard
-          accessibilityLabel="Personal records"
-          onPress={() => router.push('/(tabs)/progress/records')}
-        >
-          <View
-            style={{ minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.three }}
-          >
-            <Icon name="trophy" color={colors.text.secondary} size={20} />
-            <Heading variant="bodyEmphasis" style={{ flexShrink: 1 }}>
-              Personal records
-            </Heading>
-          </View>
-        </InteractiveCard>
       </View>
 
-      <Card style={{ gap: spacing.two }}>
-        <Caption>BODYSCAN</Caption>
+      <Card variant="hero" elevated={false} style={{ gap: spacing.two }}>
+        <Caption color="brand">PRIVATE BODYSCAN</Caption>
+        <Heading variant="section">Compare visual progress</Heading>
         <AppText color="secondary" style={{ flexShrink: 1 }}>
-          Track visual progress using standardised photos.
+          Use standardised photos, private storage and expiring image links. BodyScan does not
+          estimate body fat or make clinical claims.
         </AppText>
         <PrimaryButton
-          label="View Timeline"
+          label="Open BodyScan"
           fullWidth={false}
           onPress={() => router.push('/(tabs)/progress/bodyscan')}
         />
