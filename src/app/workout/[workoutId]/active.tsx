@@ -19,6 +19,7 @@ import { useAuthenticatedClient } from '@/hooks/use-authenticated-client';
 import { useAuthenticatedData } from '@/hooks/use-authenticated-data';
 import { useTheme } from '@/hooks/use-theme';
 import { getExercisesByIds } from '@/services/exercises/exercise-repository';
+import { actionFeedback, successFeedback } from '@/services/feedback/haptics';
 import { createClientGeneratedId } from '@/services/training/client-id';
 import {
   formatPerformance,
@@ -131,6 +132,7 @@ export default function ActiveWorkoutScreen() {
         reps,
         clientGeneratedId: createClientGeneratedId(),
       });
+      void actionFeedback();
       setResting(true);
     } catch (caught) {
       setSaveError(caught instanceof Error ? caught.message : 'Something went wrong.');
@@ -148,6 +150,7 @@ export default function ActiveWorkoutScreen() {
     if (isLastExercise) {
       try {
         await markWorkoutCompleted(client, workout.id);
+        void successFeedback();
         router.replace({
           pathname: '/workout/[workoutId]/summary',
           params: { workoutId: workout.id },

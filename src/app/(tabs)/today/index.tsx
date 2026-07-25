@@ -20,6 +20,7 @@ import { useAuthenticatedData } from '@/hooks/use-authenticated-data';
 import { useGreeting } from '@/hooks/use-greeting';
 import { useTheme } from '@/hooks/use-theme';
 import { getExercisesByIds } from '@/services/exercises/exercise-repository';
+import { actionFeedback } from '@/services/feedback/haptics';
 import { loadSelectedGoals } from '@/services/onboarding/onboarding-repository';
 import { ensureRealProgramme } from '@/services/programme/programme-repository';
 import {
@@ -100,6 +101,7 @@ export default function TodayScreen() {
         sessionIndex: nextSession.sessionIndex,
         mode,
       });
+      void actionFeedback();
       router.push({
         pathname: '/workout/[workoutId]/overview',
         params: { workoutId: result.workoutId },

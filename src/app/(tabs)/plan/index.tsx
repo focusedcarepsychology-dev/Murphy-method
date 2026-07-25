@@ -17,6 +17,7 @@ import { useAuthenticatedClient } from '@/hooks/use-authenticated-client';
 import { useAuthenticatedData } from '@/hooks/use-authenticated-data';
 import { useTheme } from '@/hooks/use-theme';
 import { getExercisesByIds } from '@/services/exercises/exercise-repository';
+import { actionFeedback } from '@/services/feedback/haptics';
 import { ensureRealProgramme } from '@/services/programme/programme-repository';
 import { loadViewerProfile } from '@/services/training/training-repository';
 import { loadActiveWorkout } from '@/services/workouts/active-workout-repository';
@@ -103,6 +104,7 @@ export default function PlanScreen() {
         sessionIndex,
         mode: 'full',
       });
+      void actionFeedback();
       router.push({
         pathname: '/workout/[workoutId]/overview',
         params: { workoutId: result.workoutId },
