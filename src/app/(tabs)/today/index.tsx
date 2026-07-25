@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { View } from 'react-native';
 
-import { Caption, Heading } from '@/components/ui/app-text';
+import { ProgrammeSessionCard } from '@/components/programme/programme-session-card';
+import { AppText, Caption, Heading } from '@/components/ui/app-text';
+import { SecondaryButton } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
@@ -9,35 +12,81 @@ import { LoadingState } from '@/components/ui/loading-state';
 import { MomentumCard } from '@/components/ui/momentum-card';
 import { ScrollScreen } from '@/components/ui/scroll-screen';
 import { SectionHeader } from '@/components/ui/section-header';
+import type { ProgrammeSession } from '@/domain/programme/structure';
 import { greetingWithName } from '@/domain/profile/greeting';
+import { useAuthenticatedClient } from '@/hooks/use-authenticated-client';
 import { useAuthenticatedData } from '@/hooks/use-authenticated-data';
 import { useGreeting } from '@/hooks/use-greeting';
 import { useTheme } from '@/hooks/use-theme';
 import { loadSelectedGoals } from '@/services/onboarding/onboarding-repository';
+import { getExercisesByIds } from '@/services/exercises/exercise-repository';
+import { ensureRealProgramme } from '@/services/programme/programme-repository';
 import {
-  loadCurrentProgramme,
   loadTrainingHistorySummary,
   loadViewerProfile,
 } from '@/services/training/training-repository';
+import { startWorkout, type WorkoutMode } from '@/services/workouts/workout-repository';
+
+function nextSessionForToday(sessions: ProgrammeSession[]): ProgrammeSession | null {
+  if (sessions.length === 0) return null;
+  const today = new Intl.DateTimeFormat('en-GB', { weekday: 'long' }).format(new Date());
+  return (
+    sessions.find((session) => session.dayOfWeek?.toLowerCase() === today.toLowerCase()) ??
+    sessions[0]
+  );
+}
 
 export default function TodayScreen() {
   const router = useRouter();
   const greeting = useGreeting();
   const { spacing } = useTheme();
+  const { client } = useAuthenticatedClient();
+  const [startingMode, setStartingMode] = useState<WorkoutMode | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
 
-  const { status, data, reload } = useAuthenticatedData(async (client, userId) => {
+  const { status, data, reload } = useAuthenticatedData(async (authClient, userId) => {
     const [profile, programme, goals] = await Promise.all([
-      loadViewerProfile(client, userId),
-      loadCurrentProgramme(client, userId),
-      loadSelectedGoals(client, userId),
+      loadViewerProfile(authClient, userId),
+      ensureRealProgramme(authClient, userId),
+      loadSelectedGoals(authClient, userId),
     ]);
+    const structure = programme?.parsedStructure ?? null;
     const history = await loadTrainingHistorySummary(
-      client,
+      authClient,
       userId,
-      profile.availableTrainingDays.length,
+      structure?.trainingDays.length ?? profile.availableTrainingDays.length,
     );
-    return { profile, programme, goals, history };
+    const exerciseIds = structure?.sessions.flatMap((session) =>
+      session.exercises.map((exercise) => exercise.exerciseId),
+    ) ?? [];
+    const exerciseDetails = await getExercisesByIds(authClient, exerciseIds);
+    return { profile, programme, goals, history, exerciseDetails };
   });
+
+  const structure = data?.programme?.parsedStructure ?? null;
+  const nextSession = structure ? nextSessionForToday(structure.sessions) : null;
+  const blockedByClearance = structure?.requiresClearance === true;
+
+  async function handleStart(mode: WorkoutMode) {
+    if (!data?.programme || !nextSession || blockedByClearance || startingMode) return;
+    setStartError(null);
+    setStartingMode(mode);
+    try {
+      const result = await startWorkout(client, {
+        programmeVersionId: data.programme.versionId,
+        sessionIndex: nextSession.sessionIndex,
+        mode,
+      });
+      router.push({
+        pathname: '/workout/[workoutId]/overview',
+        params: { workoutId: result.workoutId },
+      });
+    } catch (error) {
+      setStartError(error instanceof Error ? error.message : 'Could not start this workout.');
+    } finally {
+      setStartingMode(null);
+    }
+  }
 
   return (
     <ScrollScreen>
@@ -47,26 +96,99 @@ export default function TodayScreen() {
       </View>
 
       {status === 'loading' ? (
-        <LoadingState accessibilityLabel="Loading today's session" />
+        <LoadingState accessibilityLabel="Loading today's session" rows={4} />
       ) : status === 'error' || !data ? (
         <Card>
           <ErrorState onRetry={reload} />
         </Card>
+      ) : !data.programme ? (
+        <Card>
+          <EmptyState
+            icon="plan"
+            title="No programme yet"
+            description="Finish onboarding and your plan will be built from your goals, equipment and availability."
+            actionLabel="Go to Plan"
+            onAction={() => router.push('/(tabs)/plan')}
+          />
+        </Card>
+      ) : !structure?.hasExercises || !nextSession ? (
+        <Card style={{ gap: spacing.two }}>
+          <EmptyState
+            icon="alertCircle"
+            title="Your programme needs attention"
+            description="A real exercise session could not be built from the current settings. Review your equipment, availability and safety answers."
+            actionLabel="Review equipment"
+            onAction={() => router.push('/(tabs)/profile/equipment')}
+          />
+          {structure?.limitations.map((limitation) => (
+            <Caption key={limitation} color="tertiary" style={{ flexShrink: 1 }}>
+              {limitation}
+            </Caption>
+          ))}
+        </Card>
       ) : (
         <>
-          <Card>
-            <EmptyState
-              icon="plan"
-              title={data.programme ? 'Your programme is being prepared' : 'No programme yet'}
-              description={
-                data.programme
-                  ? 'Your starting structure is saved. Your exercise sessions are being built from it.'
-                  : 'Finish onboarding and your plan will be built from your goals, equipment and availability.'
-              }
-              actionLabel="Go to Plan"
-              onAction={() => router.push('/(tabs)/plan')}
-            />
-          </Card>
+          {blockedByClearance ? (
+            <Card style={{ gap: spacing.one }}>
+              <Heading variant="bodyEmphasis">Clearance required before training</Heading>
+              <AppText color="secondary" style={{ flexShrink: 1 }}>
+                Your safety answers indicate that you should obtain appropriate professional clearance
+                before starting this programme. The workout buttons remain disabled until that status is
+                reviewed.
+              </AppText>
+            </Card>
+          ) : null}
+
+          {startError ? (
+            <Card>
+              <AppText color="critical" style={{ flexShrink: 1 }}>
+                {startError}
+              </AppText>
+            </Card>
+          ) : null}
+
+          <ProgrammeSessionCard
+            session={nextSession}
+            exerciseDetails={data.exerciseDetails}
+            maxExercises={3}
+            onExercisePress={(exerciseId) =>
+              router.push({
+                pathname: '/(tabs)/plan/exercise/[exerciseId]',
+                params: { exerciseId },
+              })
+            }
+            onStart={blockedByClearance ? undefined : () => handleStart('full')}
+            starting={startingMode === 'full'}
+            startLabel="Start full session"
+          />
+
+          {!blockedByClearance ? (
+            <View style={{ gap: spacing.two }}>
+              <SecondaryButton
+                label="Start quick version"
+                onPress={() => handleStart('quick')}
+                loading={startingMode === 'quick'}
+                disabled={startingMode !== null && startingMode !== 'quick'}
+              />
+              <SecondaryButton
+                label="Start minimum version"
+                onPress={() => handleStart('minimum')}
+                loading={startingMode === 'minimum'}
+                disabled={startingMode !== null && startingMode !== 'minimum'}
+              />
+            </View>
+          ) : null}
+
+          {structure.limitations.length > 0 ? (
+            <Card style={{ gap: spacing.one }}>
+              <Heading variant="bodyEmphasis">Current programme limitations</Heading>
+              {structure.limitations.map((limitation) => (
+                <Caption key={limitation} style={{ flexShrink: 1 }}>
+                  {limitation}
+                </Caption>
+              ))}
+            </Card>
+          ) : null}
 
           <MomentumCard
             completedSessions={data.history.completedThisWeek}
@@ -85,11 +207,11 @@ export default function TodayScreen() {
               ) : (
                 <>
                   {data.goals.map((goal) => (
-                    <Caption key={goal.goalKey}>
+                    <Caption key={goal.goalKey} style={{ flexShrink: 1 }}>
                       {goal.priority}. {goal.label}
                     </Caption>
                   ))}
-                  <Caption color="tertiary">
+                  <Caption color="tertiary" style={{ flexShrink: 1 }}>
                     {data.history.completedTotal === 0
                       ? 'Progress towards each goal appears once you have completed sessions to measure.'
                       : `Based on ${data.history.completedTotal} completed ${

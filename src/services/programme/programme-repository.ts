@@ -1,12 +1,11 @@
 /**
- * Programme domain service (remediation Part 8/9/12). Every Supabase call
- * Today/Plan/Programme-History screens make about a user's programme goes
- * through this module, mirroring the convention already established by
- * src/services/onboarding/onboarding-repository.ts.
+ * Programme domain service. Every Supabase call the Today, Plan and
+ * programme-history screens make about a user's programme goes through
+ * this module. The server remains the programme authority; this service
+ * only loads and parses persisted versions.
  */
+import { parseProgrammeStructure, type ProgrammeStructure } from '@/domain/programme/structure';
 import type { MurphySupabaseClient } from '@/services/supabase/client';
-import type { RealProgrammeStructure } from '@/domain/programme/structure';
-import { isRealProgrammeStructure } from '@/domain/programme/structure';
 
 export class ProgrammeRepositoryError extends Error {
   cause?: unknown;
@@ -18,7 +17,10 @@ export class ProgrammeRepositoryError extends Error {
 }
 
 function fail(action: string, error: unknown): never {
-  throw new ProgrammeRepositoryError(`Couldn't ${action}. Check your connection and try again.`, error);
+  throw new ProgrammeRepositoryError(
+    `Couldn't ${action}. Check your connection and try again.`,
+    error,
+  );
 }
 
 export type ProgrammeVersionSummary = {
@@ -33,11 +35,10 @@ export type ProgrammeVersionSummary = {
 };
 
 export type CurrentProgramme = ProgrammeVersionSummary & {
-  /** Non-null only once the current version was produced by the real engine (Part 9). */
-  realStructure: RealProgrammeStructure | null;
+  parsedStructure: ProgrammeStructure;
 };
 
-/** The caller's most recently created programme and its current version, or null if none exists yet. */
+/** The caller's most recently created programme and its current version. */
 export async function getCurrentProgramme(
   client: MurphySupabaseClient,
   userId: string,
@@ -68,21 +69,20 @@ export async function getCurrentProgramme(
     changeLevel: version.change_level,
     createdAt: version.created_at,
     structure: version.structure,
-    realStructure: isRealProgrammeStructure(version.structure) ? version.structure : null,
+    parsedStructure: parseProgrammeStructure(version.structure),
   };
 }
 
 /**
- * Idempotently ensures the caller has a real (deterministic-v1) programme,
- * upgrading a legacy phase3-stub-1 programme in place if needed (Part 9).
- * Safe to call on every Today screen load: a no-op once already upgraded.
+ * Idempotently ensures the caller has a deterministic exercise programme,
+ * upgrading a legacy structure-only version in place when necessary.
  */
 export async function ensureRealProgramme(
   client: MurphySupabaseClient,
   userId: string,
 ): Promise<CurrentProgramme | null> {
   const current = await getCurrentProgramme(client, userId);
-  if (!current || current.realStructure) return current;
+  if (!current || current.parsedStructure.hasExercises) return current;
 
   const { error } = await client.rpc('upgrade_programme_to_real_v1');
   if (error) fail('prepare your programme', error);
