@@ -5,12 +5,13 @@ import { View } from 'react-native';
 
 import { BodyScanAlignmentGuide } from '@/components/bodyscan/body-scan-alignment-guide';
 import { AppText, Caption, Heading } from '@/components/ui/app-text';
-import { SecondaryButton } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { LoadingState } from '@/components/ui/loading-state';
 import { ScrollScreen } from '@/components/ui/scroll-screen';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { ValueSlider } from '@/components/ui/value-slider';
 import { useAuthenticatedData } from '@/hooks/use-authenticated-data';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -20,7 +21,13 @@ import {
   type BodyScanImageAngle,
 } from '@/services/bodyscan/bodyscan-repository';
 
-const ANGLES: Extract<BodyScanImageAngle, 'front' | 'side' | 'back'>[] = ['front', 'side', 'back'];
+type ComparableAngle = Extract<BodyScanImageAngle, 'front' | 'side' | 'back'>;
+
+const ANGLES: readonly { value: ComparableAngle; label: string }[] = [
+  { value: 'front', label: 'Front' },
+  { value: 'side', label: 'Side' },
+  { value: 'back', label: 'Back' },
+];
 
 function displayDate(value: string): string {
   return new Intl.DateTimeFormat('en-GB', {
@@ -32,9 +39,8 @@ function displayDate(value: string): string {
 
 export default function BodyScanCompareScreen() {
   const { olderId, newerId } = useLocalSearchParams<{ olderId?: string; newerId?: string }>();
-  const { spacing } = useTheme();
-  const [angle, setAngle] =
-    useState<Extract<BodyScanImageAngle, 'front' | 'side' | 'back'>>('front');
+  const { spacing, radius } = useTheme();
+  const [angle, setAngle] = useState<ComparableAngle>('front');
   const [opacity, setOpacity] = useState(0.5);
 
   const { status, data, reload } = useAuthenticatedData(
@@ -98,17 +104,12 @@ export default function BodyScanCompareScreen() {
         </Caption>
       </View>
 
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.two }}>
-        {ANGLES.map((option) => (
-          <SecondaryButton
-            key={option}
-            label={option[0].toUpperCase() + option.slice(1)}
-            onPress={() => setAngle(option)}
-            disabled={angle === option}
-            fullWidth={false}
-          />
-        ))}
-      </View>
+      <SegmentedControl<ComparableAngle>
+        accessibilityLabel="Choose BodyScan comparison angle"
+        options={ANGLES}
+        value={angle}
+        onChange={setAngle}
+      />
 
       {!olderUrl || !newerUrl ? (
         <Card>
@@ -132,7 +133,7 @@ export default function BodyScanCompareScreen() {
                   <View style={{ position: 'relative' }}>
                     <Image
                       source={{ uri: item.uri }}
-                      style={{ width: '100%', aspectRatio: 3 / 4, borderRadius: 14 }}
+                      style={{ width: '100%', aspectRatio: 3 / 4, borderRadius: radius.md }}
                       contentFit="cover"
                       accessibilityLabel={`${item.label} ${angle} BodyScan photo`}
                     />
@@ -149,11 +150,11 @@ export default function BodyScanCompareScreen() {
 
           <View style={{ gap: spacing.two }}>
             <Heading variant="bodyEmphasis">Overlay</Heading>
-            <Card style={{ gap: spacing.two }}>
+            <Card variant="quiet" elevated={false} style={{ gap: spacing.two }}>
               <View style={{ position: 'relative' }}>
                 <Image
                   source={{ uri: olderUrl }}
-                  style={{ width: '100%', aspectRatio: 3 / 4, borderRadius: 14 }}
+                  style={{ width: '100%', aspectRatio: 3 / 4, borderRadius: radius.md }}
                   contentFit="cover"
                   accessibilityLabel={`Earlier ${angle} BodyScan photo`}
                 />
@@ -164,7 +165,7 @@ export default function BodyScanCompareScreen() {
                     inset: 0,
                     width: '100%',
                     height: '100%',
-                    borderRadius: 14,
+                    borderRadius: radius.md,
                     opacity,
                   }}
                   contentFit="cover"
@@ -176,24 +177,36 @@ export default function BodyScanCompareScreen() {
                   style={{ position: 'absolute', inset: 0 }}
                 />
               </View>
-              <Caption>Later photo opacity: {Math.round(opacity * 100)}%</Caption>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.two }}>
-                {[0.25, 0.5, 0.75].map((value) => (
-                  <SecondaryButton
-                    key={value}
-                    label={`${Math.round(value * 100)}%`}
-                    onPress={() => setOpacity(value)}
-                    disabled={opacity === value}
-                    fullWidth={false}
-                  />
-                ))}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'baseline',
+                  justifyContent: 'space-between',
+                  gap: spacing.two,
+                }}
+              >
+                <Caption>EARLIER</Caption>
+                <AppText variant="supportingEmphasis">{Math.round(opacity * 100)}% later</AppText>
+                <Caption>LATER</Caption>
               </View>
+              <ValueSlider
+                accessibilityLabel="Later photo visibility"
+                value={opacity}
+                min={0.1}
+                max={0.9}
+                step={0.05}
+                onChange={setOpacity}
+              />
+              <Caption color="tertiary" style={{ flexShrink: 1 }}>
+                Drag to reveal more of either image. Keeping some of both visible makes alignment
+                differences easier to spot.
+              </Caption>
             </Card>
           </View>
         </>
       )}
 
-      <Card style={{ gap: spacing.one }}>
+      <Card variant="quiet" elevated={false} style={{ gap: spacing.one }}>
         <AppText variant="bodyEmphasis">Use comparisons cautiously</AppText>
         <Caption style={{ flexShrink: 1 }}>
           Differences can reflect camera height, distance, lighting, clothing, hydration or posture.

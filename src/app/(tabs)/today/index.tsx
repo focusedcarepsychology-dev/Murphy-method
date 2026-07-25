@@ -4,7 +4,7 @@ import { View } from 'react-native';
 
 import { ProgrammeSessionCard } from '@/components/programme/programme-session-card';
 import { AppText, Caption, Heading } from '@/components/ui/app-text';
-import { PrimaryButton, SecondaryButton } from '@/components/ui/button';
+import { PrimaryButton } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
@@ -12,6 +12,7 @@ import { LoadingState } from '@/components/ui/loading-state';
 import { MomentumCard } from '@/components/ui/momentum-card';
 import { ScrollScreen } from '@/components/ui/scroll-screen';
 import { SectionHeader } from '@/components/ui/section-header';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import type { ProgrammeSession } from '@/domain/programme/structure';
 import { greetingWithName } from '@/domain/profile/greeting';
 import { useAuthenticatedClient } from '@/hooks/use-authenticated-client';
@@ -28,6 +29,12 @@ import {
 import { loadActiveWorkout } from '@/services/workouts/active-workout-repository';
 import { startWorkout, type WorkoutMode } from '@/services/workouts/workout-repository';
 
+const WORKOUT_MODES: readonly { value: WorkoutMode; label: string }[] = [
+  { value: 'full', label: 'Full' },
+  { value: 'quick', label: 'Quick' },
+  { value: 'minimum', label: 'Minimum' },
+];
+
 function nextSessionForToday(sessions: ProgrammeSession[]): ProgrammeSession | null {
   if (sessions.length === 0) return null;
   const today = new Intl.DateTimeFormat('en-GB', { weekday: 'long' }).format(new Date());
@@ -42,6 +49,7 @@ export default function TodayScreen() {
   const greeting = useGreeting();
   const { spacing } = useTheme();
   const { client } = useAuthenticatedClient();
+  const [selectedMode, setSelectedMode] = useState<WorkoutMode>('full');
   const [startingMode, setStartingMode] = useState<WorkoutMode | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
 
@@ -144,12 +152,12 @@ export default function TodayScreen() {
       ) : (
         <>
           {data.activeWorkout ? (
-            <Card style={{ gap: spacing.two }}>
+            <Card variant="hero" elevated={false} style={{ gap: spacing.two }}>
               <View style={{ gap: spacing.one }}>
-                <Heading variant="bodyEmphasis">Workout in progress</Heading>
+                <Caption color="brand">IN PROGRESS</Caption>
+                <Heading variant="bodyEmphasis">Workout ready to resume</Heading>
                 <AppText color="secondary" style={{ flexShrink: 1 }}>
-                  Resume your {data.activeWorkout.mode} session before starting another workout. All
-                  completed sets remain saved.
+                  Your completed sets are saved. Resume this session before starting another one.
                 </AppText>
               </View>
               <PrimaryButton label="Resume workout" onPress={resumeActiveWorkout} />
@@ -161,7 +169,7 @@ export default function TodayScreen() {
               <Heading variant="bodyEmphasis">Clearance required before training</Heading>
               <AppText color="secondary" style={{ flexShrink: 1 }}>
                 Your safety answers indicate that you should obtain appropriate professional
-                clearance before starting this programme. The workout buttons remain disabled until
+                clearance before starting this programme. The workout button remains disabled until
                 that status is reviewed.
               </AppText>
             </Card>
@@ -179,39 +187,36 @@ export default function TodayScreen() {
             session={nextSession}
             exerciseDetails={data.exerciseDetails}
             maxExercises={3}
+            emphasis="hero"
             onExercisePress={(exerciseId) =>
               router.push({
                 pathname: '/(tabs)/plan/exercise/[exerciseId]',
                 params: { exerciseId },
               })
             }
-            onStart={
-              blockedByClearance || data.activeWorkout ? undefined : () => handleStart('full')
+            modeSelector={
+              !blockedByClearance && !data.activeWorkout ? (
+                <View style={{ gap: spacing.one }}>
+                  <Caption>SESSION MODE</Caption>
+                  <SegmentedControl<WorkoutMode>
+                    accessibilityLabel="Choose workout mode"
+                    options={WORKOUT_MODES}
+                    value={selectedMode}
+                    onChange={setSelectedMode}
+                  />
+                </View>
+              ) : undefined
             }
-            starting={startingMode === 'full'}
-            startLabel="Start full session"
+            onStart={
+              blockedByClearance || data.activeWorkout ? undefined : () => handleStart(selectedMode)
+            }
+            starting={startingMode === selectedMode}
+            startLabel={`Start ${selectedMode} session`}
           />
 
-          {!blockedByClearance && !data.activeWorkout ? (
-            <View style={{ gap: spacing.two }}>
-              <SecondaryButton
-                label="Start quick version"
-                onPress={() => handleStart('quick')}
-                loading={startingMode === 'quick'}
-                disabled={startingMode !== null && startingMode !== 'quick'}
-              />
-              <SecondaryButton
-                label="Start minimum version"
-                onPress={() => handleStart('minimum')}
-                loading={startingMode === 'minimum'}
-                disabled={startingMode !== null && startingMode !== 'minimum'}
-              />
-            </View>
-          ) : null}
-
           {structure.limitations.length > 0 ? (
-            <Card style={{ gap: spacing.one }}>
-              <Heading variant="bodyEmphasis">Current programme limitations</Heading>
+            <Card variant="quiet" elevated={false} style={{ gap: spacing.one }}>
+              <Heading variant="bodyEmphasis">Current programme notes</Heading>
               {structure.limitations.map((limitation) => (
                 <Caption key={limitation} style={{ flexShrink: 1 }}>
                   {limitation}
@@ -231,7 +236,7 @@ export default function TodayScreen() {
               actionLabel="See all"
               onActionPress={() => router.push('/(tabs)/progress/goal-journey')}
             />
-            <Card style={{ gap: spacing.one }}>
+            <Card variant="quiet" elevated={false} style={{ gap: spacing.one }}>
               {data.goals.length === 0 ? (
                 <Caption>No goals saved yet.</Caption>
               ) : (
