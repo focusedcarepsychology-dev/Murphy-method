@@ -31,7 +31,9 @@ describe('tab shell', () => {
     await renderRouter('src/app', { initialUrl: '/(tabs)/today' });
 
     expect(await screen.findByText(/What's next/i)).toBeTruthy();
-    expect(screen.getByText('Upper Body A')).toBeTruthy();
+    // No session title is claimed here: the only workout name this screen
+    // may ever render comes from the signed-in user's own programme.
+    expect(screen.queryByText('Upper Body A')).toBeNull();
   });
 
   it('renders the Plan tab, for a fully onboarded signed-in user', async () => {

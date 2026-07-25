@@ -7,8 +7,9 @@ import { Card } from '@/components/ui/card';
 import { SecondaryButton } from '@/components/ui/button';
 import { SettingRow } from '@/components/ui/list-row';
 import { ScrollScreen } from '@/components/ui/scroll-screen';
-import { previewUser } from '@/dev/previewData';
+import { useAuthenticatedData } from '@/hooks/use-authenticated-data';
 import { useTheme } from '@/hooks/use-theme';
+import { loadViewerProfile } from '@/services/training/training-repository';
 import { useAuth } from '@/state/auth/auth-context';
 import type { Href } from 'expo-router';
 import type { IconName } from '@/components/ui/icon';
@@ -63,6 +64,9 @@ export default function ProfileScreen() {
   const { spacing } = useTheme();
   const { signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
+  const { data: profile } = useAuthenticatedData((client, userId) =>
+    loadViewerProfile(client, userId),
+  );
 
   function handleSignOutPress() {
     Alert.alert('Sign out?', 'You can sign back in any time.', [
@@ -93,7 +97,7 @@ export default function ProfileScreen() {
     <ScrollScreen>
       <View style={{ gap: spacing.one }}>
         <Heading variant="hero">Profile</Heading>
-        <Caption>{previewUser.firstName}</Caption>
+        {profile?.displayName ? <Caption>{profile.displayName}</Caption> : null}
       </View>
 
       <RowGroup title="ACCOUNT" rows={account} />

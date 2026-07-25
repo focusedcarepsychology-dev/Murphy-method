@@ -1,18 +1,51 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { View } from 'react-native';
 
-import { AppText, Caption, Heading } from '@/components/ui/app-text';
+import { Heading } from '@/components/ui/app-text';
 import { PrimaryButton } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { ErrorState } from '@/components/ui/error-state';
 import { Icon } from '@/components/ui/icon';
+import { LoadingState } from '@/components/ui/loading-state';
 import { Screen } from '@/components/ui/screen';
+import { ScrollScreen } from '@/components/ui/scroll-screen';
 import { StatChip } from '@/components/ui/stat-chip';
-import { previewWorkoutSummary } from '@/dev/previewData';
+import { useAuthenticatedData } from '@/hooks/use-authenticated-data';
 import { useTheme } from '@/hooks/use-theme';
+import { loadWorkoutSummary } from '@/services/training/training-repository';
 
+/**
+ * Every figure here is counted from the sets the user actually logged for
+ * this workout. A session where nothing was logged reports zero, and no
+ * personal record is claimed unless a genuine record exists.
+ */
 export default function WorkoutSummaryScreen() {
+  const { workoutId } = useLocalSearchParams<{ workoutId: string }>();
   const router = useRouter();
   const { colors, spacing, radius } = useTheme();
+
+  const { status, data, reload } = useAuthenticatedData(
+    (client, userId) => loadWorkoutSummary(client, userId, workoutId ?? ''),
+    [workoutId],
+  );
+
+  if (status === 'loading') {
+    return (
+      <ScrollScreen>
+        <LoadingState accessibilityLabel="Loading your session summary" rows={3} />
+      </ScrollScreen>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <ScrollScreen>
+        <Card>
+          <ErrorState onRetry={reload} />
+        </Card>
+      </ScrollScreen>
+    );
+  }
 
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>
@@ -35,27 +68,27 @@ export default function WorkoutSummaryScreen() {
           </Heading>
         </View>
 
-        <View style={{ flexDirection: 'row', gap: spacing.two, justifyContent: 'center' }}>
-          <StatChip
-            icon="checkCircle"
-            label={`${previewWorkoutSummary.completedExercises} exercises`}
-          />
-          <StatChip icon="checkCircle" label={`${previewWorkoutSummary.completedSets} sets`} />
-          <StatChip icon="timer" label={`${previewWorkoutSummary.totalDurationMinutes} min`} />
-        </View>
-
-        {previewWorkoutSummary.newPersonalRecords.length > 0 ? (
-          <Card style={{ gap: spacing.one, backgroundColor: colors.status.positiveSubtle }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.one }}>
-              <Icon name="trophy" color={colors.status.positive} size={18} />
-              <Caption style={{ color: colors.status.positive }}>NEW PERSONAL RECORD</Caption>
-            </View>
-            {previewWorkoutSummary.newPersonalRecords.map((record) => (
-              <AppText key={record} style={{ color: colors.status.positive }}>
-                {record}
-              </AppText>
-            ))}
-          </Card>
+        {data ? (
+          <View
+            style={{
+              flexDirection: 'row',
+              gap: spacing.two,
+              justifyContent: 'center',
+              flexWrap: 'wrap',
+            }}
+          >
+            <StatChip
+              icon="checkCircle"
+              label={`${data.completedExercises} ${data.completedExercises === 1 ? 'exercise' : 'exercises'}`}
+            />
+            <StatChip
+              icon="checkCircle"
+              label={`${data.completedSets} ${data.completedSets === 1 ? 'set' : 'sets'}`}
+            />
+            {data.durationMinutes ? (
+              <StatChip icon="timer" label={`${data.durationMinutes} min`} />
+            ) : null}
+          </View>
         ) : null}
 
         <PrimaryButton

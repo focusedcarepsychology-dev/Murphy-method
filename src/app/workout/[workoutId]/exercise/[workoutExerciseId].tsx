@@ -16,6 +16,26 @@ export default function WorkoutExerciseScreen() {
   const router = useRouter();
   const { spacing } = useTheme();
 
+  if (!workoutId) {
+    return (
+      <Screen edges={['top', 'bottom', 'left', 'right']}>
+        <View
+          style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.three }}
+        >
+          <Heading variant="title">Session not found</Heading>
+          <AppText color="secondary" align="center">
+            This link does not point at one of your sessions.
+          </AppText>
+          <PrimaryButton
+            label="Back to Today"
+            fullWidth={false}
+            onPress={() => router.replace('/(tabs)/today')}
+          />
+        </View>
+      </Screen>
+    );
+  }
+
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.three }}>
@@ -29,7 +49,7 @@ export default function WorkoutExerciseScreen() {
           onPress={() =>
             router.replace({
               pathname: '/workout/[workoutId]/active',
-              params: { workoutId: workoutId ?? 'preview-workout-1' },
+              params: { workoutId },
             })
           }
         />

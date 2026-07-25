@@ -1,62 +1,84 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
 import { View } from 'react-native';
 
 import { AppText, Heading } from '@/components/ui/app-text';
 import { PrimaryButton } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ErrorState } from '@/components/ui/error-state';
 import { ExerciseCard } from '@/components/ui/exercise-card';
+import { LoadingState } from '@/components/ui/loading-state';
 import { ScrollScreen } from '@/components/ui/scroll-screen';
-import { SegmentedControl } from '@/components/ui/segmented-control';
-import { previewTodayWorkout, previewWorkoutExercises } from '@/dev/previewData';
+import { useAuthenticatedData } from '@/hooks/use-authenticated-data';
 import { useTheme } from '@/hooks/use-theme';
-
-type Mode = 'full' | 'quick' | 'minimum';
-
-const durationByMode: Record<Mode, number> = {
-  full: previewTodayWorkout.durationMinutes,
-  quick: previewTodayWorkout.quickDurationMinutes,
-  minimum: previewTodayWorkout.minimumDurationMinutes,
-};
+import { formatPerformance, loadWorkoutDetail } from '@/services/training/training-repository';
 
 export default function WorkoutOverviewScreen() {
-  const { workoutId, mode: initialMode } = useLocalSearchParams<{
-    workoutId: string;
-    mode?: Mode;
-  }>();
+  const { workoutId } = useLocalSearchParams<{ workoutId: string }>();
   const router = useRouter();
   const { spacing } = useTheme();
-  const [mode, setMode] = useState<Mode>(initialMode ?? 'full');
 
-  const exercises = mode === 'full' ? previewWorkoutExercises : previewWorkoutExercises.slice(0, 3);
+  const { status, data, reload } = useAuthenticatedData(
+    (client, userId) => loadWorkoutDetail(client, userId, workoutId ?? ''),
+    [workoutId],
+  );
+
+  if (status === 'loading') {
+    return (
+      <ScrollScreen>
+        <LoadingState accessibilityLabel="Loading this session" rows={4} />
+      </ScrollScreen>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <ScrollScreen>
+        <Card>
+          <ErrorState onRetry={reload} />
+        </Card>
+      </ScrollScreen>
+    );
+  }
+
+  if (!data) {
+    return (
+      <ScrollScreen>
+        <Card>
+          <EmptyState
+            icon="alertCircle"
+            title="Session not found"
+            description="This session is no longer available on your plan."
+            actionLabel="Back to Today"
+            onAction={() => router.replace('/(tabs)/today')}
+          />
+        </Card>
+      </ScrollScreen>
+    );
+  }
 
   return (
     <ScrollScreen>
       <View style={{ gap: spacing.one }}>
-        <Heading variant="title">{previewTodayWorkout.title}</Heading>
+        <Heading variant="title">Your session</Heading>
         <AppText color="secondary">
-          {durationByMode[mode]} min · {exercises.length} exercises
+          {data.estimatedDurationMinutes ? `${data.estimatedDurationMinutes} min · ` : ''}
+          {data.exercises.length} {data.exercises.length === 1 ? 'exercise' : 'exercises'}
         </AppText>
       </View>
 
-      <SegmentedControl
-        accessibilityLabel="Workout mode"
-        value={mode}
-        onChange={(value) => setMode(value as Mode)}
-        options={[
-          { value: 'full', label: 'Full' },
-          { value: 'quick', label: 'Quick' },
-          { value: 'minimum', label: 'Minimum' },
-        ]}
-      />
-
       <View style={{ gap: spacing.two }}>
-        {exercises.map((exercise) => (
+        {data.exercises.map((exercise) => (
           <ExerciseCard
-            key={exercise.name}
+            key={exercise.workoutExerciseId}
             name={exercise.name}
             targetSets={exercise.targetSets}
-            targetReps={exercise.targetReps}
-            previous={exercise.previous}
+            targetReps={`${exercise.targetRepRangeLow}–${exercise.targetRepRangeHigh}`}
+            previous={
+              exercise.previous
+                ? formatPerformance(exercise.previous.weightKg, exercise.previous.reps)
+                : undefined
+            }
           />
         ))}
       </View>
@@ -67,7 +89,7 @@ export default function WorkoutOverviewScreen() {
         onPress={() =>
           router.replace({
             pathname: '/workout/[workoutId]/active',
-            params: { workoutId: workoutId ?? 'preview-workout-1' },
+            params: { workoutId: data.id },
           })
         }
       />

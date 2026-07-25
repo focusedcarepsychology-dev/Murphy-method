@@ -1,26 +1,20 @@
-import { useRouter } from 'expo-router';
 import { View } from 'react-native';
 
-import { Heading } from '@/components/ui/app-text';
-import { CoachInsightCard } from '@/components/ui/coach-insight-card';
+import { AppText, Heading } from '@/components/ui/app-text';
+import { Card } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
 import { ScrollScreen } from '@/components/ui/scroll-screen';
-import { previewCoachMessage, previewCoachQuickActions } from '@/dev/previewData';
 import { useTheme } from '@/hooks/use-theme';
 
+/**
+ * The coach speaks only about things that genuinely happened. There is no
+ * training history to draw on until the user completes real sessions, and
+ * an encouraging message about sessions they never did is exactly the
+ * fictional-personal-data problem this remediation removes — so this
+ * screen says plainly that there is nothing to report yet.
+ */
 export default function CoachScreen() {
-  const router = useRouter();
   const { spacing } = useTheme();
-
-  const actions = previewCoachQuickActions.map((label) => ({
-    label,
-    onPress: () => {
-      if (label === 'Change my schedule') {
-        router.push('/(tabs)/coach/accountability-settings');
-      } else {
-        router.push('/(tabs)/coach/insight');
-      }
-    },
-  }));
 
   return (
     <ScrollScreen>
@@ -28,7 +22,18 @@ export default function CoachScreen() {
         <Heading variant="hero">Coach</Heading>
       </View>
 
-      <CoachInsightCard message={previewCoachMessage} actions={actions} />
+      <Card>
+        <EmptyState
+          icon="coach"
+          title="Nothing to report yet"
+          description="Your coach comments on your actual sessions, sets and feedback. Once you have trained, useful observations appear here."
+        />
+      </Card>
+
+      <AppText color="tertiary">
+        Coach messages are never generated from example data. If there is nothing real to say, this
+        screen stays quiet.
+      </AppText>
     </ScrollScreen>
   );
 }

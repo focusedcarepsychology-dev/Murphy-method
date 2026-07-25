@@ -1,10 +1,13 @@
 /**
- * In-memory fake Supabase backend for onboarding domain/service tests.
+ * In-memory fake Supabase backend for domain/service and screen tests.
  * Mirrors just enough of PostgREST's query-builder surface (`.from()`
- * chains) and the three Phase 3 RPCs (`set_user_goal_priorities`,
+ * chains) and the Phase 3 RPCs (`set_user_goal_priorities`,
  * `submit_safety_screening`, `complete_onboarding`) to unit-test
- * `src/services/onboarding/onboarding-repository.ts` and drive an
- * end-to-end onboarding data-flow test without a real database.
+ * `src/services/onboarding/onboarding-repository.ts`, drive an
+ * end-to-end onboarding data-flow test, and render authenticated screens
+ * against genuinely empty tables — which is how the zero-state invariants
+ * (a brand-new user has no history, no records and no previous
+ * performance) are asserted without a real database.
  *
  * This is a test double for this repository's own query patterns, not a
  * general PostgREST simulator — it only implements the operations the
@@ -108,6 +111,14 @@ export class FakeOnboardingBackend {
     body_scan_images: [],
     programmes: [],
     programme_versions: [],
+    programme_decisions: [],
+    workouts: [],
+    workout_exercises: [],
+    set_logs: [],
+    exercises: [],
+    muscles: [],
+    exercise_muscles: [],
+    exercise_equipment: [],
   };
 
   currentUserId: string | null = null;
@@ -303,9 +314,11 @@ export class FakeOnboardingBackend {
   }
 }
 
-type FilterOp = { col: string; val: unknown; isIn?: boolean };
+type FilterOp = { col: string; val: unknown; op?: 'eq' | 'in' | 'gte' | 'lte' };
 
-class FakeQueryBuilder implements PromiseLike<{ data: unknown; error: unknown }> {
+type QueryResult = { data: unknown; error: unknown; count?: number };
+
+class FakeQueryBuilder implements PromiseLike<QueryResult> {
   private filters: FilterOp[] = [];
   private op: 'select' | 'insert' | 'update' | 'upsert' | 'delete' = 'select';
   private payload: Row | Row[] | undefined;
@@ -314,21 +327,33 @@ class FakeQueryBuilder implements PromiseLike<{ data: unknown; error: unknown }>
   private orderAscending = true;
   private limitN?: number;
   private onConflict?: string;
+  private countExact = false;
+  private headOnly = false;
 
   constructor(
     private table: string,
     private backend: FakeOnboardingBackend,
   ) {}
 
-  select(_cols?: string) {
+  select(_cols?: string, opts?: { count?: 'exact' | 'planned' | 'estimated'; head?: boolean }) {
+    this.countExact = opts?.count === 'exact';
+    this.headOnly = opts?.head === true;
     return this;
   }
   eq(col: string, val: unknown) {
-    this.filters.push({ col, val });
+    this.filters.push({ col, val, op: 'eq' });
     return this;
   }
   in(col: string, vals: unknown[]) {
-    this.filters.push({ col, val: vals, isIn: true });
+    this.filters.push({ col, val: vals, op: 'in' });
+    return this;
+  }
+  gte(col: string, val: unknown) {
+    this.filters.push({ col, val, op: 'gte' });
+    return this;
+  }
+  lte(col: string, val: unknown) {
+    this.filters.push({ col, val, op: 'lte' });
     return this;
   }
   order(col: string, opts?: { ascending?: boolean }) {
@@ -366,12 +391,16 @@ class FakeQueryBuilder implements PromiseLike<{ data: unknown; error: unknown }>
   }
 
   private matches(row: Row): boolean {
-    return this.filters.every((f) =>
-      f.isIn ? (f.val as unknown[]).includes(row[f.col]) : row[f.col] === f.val,
-    );
+    return this.filters.every((f) => {
+      const value = row[f.col];
+      if (f.op === 'in') return (f.val as unknown[]).includes(value);
+      if (f.op === 'gte') return value !== null && String(value) >= String(f.val);
+      if (f.op === 'lte') return value !== null && String(value) <= String(f.val);
+      return value === f.val;
+    });
   }
 
-  private run(): { data: unknown; error: unknown } {
+  private run(): QueryResult {
     const rows = this.backend.tables[this.table];
     if (!rows) return { data: null, error: { message: `unknown table: ${this.table}` } };
 
@@ -433,12 +462,15 @@ class FakeQueryBuilder implements PromiseLike<{ data: unknown; error: unknown }>
       }
       return { data: result[0], error: null };
     }
+    if (this.countExact) {
+      // `head: true` asks PostgREST for the count without the rows.
+      return { data: this.headOnly ? null : result, error: null, count: matched.length };
+    }
     return { data: result, error: null };
   }
 
-  then<TResult1 = { data: unknown; error: unknown }, TResult2 = never>(
-    onfulfilled?:
-      ((value: { data: unknown; error: unknown }) => TResult1 | PromiseLike<TResult1>) | null,
+  then<TResult1 = QueryResult, TResult2 = never>(
+    onfulfilled?: ((value: QueryResult) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
   ): PromiseLike<TResult1 | TResult2> {
     return Promise.resolve(this.run()).then(onfulfilled, onrejected);

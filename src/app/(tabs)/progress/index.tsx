@@ -2,20 +2,34 @@ import { useRouter } from 'expo-router';
 import { View } from 'react-native';
 
 import { AppText, Caption, Heading } from '@/components/ui/app-text';
-import { Card, InteractiveCard } from '@/components/ui/card';
-import { GoalProgressCard } from '@/components/ui/goal-progress-card';
-import { Icon, type IconName } from '@/components/ui/icon';
-import { MetricCard } from '@/components/ui/metric-card';
 import { PrimaryButton } from '@/components/ui/button';
+import { Card, InteractiveCard } from '@/components/ui/card';
+import { ErrorState } from '@/components/ui/error-state';
+import { Icon, type IconName } from '@/components/ui/icon';
+import { LoadingState } from '@/components/ui/loading-state';
+import { MetricCard } from '@/components/ui/metric-card';
 import { ScrollScreen } from '@/components/ui/scroll-screen';
-import { SectionHeader } from '@/components/ui/section-header';
-import { previewConsistencyPercent, previewGoals, previewPersonalRecords } from '@/dev/previewData';
+import { useAuthenticatedData } from '@/hooks/use-authenticated-data';
 import { useTheme } from '@/hooks/use-theme';
+import {
+  loadPersonalRecords,
+  loadTrainingHistorySummary,
+  loadViewerProfile,
+} from '@/services/training/training-repository';
 import type { Href } from 'expo-router';
 
 export default function ProgressScreen() {
   const router = useRouter();
   const { colors, spacing } = useTheme();
+
+  const { status, data, reload } = useAuthenticatedData(async (client, userId) => {
+    const profile = await loadViewerProfile(client, userId);
+    const [history, records] = await Promise.all([
+      loadTrainingHistorySummary(client, userId, profile.availableTrainingDays.length),
+      loadPersonalRecords(client, userId),
+    ]);
+    return { history, records };
+  });
 
   const sections: { label: string; icon: IconName; href: Href }[] = [
     { label: 'Strength', icon: 'trending', href: '/(tabs)/progress/strength' },
@@ -27,37 +41,28 @@ export default function ProgressScreen() {
     <ScrollScreen>
       <Heading variant="hero">Progress</Heading>
 
-      <View style={{ gap: spacing.two }}>
-        <SectionHeader
-          title="Goal journey"
-          actionLabel="See all"
-          onActionPress={() => router.push('/(tabs)/progress/goal-journey')}
-        />
-        <Card style={{ gap: spacing.one }}>
-          {previewGoals.map((goal) => (
-            <GoalProgressCard
-              key={goal.label}
-              goalLabel={goal.label}
-              trajectory={goal.trajectory}
-              icon={goal.icon}
-            />
-          ))}
+      {status === 'loading' ? (
+        <LoadingState accessibilityLabel="Loading your progress" rows={2} />
+      ) : status === 'error' || !data ? (
+        <Card>
+          <ErrorState onRetry={reload} />
         </Card>
-      </View>
-
-      <View style={{ flexDirection: 'row', gap: spacing.three }}>
-        <MetricCard
-          label="Consistency"
-          value={`${previewConsistencyPercent}%`}
-          icon="checkCircle"
-        />
-        <MetricCard
-          label="Personal records"
-          value={String(previewPersonalRecords.length)}
-          caption="last 8 weeks"
-          icon="trophy"
-        />
-      </View>
+      ) : (
+        <View style={{ flexDirection: 'row', gap: spacing.three }}>
+          <MetricCard
+            label="Sessions done"
+            value={String(data.history.completedTotal)}
+            caption="all time"
+            icon="checkCircle"
+          />
+          <MetricCard
+            label="Personal records"
+            value={String(data.records.length)}
+            caption={data.records.length === 0 ? 'none yet' : 'all time'}
+            icon="trophy"
+          />
+        </View>
+      )}
 
       <View style={{ gap: spacing.two }}>
         {sections.map((section) => (
