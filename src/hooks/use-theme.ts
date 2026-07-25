@@ -2,7 +2,7 @@
  * Learn more about light and dark modes:
  * https://docs.expo.dev/guides/color-schemes/
  */
-import { Colors, Elevation, Radius, Spacing, Typography } from '@/constants/theme';
+import { Colors, Elevation, Motion, Radius, Spacing, Typography } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useThemePreference } from '@/hooks/use-theme-preference';
 
@@ -20,6 +20,7 @@ export function useTheme() {
     spacing: Spacing,
     radius: Radius,
     typography: Typography,
+    motion: Motion,
     elevation: Elevation[scheme],
   };
 }
