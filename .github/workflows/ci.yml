@@ -25,23 +25,35 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Create diagnostic directory
+        run: mkdir -p ci-artifacts
+
       - name: Typecheck
-        run: npm run typecheck
+        run: set -o pipefail; npm run typecheck 2>&1 | tee ci-artifacts/typecheck.log
 
       - name: Lint
-        run: npm run lint
+        run: set -o pipefail; npm run lint 2>&1 | tee ci-artifacts/lint.log
 
       - name: Format check
-        run: npm run format:check
+        run: set -o pipefail; npm run format:check 2>&1 | tee ci-artifacts/format.log
 
       - name: Unit / component tests
-        run: npm test -- --ci
+        run: set -o pipefail; npm test -- --ci 2>&1 | tee ci-artifacts/tests.log
 
       - name: Expo web export (build validation)
-        run: npx expo export --platform web
+        run: set -o pipefail; npx expo export --platform web 2>&1 | tee ci-artifacts/export.log
 
       - name: Secret-leak check (source + exported bundle)
-        run: node ./scripts/check-no-secrets.js --bundle-dir dist
+        run: set -o pipefail; node ./scripts/check-no-secrets.js --bundle-dir dist 2>&1 | tee ci-artifacts/secrets.log
+
+      - name: Upload app diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-ci-diagnostics
+          path: ci-artifacts/
+          if-no-files-found: warn
+          retention-days: 14
 
   database:
     name: Database (migrations / RLS pgTAP tests)
@@ -53,14 +65,26 @@ jobs:
         with:
           version: latest
 
+      - name: Create diagnostic directory
+        run: mkdir -p ci-artifacts
+
       - name: Start local Supabase stack
-        run: supabase start
+        run: set -o pipefail; supabase start 2>&1 | tee ci-artifacts/supabase-start.log
 
       - name: Reset database (applies every migration from a clean database)
-        run: supabase db reset --local
+        run: set -o pipefail; supabase db reset --local 2>&1 | tee ci-artifacts/database-reset.log
 
       - name: Run pgTAP RLS/database test suite
-        run: supabase test db --local
+        run: set -o pipefail; supabase test db --local 2>&1 | tee ci-artifacts/database-tests.log
+
+      - name: Upload database diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-ci-diagnostics
+          path: ci-artifacts/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Stop local Supabase stack
         if: always()

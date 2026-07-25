@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { useWindowDimensions, View } from 'react-native';
 
 import { OnboardingScaffold } from '@/components/onboarding/onboarding-scaffold';
 import { AppText, Caption } from '@/components/ui/app-text';
@@ -21,7 +21,9 @@ type GoalRow = { goalKey: string; label: string };
 export default function GoalPrioritisationScreen() {
   const router = useRouter();
   const { spacing } = useTheme();
+  const { width } = useWindowDimensions();
   const { client, userId } = useAuthenticatedClient();
+  const narrow = width < 430;
 
   const [status, setStatus] = useState<LoadStatus>('loading');
   const [order, setOrder] = useState<GoalRow[]>([]);
@@ -56,7 +58,7 @@ export default function GoalPrioritisationScreen() {
   }
 
   function remove(index: number) {
-    setOrder((current) => current.filter((_, i) => i !== index));
+    setOrder((current) => current.filter((_, itemIndex) => itemIndex !== index));
   }
 
   async function handleNext() {
@@ -113,39 +115,65 @@ export default function GoalPrioritisationScreen() {
       nextLoading={submitting}
     >
       <View style={{ gap: spacing.two }}>
-        {submitError ? <AppText color="critical">{submitError}</AppText> : null}
+        {submitError ? (
+          <AppText color="critical" style={{ flexShrink: 1 }}>
+            {submitError}
+          </AppText>
+        ) : null}
         {order.length === 0 ? (
-          <AppText color="secondary">
+          <AppText color="secondary" style={{ flexShrink: 1 }}>
             No goals selected. Go back and choose at least one to continue.
           </AppText>
         ) : null}
         {order.map((goal, index) => (
           <Card
             key={goal.goalKey}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.three }}
+            style={{
+              gap: spacing.two,
+              flexDirection: narrow ? 'column' : 'row',
+              alignItems: narrow ? 'stretch' : 'center',
+            }}
           >
-            <Caption>{index + 1}</Caption>
-            <AppText variant="bodyEmphasis" style={{ flex: 1 }}>
-              {goal.label}
-            </AppText>
-            <IconButton
-              icon="chevronUp"
-              accessibilityLabel={`Move ${goal.label} up`}
-              onPress={() => move(index, -1)}
-              disabled={index === 0}
-            />
-            <IconButton
-              icon="chevronDown"
-              accessibilityLabel={`Move ${goal.label} down`}
-              onPress={() => move(index, 1)}
-              disabled={index === order.length - 1}
-            />
-            <IconButton
-              icon="trash"
-              accessibilityLabel={`Remove ${goal.label}`}
-              onPress={() => remove(index)}
-              disabled={order.length === 1}
-            />
+            <View
+              style={{
+                flex: 1,
+                minWidth: 0,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: spacing.three,
+              }}
+            >
+              <Caption accessibilityLabel={`Priority ${index + 1}`}>{index + 1}</Caption>
+              <AppText variant="bodyEmphasis" style={{ flex: 1, minWidth: 0, flexShrink: 1 }}>
+                {goal.label}
+              </AppText>
+            </View>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: narrow ? 'flex-end' : 'flex-start',
+                gap: spacing.one,
+              }}
+            >
+              <IconButton
+                icon="chevronUp"
+                accessibilityLabel={`Move ${goal.label} up`}
+                onPress={() => move(index, -1)}
+                disabled={index === 0}
+              />
+              <IconButton
+                icon="chevronDown"
+                accessibilityLabel={`Move ${goal.label} down`}
+                onPress={() => move(index, 1)}
+                disabled={index === order.length - 1}
+              />
+              <IconButton
+                icon="trash"
+                accessibilityLabel={`Remove ${goal.label}`}
+                onPress={() => remove(index)}
+                disabled={order.length === 1}
+              />
+            </View>
           </Card>
         ))}
       </View>
