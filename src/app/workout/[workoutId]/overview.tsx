@@ -11,6 +11,7 @@ import { LoadingState } from '@/components/ui/loading-state';
 import { ScrollScreen } from '@/components/ui/scroll-screen';
 import { useAuthenticatedData } from '@/hooks/use-authenticated-data';
 import { useTheme } from '@/hooks/use-theme';
+import { getExercisesByIds } from '@/services/exercises/exercise-repository';
 import { formatPerformance, loadWorkoutDetail } from '@/services/training/training-repository';
 
 export default function WorkoutOverviewScreen() {
@@ -19,7 +20,16 @@ export default function WorkoutOverviewScreen() {
   const { spacing } = useTheme();
 
   const { status, data, reload } = useAuthenticatedData(
-    (client, userId) => loadWorkoutDetail(client, userId, workoutId ?? ''),
+    async (client, userId) => {
+      const workout = await loadWorkoutDetail(client, userId, workoutId ?? '');
+      const details = workout
+        ? await getExercisesByIds(
+            client,
+            workout.exercises.map((exercise) => exercise.exerciseId),
+          )
+        : new Map();
+      return { workout, details };
+    },
     [workoutId],
   );
 
@@ -31,7 +41,7 @@ export default function WorkoutOverviewScreen() {
     );
   }
 
-  if (status === 'error') {
+  if (status === 'error' || !data) {
     return (
       <ScrollScreen>
         <Card>
@@ -41,7 +51,7 @@ export default function WorkoutOverviewScreen() {
     );
   }
 
-  if (!data) {
+  if (!data.workout) {
     return (
       <ScrollScreen>
         <Card>
@@ -57,39 +67,68 @@ export default function WorkoutOverviewScreen() {
     );
   }
 
+  const workout = data.workout;
+
   return (
     <ScrollScreen>
       <View style={{ gap: spacing.one }}>
         <Heading variant="title">Your session</Heading>
-        <AppText color="secondary">
-          {data.estimatedDurationMinutes ? `${data.estimatedDurationMinutes} min · ` : ''}
-          {data.exercises.length} {data.exercises.length === 1 ? 'exercise' : 'exercises'}
+        <AppText color="secondary" style={{ flexShrink: 1 }}>
+          {[
+            workout.estimatedDurationMinutes
+              ? `${workout.estimatedDurationMinutes} min`
+              : null,
+            `${workout.exercises.length} ${
+              workout.exercises.length === 1 ? 'exercise' : 'exercises'
+            }`,
+            workout.mode === 'full'
+              ? 'Full version'
+              : workout.mode === 'quick'
+                ? 'Quick version'
+                : 'Minimum version',
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         </AppText>
       </View>
 
       <View style={{ gap: spacing.two }}>
-        {data.exercises.map((exercise) => (
-          <ExerciseCard
-            key={exercise.workoutExerciseId}
-            name={exercise.name}
-            targetSets={exercise.targetSets}
-            targetReps={`${exercise.targetRepRangeLow}–${exercise.targetRepRangeHigh}`}
-            previous={
-              exercise.previous
-                ? formatPerformance(exercise.previous.weightKg, exercise.previous.reps)
-                : undefined
-            }
-          />
-        ))}
+        {workout.exercises.map((exercise) => {
+          const detail = data.details.get(exercise.exerciseId);
+          return (
+            <ExerciseCard
+              key={exercise.workoutExerciseId}
+              name={detail?.name ?? exercise.name}
+              targetSets={exercise.targetSets}
+              targetReps={`${exercise.targetRepRangeLow}–${exercise.targetRepRangeHigh} reps`}
+              previous={
+                exercise.previous
+                  ? formatPerformance(exercise.previous.weightKg, exercise.previous.reps)
+                  : undefined
+              }
+              description={detail?.description}
+              visualKey={detail?.visualKey}
+              onPress={() =>
+                router.push({
+                  pathname: '/workout/[workoutId]/exercise/[workoutExerciseId]',
+                  params: {
+                    workoutId: workout.id,
+                    workoutExerciseId: exercise.workoutExerciseId,
+                  },
+                })
+              }
+            />
+          );
+        })}
       </View>
 
       <PrimaryButton
-        label="Start Workout"
+        label={workout.status === 'in_progress' ? 'Resume Workout' : 'Start Workout'}
         size="large"
         onPress={() =>
           router.replace({
             pathname: '/workout/[workoutId]/active',
-            params: { workoutId: data.id },
+            params: { workoutId: workout.id },
           })
         }
       />

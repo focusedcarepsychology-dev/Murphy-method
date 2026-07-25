@@ -9,25 +9,26 @@ import { useTheme } from '@/hooks/use-theme';
 export type SetLoggerProps = {
   weightKg: number;
   reps: number;
+  saving?: boolean;
   onChangeWeight: (weightKg: number) => void;
   onChangeReps: (reps: number) => void;
   onCompleteSet: () => void;
 };
 
 /**
- * In-workout set entry. Controls are large-touch-target (docs/DESIGN_SYSTEM.md
- * §7.1) — mid-set, one-handed, sometimes fatigued. Steppers stack full-width
- * (rather than side by side) so the large +/- targets stay reachable and
- * uncrowded even on narrow phone widths.
+ * In-workout set entry. Controls remain large and vertically stacked so
+ * they are usable one-handed and on narrow phones.
  */
 export function SetLogger({
   weightKg,
   reps,
+  saving = false,
   onChangeWeight,
   onChangeReps,
   onCompleteSet,
 }: SetLoggerProps) {
   const { spacing } = useTheme();
+  const canComplete = reps > 0 && !saving;
 
   return (
     <Card style={{ gap: spacing.four }}>
@@ -35,9 +36,17 @@ export function SetLogger({
         <Stepper label="Weight" unit="kg" value={weightKg} onChange={onChangeWeight} step={2.5} />
         <Stepper label="Reps" value={reps} onChange={onChangeReps} step={1} />
       </View>
-      <PrimaryButton label="Complete Set" size="large" onPress={onCompleteSet} icon="check" />
-      <AppText color="tertiary" align="center" variant="caption">
-        Logging writes locally first, always — full offline guarantee lands in Phase 6.
+      <PrimaryButton
+        label={reps > 0 ? 'Complete Set' : 'Add at least one rep'}
+        size="large"
+        onPress={onCompleteSet}
+        icon="check"
+        loading={saving}
+        disabled={!canComplete}
+      />
+      <AppText color="tertiary" align="center" variant="caption" style={{ flexShrink: 1 }}>
+        Completed sets are saved securely to your account. Full offline workout persistence is not yet
+        available, so keep the app connected while logging.
       </AppText>
     </Card>
   );
@@ -68,8 +77,9 @@ function Stepper({
           variant="filled"
           size={WorkoutTouchTarget}
           onPress={() => onChange(Math.max(0, value - step))}
+          disabled={value <= 0}
         />
-        <AppText variant="title" style={{ textAlign: 'center' }}>
+        <AppText variant="title" style={{ textAlign: 'center', flexShrink: 1 }}>
           {value}
           {unit ?? ''}
         </AppText>
