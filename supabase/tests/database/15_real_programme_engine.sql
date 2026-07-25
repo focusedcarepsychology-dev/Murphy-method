@@ -28,8 +28,9 @@ begin;
 
   select set_user_goal_priorities(array['build_muscle']);
 
-  insert into public.user_equipment (profile_id, equipment_id, available)
-  select '15000000-0000-4000-8000-000000000001', id, true from public.equipment where key = 'bodyweight';
+  select public.set_user_equipment(
+    array(select id from public.equipment where key = 'bodyweight')
+  );
 
   select submit_safety_screening('murphy-safety-v1', jsonb_build_object(
     'heart_condition_supervised_only', false, 'chest_pain_during_activity', false,
@@ -97,9 +98,12 @@ begin;
 
   select set_user_goal_priorities(array['improve_strength']);
 
-  insert into public.user_equipment (profile_id, equipment_id, available)
-  select '15000000-0000-4000-8000-000000000002', id, true from public.equipment
-  where key in ('dumbbell', 'barbell', 'bench', 'cable_machine', 'pull_up_bar');
+  select public.set_user_equipment(
+    array(
+      select id from public.equipment
+      where key in ('dumbbell', 'barbell', 'bench', 'cable_machine', 'pull_up_bar')
+    )
+  );
 
   select submit_safety_screening('murphy-safety-v1', jsonb_build_object(
     'heart_condition_supervised_only', false, 'chest_pain_during_activity', false,

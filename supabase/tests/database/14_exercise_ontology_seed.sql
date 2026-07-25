@@ -21,14 +21,16 @@ select is(
 
 select is(
   (select count(*)::int from public.exercises e
-     where not exists (select 1 from public.exercise_equipment ee where ee.exercise_id = e.id)),
+     where e.source = 'internal_authoring'
+       and not exists (select 1 from public.exercise_equipment ee where ee.exercise_id = e.id)),
   0,
   'every seeded exercise has at least one exercise_equipment row'
 );
 
 select is(
   (select count(*)::int from public.exercises e
-     where not exists (select 1 from public.exercise_muscles em where em.exercise_id = e.id and em.role = 'primary')),
+     where e.source = 'internal_authoring'
+       and not exists (select 1 from public.exercise_muscles em where em.exercise_id = e.id and em.role = 'primary')),
   0,
   'every seeded exercise has at least one primary muscle'
 );

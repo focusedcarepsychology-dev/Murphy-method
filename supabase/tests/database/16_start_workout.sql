@@ -3,7 +3,7 @@
 -- deterministic-v1 programme already (this suite runs its files in order
 -- and each commits, per 13_onboarding_rpc_functions.sql's documented
 -- convention).
-select plan(8);
+select plan(9);
 
 begin;
   set local role authenticated;

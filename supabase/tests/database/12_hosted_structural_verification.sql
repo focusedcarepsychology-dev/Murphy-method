@@ -223,7 +223,8 @@ insert into expected_authenticated_privileges (name, can_select, can_insert, can
   ('set_logs',                  true,  true,  true,  true),
   ('subscriptions',             true,  false, false, false),
   ('training_blocks',           true,  true,  false, false),
-  ('user_equipment',            true,  true,  true,  true),
+  -- Direct writes are revoked; set_user_equipment() is the only writer.
+  ('user_equipment',            true,  false, false, false),
   ('user_goals',                true,  true,  true,  true),
   ('workout_exercises',         true,  true,  true,  false),
   ('workout_feedback',          true,  true,  false, false),

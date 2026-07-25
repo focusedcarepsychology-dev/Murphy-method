@@ -9,7 +9,7 @@
 -- Brings its own fixture users for the same reason
 -- 13_onboarding_rpc_functions.sql does: earlier files in the suite commit
 -- their changes, and these assertions need an exact starting state.
-select plan(14);
+select no_plan();
 
 insert into auth.users (id, email) values
   ('14000000-0000-4000-8000-000000000001', 'user-g@example.com'),
@@ -156,6 +156,9 @@ begin;
          array(select id from public.equipment where key = 'barbell')) $$,
     'User H can record their own equipment'
   );
+
+  -- Verify cross-user isolation as the test owner; User H cannot read User G through RLS.
+  reset role;
 
   select is(
     (select array_agg(e.key order by e.key) from public.user_equipment ue

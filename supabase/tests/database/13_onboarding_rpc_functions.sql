@@ -269,9 +269,9 @@ begin;
 
   select public.set_user_goal_priorities(array['improve_fitness']);
 
-  insert into public.user_equipment (profile_id, equipment_id, available)
-  select '13000000-0000-4000-8000-000000000002', id, true
-  from public.equipment where key = 'dumbbell';
+  select public.set_user_equipment(
+    array(select id from public.equipment where key = 'dumbbell')
+  );
 
   -- Requires-clearance path: the programme stand-in must still be created,
   -- but must honestly reflect the restriction rather than implying
