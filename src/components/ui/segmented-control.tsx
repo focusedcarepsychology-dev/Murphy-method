@@ -1,38 +1,47 @@
-import { Pressable, View } from 'react-native';
+import { Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { AppText } from '@/components/ui/app-text';
+import { MinTouchTarget } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-export type SegmentedControlOption = {
-  value: string;
+export type SegmentedControlOption<T extends string = string> = {
+  value: T;
   label: string;
+  accessibilityLabel?: string;
 };
 
-export type SegmentedControlProps = {
-  options: SegmentedControlOption[];
-  value: string;
-  onChange: (value: string) => void;
+export type SegmentedControlProps<T extends string = string> = {
+  options: readonly SegmentedControlOption<T>[];
+  value: T;
+  onChange: (value: T) => void;
   accessibilityLabel: string;
+  style?: StyleProp<ViewStyle>;
 };
 
-export function SegmentedControl({
+/** Compact, single-choice control for mode and view selection. */
+export function SegmentedControl<T extends string = string>({
   options,
   value,
   onChange,
   accessibilityLabel,
-}: SegmentedControlProps) {
-  const { colors, radius, spacing } = useTheme();
+  style,
+}: SegmentedControlProps<T>) {
+  const { colors, radius, spacing, motion } = useTheme();
 
   return (
     <View
       accessibilityRole="tablist"
       accessibilityLabel={accessibilityLabel}
-      style={{
-        flexDirection: 'row',
-        backgroundColor: colors.surface.sunken,
-        borderRadius: radius.pill,
-        padding: spacing.half,
-      }}
+      style={[
+        {
+          flexDirection: 'row',
+          gap: spacing.one,
+          backgroundColor: colors.surface.sunken,
+          borderRadius: radius.md,
+          padding: spacing.one,
+        },
+        style,
+      ]}
     >
       {options.map((option) => {
         const selected = option.value === value;
@@ -40,20 +49,29 @@ export function SegmentedControl({
           <Pressable
             key={option.value}
             accessibilityRole="tab"
+            accessibilityLabel={option.accessibilityLabel ?? option.label}
             accessibilityState={{ selected }}
             onPress={() => onChange(option.value)}
-            style={{
+            style={({ pressed }) => ({
               flex: 1,
-              minHeight: 40,
+              minWidth: 0,
+              minHeight: MinTouchTarget,
+              paddingHorizontal: spacing.two,
+              paddingVertical: spacing.two,
               alignItems: 'center',
               justifyContent: 'center',
-              borderRadius: radius.pill,
+              borderRadius: radius.sm,
               backgroundColor: selected ? colors.surface.raised : 'transparent',
-            }}
+              opacity: pressed ? 0.78 : 1,
+              transform: [{ scale: pressed ? motion.pressScale : 1 }],
+            })}
           >
             <AppText
               variant="supportingEmphasis"
-              style={{ color: selected ? colors.text.primary : colors.text.secondary }}
+              color={selected ? 'primary' : 'secondary'}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
             >
               {option.label}
             </AppText>
