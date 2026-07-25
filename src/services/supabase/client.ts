@@ -16,7 +16,25 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { supabaseEnvConfig } from '@/config/env';
 import type { Database } from '@/types/database';
 
-export type MurphySupabaseClient = SupabaseClient<Database>;
+/**
+ * `src/types/database.ts` is hand-maintained until the hosted schema type
+ * generation workflow is introduced. Keep the equipment replacement RPC in
+ * this narrow client augmentation so the exercise/programme additions and
+ * the no-equipment atomic writer are both typed without weakening the rest
+ * of the Supabase client to `any`.
+ */
+type MurphyDatabase = Omit<Database, 'public'> & {
+  public: Omit<Database['public'], 'Functions'> & {
+    Functions: Database['public']['Functions'] & {
+      set_user_equipment: {
+        Args: { p_equipment_ids: string[] };
+        Returns: Database['public']['Tables']['user_equipment']['Row'][];
+      };
+    };
+  };
+};
+
+export type MurphySupabaseClient = SupabaseClient<MurphyDatabase>;
 
 let client: MurphySupabaseClient | null = null;
 let appStateListener: { remove: () => void } | null = null;
@@ -53,27 +71,31 @@ export function getSupabaseClient(): MurphySupabaseClient {
     );
   }
 
-  client = createClient<Database>(supabaseEnvConfig.url, supabaseEnvConfig.publishableKey, {
-    auth: {
-      storage: AsyncStorage,
-      autoRefreshToken: true,
-      persistSession: true,
-      // `detectSessionInUrl` drives supabase-js's own browser-only
-      // URL-parsing/history-cleanup behaviour, which does not exist on
-      // native — the app's incoming-link handling
-      // (`state/auth/process-auth-deep-link.ts`, wired in
-      // `state/auth/auth-context.tsx`) reads the URL itself via
-      // `expo-linking` and establishes the session explicitly, so this
-      // must stay `false` on native regardless.
-      detectSessionInUrl: false,
-      // PKCE over the implicit flow for both email links this app sends
-      // (signup confirmation, password recovery): the emailed link then
-      // carries a single-use `code` query param instead of raw
-      // access/refresh tokens in a URL fragment, per current Supabase
-      // guidance for native/mobile apps.
-      flowType: 'pkce',
+  client = createClient<MurphyDatabase>(
+    supabaseEnvConfig.url,
+    supabaseEnvConfig.publishableKey,
+    {
+      auth: {
+        storage: AsyncStorage,
+        autoRefreshToken: true,
+        persistSession: true,
+        // `detectSessionInUrl` drives supabase-js's own browser-only
+        // URL-parsing/history-cleanup behaviour, which does not exist on
+        // native — the app's incoming-link handling
+        // (`state/auth/process-auth-deep-link.ts`, wired in
+        // `state/auth/auth-context.tsx`) reads the URL itself via
+        // `expo-linking` and establishes the session explicitly, so this
+        // must stay `false` on native regardless.
+        detectSessionInUrl: false,
+        // PKCE over the implicit flow for both email links this app sends
+        // (signup confirmation, password recovery): the emailed link then
+        // carries a single-use `code` query param instead of raw
+        // access/refresh tokens in a URL fragment, per current Supabase
+        // guidance for native/mobile apps.
+        flowType: 'pkce',
+      },
     },
-  });
+  );
 
   if (!appStateListener) {
     const subscription = AppState.addEventListener('change', (state) =>
