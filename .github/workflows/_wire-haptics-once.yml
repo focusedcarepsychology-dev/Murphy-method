@@ -1,0 +1,90 @@
+name: Wire successful action haptics once
+
+on:
+  push:
+    branches:
+      - agent/murphy-method-complete-remediation
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Wire successful action haptics'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/murphy-method-complete-remediation
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Add feedback after successful persisted actions
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+              "src/app/(tabs)/today/index.tsx": [
+                  (
+                      "import { getExercisesByIds } from '@/services/exercises/exercise-repository';\n",
+                      "import { getExercisesByIds } from '@/services/exercises/exercise-repository';\nimport { actionFeedback } from '@/services/feedback/haptics';\n",
+                  ),
+                  (
+                      "      const result = await startWorkout(client, {\n        programmeVersionId: data.programme.versionId,\n        sessionIndex: nextSession.sessionIndex,\n        mode,\n      });\n      router.push({",
+                      "      const result = await startWorkout(client, {\n        programmeVersionId: data.programme.versionId,\n        sessionIndex: nextSession.sessionIndex,\n        mode,\n      });\n      void actionFeedback();\n      router.push({",
+                  ),
+              ],
+              "src/app/(tabs)/plan/index.tsx": [
+                  (
+                      "import { getExercisesByIds } from '@/services/exercises/exercise-repository';\n",
+                      "import { getExercisesByIds } from '@/services/exercises/exercise-repository';\nimport { actionFeedback } from '@/services/feedback/haptics';\n",
+                  ),
+                  (
+                      "      const result = await startWorkout(client, {\n        programmeVersionId: data.programme.versionId,\n        sessionIndex,\n        mode: 'full',\n      });\n      router.push({",
+                      "      const result = await startWorkout(client, {\n        programmeVersionId: data.programme.versionId,\n        sessionIndex,\n        mode: 'full',\n      });\n      void actionFeedback();\n      router.push({",
+                  ),
+              ],
+              "src/app/workout/[workoutId]/active.tsx": [
+                  (
+                      "import { getExercisesByIds } from '@/services/exercises/exercise-repository';\n",
+                      "import { getExercisesByIds } from '@/services/exercises/exercise-repository';\nimport { actionFeedback, successFeedback } from '@/services/feedback/haptics';\n",
+                  ),
+                  (
+                      "      });\n      setResting(true);",
+                      "      });\n      void actionFeedback();\n      setResting(true);",
+                  ),
+                  (
+                      "        await markWorkoutCompleted(client, workout.id);\n        router.replace({",
+                      "        await markWorkoutCompleted(client, workout.id);\n        void successFeedback();\n        router.replace({",
+                  ),
+              ],
+          }
+
+          for filename, edits in replacements.items():
+              path = Path(filename)
+              text = path.read_text()
+              for old, new in edits:
+                  if old not in text:
+                      raise SystemExit(f"Expected text not found in {filename}: {old[:80]!r}")
+                  text = text.replace(old, new, 1)
+              path.write_text(text)
+          PY
+
+      - run: npx prettier --write 'src/app/(tabs)/today/index.tsx' 'src/app/(tabs)/plan/index.tsx' 'src/app/workout/[workoutId]/active.tsx'
+      - run: npm run typecheck
+      - run: git diff --check
+
+      - name: Commit haptic wiring
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/app
+          git diff --cached --quiet && exit 0
+          git commit -m "Wire haptics to successful workout actions"
+          git push origin HEAD:agent/murphy-method-complete-remediation
