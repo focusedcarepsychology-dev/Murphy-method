@@ -470,18 +470,21 @@ export type Database = {
           exercise_id: string;
           substitute_exercise_id: string;
           similarity_score: number;
+          relation_type: 'regression' | 'progression' | 'alternative';
         };
         Insert: {
           id?: string;
           exercise_id: string;
           substitute_exercise_id: string;
           similarity_score: number;
+          relation_type?: 'regression' | 'progression' | 'alternative';
         };
         Update: {
           id?: string;
           exercise_id?: string;
           substitute_exercise_id?: string;
           similarity_score?: number;
+          relation_type?: 'regression' | 'progression' | 'alternative';
         };
         Relationships: [];
       };
@@ -512,6 +515,11 @@ export type Database = {
           active: boolean;
           created_at: string;
           updated_at: string;
+          coaching_cues: string[];
+          common_mistakes: string[];
+          starting_position: string | null;
+          instructions: string[];
+          visual_key: string | null;
         };
         Insert: {
           id?: string;
@@ -539,6 +547,11 @@ export type Database = {
           active?: boolean;
           created_at?: string;
           updated_at?: string;
+          coaching_cues?: string[];
+          common_mistakes?: string[];
+          starting_position?: string | null;
+          instructions?: string[];
+          visual_key?: string | null;
         };
         Update: {
           id?: string;
@@ -566,6 +579,11 @@ export type Database = {
           active?: boolean;
           created_at?: string;
           updated_at?: string;
+          coaching_cues?: string[];
+          common_mistakes?: string[];
+          starting_position?: string | null;
+          instructions?: string[];
+          visual_key?: string | null;
         };
         Relationships: [];
       };
@@ -1516,6 +1534,21 @@ export type Database = {
       };
       complete_onboarding: {
         Args: Record<string, never>;
+        Returns: Json;
+      };
+      // supabase/migrations/20260724090300_real_programme_engine_v1.sql
+      upgrade_programme_to_real_v1: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+      // supabase/migrations/20260724090400_start_workout_v1.sql
+      start_workout: {
+        Args: {
+          p_programme_version_id: string;
+          p_session_index: number;
+          p_mode: 'full' | 'quick' | 'minimum';
+          p_client_generated_id: string;
+        };
         Returns: Json;
       };
     };
