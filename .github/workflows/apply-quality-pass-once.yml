@@ -113,6 +113,18 @@ jobs:
           git apply --check --verbose --binary /tmp/gate-fixes.patch
           git apply --index --verbose --binary /tmp/gate-fixes.patch
 
+      - name: Correct notification save contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/app/(tabs)/profile/notifications.tsx')
+          text = path.read_text()
+          old = "      const updated = await saveNotificationPreferences(client, userId, preferences);\n      setDraft(updated);"
+          new = "      await saveNotificationPreferences(client, userId, preferences);"
+          assert old in text
+          path.write_text(text.replace(old, new, 1))
+          PY
+
       - name: Remove every one-time audit file
         run: |
           git rm .github/workflows/apply-quality-pass-once.yml
