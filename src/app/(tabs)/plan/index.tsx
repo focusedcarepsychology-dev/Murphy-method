@@ -12,6 +12,7 @@ import { Icon } from '@/components/ui/icon';
 import { LoadingState } from '@/components/ui/loading-state';
 import { ScrollScreen } from '@/components/ui/scroll-screen';
 import { SectionHeader } from '@/components/ui/section-header';
+import type { ProgrammeSession } from '@/domain/programme/structure';
 import { useAuthenticatedClient } from '@/hooks/use-authenticated-client';
 import { useAuthenticatedData } from '@/hooks/use-authenticated-data';
 import { useTheme } from '@/hooks/use-theme';
@@ -20,6 +21,39 @@ import { ensureRealProgramme } from '@/services/programme/programme-repository';
 import { loadViewerProfile } from '@/services/training/training-repository';
 import { loadActiveWorkout } from '@/services/workouts/active-workout-repository';
 import { startWorkout } from '@/services/workouts/workout-repository';
+
+function WeeklyProgrammeStrip({ sessions }: { sessions: ProgrammeSession[] }) {
+  const { spacing } = useTheme();
+
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.two }}>
+      {sessions.map((session, index) => (
+        <Card
+          key={session.key}
+          variant="quiet"
+          elevated={false}
+          style={{
+            flexGrow: 1,
+            flexBasis: '30%',
+            minWidth: 96,
+            padding: spacing.three,
+            gap: spacing.one,
+          }}
+        >
+          <Caption color="brand">
+            {(session.dayOfWeek ?? `Day ${index + 1}`).slice(0, 3).toUpperCase()}
+          </Caption>
+          <AppText variant="supportingEmphasis" numberOfLines={2} style={{ flexShrink: 1 }}>
+            {session.name}
+          </AppText>
+          <Caption color="tertiary">
+            {session.estimatedMinutes ? `${session.estimatedMinutes} min` : 'Flexible'}
+          </Caption>
+        </Card>
+      ))}
+    </View>
+  );
+}
 
 export default function PlanScreen() {
   const router = useRouter();
@@ -120,10 +154,20 @@ export default function PlanScreen() {
         </Card>
       ) : (
         <>
+          <View style={{ gap: spacing.two }}>
+            <SectionHeader
+              title="This week"
+              actionLabel="Schedule"
+              onActionPress={() => router.push('/(tabs)/plan/schedule')}
+            />
+            <WeeklyProgrammeStrip sessions={structure.sessions} />
+          </View>
+
           {data.activeWorkout ? (
-            <Card style={{ gap: spacing.two }}>
+            <Card variant="hero" elevated={false} style={{ gap: spacing.two }}>
               <View style={{ gap: spacing.one }}>
-                <Heading variant="bodyEmphasis">Workout in progress</Heading>
+                <Caption color="brand">IN PROGRESS</Caption>
+                <Heading variant="bodyEmphasis">Continue your current workout</Heading>
                 <AppText color="secondary" style={{ flexShrink: 1 }}>
                   Resume your {data.activeWorkout.mode} session before starting another workout.
                 </AppText>
@@ -133,7 +177,7 @@ export default function PlanScreen() {
           ) : null}
 
           {blockedByClearance ? (
-            <Card style={{ gap: spacing.one }}>
+            <Card variant="quiet" elevated={false} style={{ gap: spacing.one }}>
               <Heading variant="bodyEmphasis">Training is paused pending clearance</Heading>
               <AppText color="secondary" style={{ flexShrink: 1 }}>
                 The sessions remain visible so you can understand the plan, but they cannot be
@@ -156,6 +200,7 @@ export default function PlanScreen() {
                 key={session.key}
                 session={session}
                 exerciseDetails={data.exerciseDetails}
+                maxExercises={2}
                 onExercisePress={(exerciseId) =>
                   router.push({
                     pathname: '/(tabs)/plan/exercise/[exerciseId]',
@@ -168,13 +213,14 @@ export default function PlanScreen() {
                     : () => handleStart(session.sessionIndex)
                 }
                 starting={startingSession === session.sessionIndex}
+                startLabel="Start session"
               />
             ))}
           </View>
 
           {structure.limitations.length > 0 ? (
-            <Card style={{ gap: spacing.one }}>
-              <Heading variant="bodyEmphasis">Current limitations</Heading>
+            <Card variant="quiet" elevated={false} style={{ gap: spacing.one }}>
+              <Heading variant="bodyEmphasis">Programme notes</Heading>
               {structure.limitations.map((limitation) => (
                 <Caption key={limitation} style={{ flexShrink: 1 }}>
                   {limitation}
@@ -186,12 +232,9 @@ export default function PlanScreen() {
       )}
 
       <View style={{ gap: spacing.two }}>
-        <SectionHeader
-          title="More"
-          actionLabel="Weekly schedule"
-          onActionPress={() => router.push('/(tabs)/plan/schedule')}
-        />
+        <SectionHeader title="Programme tools" />
         <InteractiveCard
+          variant="quiet"
           accessibilityLabel="Why this plan?"
           onPress={() =>
             router.push({
@@ -202,31 +245,42 @@ export default function PlanScreen() {
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.three }}>
             <Icon name="help" color={colors.text.secondary} size={20} />
-            <Heading variant="bodyEmphasis" style={{ flexShrink: 1 }}>
-              Why this plan?
-            </Heading>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Heading variant="bodyEmphasis" style={{ flexShrink: 1 }}>
+                Why this plan?
+              </Heading>
+              <Caption color="tertiary">See how your answers shaped the programme.</Caption>
+            </View>
           </View>
         </InteractiveCard>
         <InteractiveCard
+          variant="quiet"
           accessibilityLabel="Programme change history"
           onPress={() => router.push('/(tabs)/plan/history')}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.three }}>
             <Icon name="history" color={colors.text.secondary} size={20} />
-            <Heading variant="bodyEmphasis" style={{ flexShrink: 1 }}>
-              Programme history
-            </Heading>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Heading variant="bodyEmphasis" style={{ flexShrink: 1 }}>
+                Programme history
+              </Heading>
+              <Caption color="tertiary">Review previous versions without losing progress.</Caption>
+            </View>
           </View>
         </InteractiveCard>
         <InteractiveCard
+          variant="quiet"
           accessibilityLabel="Reset or restructure plan"
           onPress={() => router.push('/(tabs)/plan/reset')}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.three }}>
             <Icon name="sync" color={colors.text.secondary} size={20} />
-            <Heading variant="bodyEmphasis" style={{ flexShrink: 1 }}>
-              Reset / restructure plan
-            </Heading>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Heading variant="bodyEmphasis" style={{ flexShrink: 1 }}>
+                Restructure plan
+              </Heading>
+              <Caption color="tertiary">Build a new version from your current settings.</Caption>
+            </View>
           </View>
         </InteractiveCard>
       </View>
