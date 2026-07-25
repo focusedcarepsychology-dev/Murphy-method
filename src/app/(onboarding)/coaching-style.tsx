@@ -16,7 +16,7 @@ import { loadProfile, updateProfile } from '@/services/onboarding/onboarding-rep
 type LoadStatus = 'loading' | 'ready' | 'error';
 
 /**
- * Requires an explicit choice — no style is pre-selected
+ * Requires an explicit choice, no style is pre-selected
  * (docs/IMPLEMENTATION_PLAN.md Phase 3 §19).
  */
 export default function CoachingStyleScreen() {
@@ -90,7 +90,7 @@ export default function CoachingStyleScreen() {
     <OnboardingScaffold
       stepIndex={13}
       title="Choose your coaching style"
-      description="Pick the tone that motivates you — changeable any time later in Profile."
+      description="Pick the tone that motivates you. You can change it later in Profile."
       onBack={() => router.back()}
       onNext={handleNext}
       nextDisabled={!selected}

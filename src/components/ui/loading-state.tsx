@@ -9,7 +9,7 @@ export type LoadingStateProps = {
 
 /**
  * Skeleton placeholders matching content hierarchy, per
- * docs/SCREEN_SPECIFICATIONS.md §0 — not a generic spinner for first load.
+ * docs/SCREEN_SPECIFICATIONS.md §0, not a generic spinner for first load.
  */
 export function LoadingState({ accessibilityLabel = 'Loading', rows = 3 }: LoadingStateProps) {
   const { colors, spacing, radius } = useTheme();

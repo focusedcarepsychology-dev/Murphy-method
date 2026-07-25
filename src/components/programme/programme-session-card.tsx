@@ -30,7 +30,7 @@ function targetLabel(
   if (repRangeLow !== null && repRangeHigh !== null) {
     return repRangeLow === repRangeHigh
       ? `${repRangeLow} reps`
-      : `${repRangeLow}–${repRangeHigh} reps`;
+      : `${repRangeLow} to ${repRangeHigh} reps`;
   }
   return 'Repetitions guided in workout';
 }

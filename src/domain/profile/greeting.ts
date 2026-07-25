@@ -20,7 +20,7 @@ export type DisplayNameValidation =
 
 /**
  * Validates the optional "What should we call you?" field. Empty is a
- * fully valid answer that clears the name — a name is never required, and
+ * fully valid answer that clears the name, a name is never required, and
  * nothing downstream (programme generation included) depends on it.
  */
 export function validateDisplayName(input: string): DisplayNameValidation {

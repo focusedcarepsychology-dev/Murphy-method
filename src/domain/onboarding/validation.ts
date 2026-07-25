@@ -1,8 +1,7 @@
 /**
  * Basic Profile validation (docs/SCREEN_SPECIFICATIONS.md §2 "Basic
  * Profile"): plausible-range checks, not medical validation, plus the
- * MVP 18+ eligibility rule (`MASTER_SPEC.md` §3). Pure functions only —
- * screens own the async persistence, this module only decides "is this
+ * MVP 18+ eligibility rule (`MASTER_SPEC.md` §3). Pure functions only, * screens own the async persistence, this module only decides "is this
  * input acceptable to save".
  */
 
@@ -13,7 +12,7 @@ const MAX_WEIGHT_KG = 300;
 const MIN_AGE_YEARS = 18;
 const MAX_PLAUSIBLE_AGE_YEARS = 100;
 
-/** Whole-years age as of `today` (defaults to now) — calendar-aware, not a naive day-count divide. */
+/** Whole-years age as of `today` (defaults to now), calendar-aware, not a naive day-count divide. */
 export function calculateAge(dateOfBirth: string, today: Date = new Date()): number {
   const dob = new Date(dateOfBirth);
   let age = today.getUTCFullYear() - dob.getUTCFullYear();

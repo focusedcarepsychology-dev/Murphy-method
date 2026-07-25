@@ -55,7 +55,7 @@ export type SettingRowProps = ListRowProps &
     onPress: () => void;
   };
 
-/** Navigable settings row — Profile section entries. */
+/** Navigable settings row, Profile section entries. */
 export function SettingRow({ title, subtitle, icon, onPress, ...pressableProps }: SettingRowProps) {
   const { colors } = useTheme();
 
@@ -85,7 +85,7 @@ export type ToggleRowProps = {
   onValueChange: (value: boolean) => void;
 };
 
-/** Settings row with an inline switch — Notifications, Privacy toggles. */
+/** Settings row with an inline switch, Notifications, Privacy toggles. */
 export function ToggleRow({ title, subtitle, icon, value, onValueChange }: ToggleRowProps) {
   const { colors } = useTheme();
 

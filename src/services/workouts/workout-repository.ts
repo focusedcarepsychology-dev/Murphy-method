@@ -1,6 +1,5 @@
 /**
- * Workout domain service (remediation Part 10/11). Real workouts only —
- * no preview/PREVIEW_WORKOUT_ID routing reaches this module.
+ * Workout domain service (remediation Part 10/11). Real workouts only, * no preview/PREVIEW_WORKOUT_ID routing reaches this module.
  */
 import type { MurphySupabaseClient } from '@/services/supabase/client';
 import { generateClientId } from '@/services/id';
@@ -176,7 +175,7 @@ export type PersonalRecordRow = {
   achievedAt: string;
 };
 
-/** Genuine persisted PRs only — never a fabricated/example record (remediation Part 4). */
+/** Genuine persisted PRs only, never a fabricated/example record (remediation Part 4). */
 export async function getPersonalRecords(
   client: MurphySupabaseClient,
   userId: string,
@@ -199,7 +198,7 @@ export async function getPersonalRecords(
 /**
  * Genuine count of workouts actually completed within [weekStartIso,
  * weekEndIso) (remediation Part 3: no fabricated momentum). "Planned
- * sessions this week" is not derived here — it comes directly from the
+ * sessions this week" is not derived here, it comes directly from the
  * real programme structure's weeklyFrequencyDays, since a future day this
  * week has no workouts row until the user starts it.
  */

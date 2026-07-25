@@ -1,7 +1,6 @@
 /**
  * Onboarding domain service (docs/IMPLEMENTATION_PLAN.md Phase 3 §2).
- * Every Supabase call onboarding screens make goes through this module —
- * screens never call `supabase.from(...)`/`supabase.rpc(...)` directly, so
+ * Every Supabase call onboarding screens make goes through this module, * screens never call `supabase.from(...)`/`supabase.rpc(...)` directly, so
  * there is one place that knows the actual table/RPC shapes.
  *
  * Simple owner-scoped CRUD (profile fields, goals, equipment, measurements,
@@ -10,7 +9,7 @@
  * priority replacement, safety-screening rule derivation, onboarding
  * completion) calls a `security definer` Postgres RPC instead
  * (`ARCHITECTURE.md` §6's "privilege escalation or cross-cutting domain
- * logic" rule — see `docs/DECISIONS.md` for why this phase uses RPCs
+ * logic" rule, see `docs/DECISIONS.md` for why this phase uses RPCs
  * rather than Edge Functions for those three operations).
  */
 import type { MurphySupabaseClient } from '@/services/supabase/client';
@@ -157,7 +156,7 @@ export async function loadLatestWeightKg(
 
 /**
  * Updates today's weight entry in place if one already exists, otherwise
- * inserts a new one — avoids noisy duplicate rows from repeated edits
+ * inserts a new one, avoids noisy duplicate rows from repeated edits
  * within the same onboarding session while staying inside the documented
  * "multiple same-day entries are retained" schema design for any entry
  * from an *earlier* day (docs/DATABASE_SCHEMA.md §9).
@@ -210,7 +209,7 @@ export type SelectedGoal = { goalKey: string; label: string; priority: number };
 
 /**
  * Two plain selects joined client-side, rather than a PostgREST embedded
- * `user_goals(...goals(...))` select string — this repository's
+ * `user_goals(...goals(...))` select string, this repository's
  * `Database` type (src/types/database.ts) has no `Relationships` metadata
  * (hand-maintained without the Docker-dependent `supabase gen types`
  * pipeline, see that file's header), so an embed can't be typed reliably.
@@ -239,7 +238,7 @@ export async function loadSelectedGoals(
 
 /**
  * Atomically replaces the caller's active goal set with `goalKeys`, in the
- * given order (index 0 = priority 1) — calls the `set_user_goal_priorities`
+ * given order (index 0 = priority 1), calls the `set_user_goal_priorities`
  * RPC (`security definer`) rather than writing `user_goals` rows directly,
  * so a reorder/removal can never transiently violate the
  * `unique (profile_id, priority) where active` constraint and a retried
@@ -285,7 +284,7 @@ export async function loadSelectedBodyAreaKeys(
 
 /**
  * Replaces the caller's active body-area selections with `keys`. Zero
- * selections is a fully valid outcome (this step is optional) — deletes
+ * selections is a fully valid outcome (this step is optional), deletes
  * everything and inserts nothing in that case.
  */
 export async function replaceBodyAreaGoals(
@@ -352,7 +351,7 @@ export async function hasEquipmentSelection(
 /**
  * Replaces the caller's available equipment set via the
  * `set_user_equipment` RPC (`security definer`), which is the only writer
- * of `user_equipment` — the authenticated client role has no
+ * of `user_equipment`, the authenticated client role has no
  * INSERT/UPDATE/DELETE grant on that table
  * (supabase/migrations/20260725090000_equipment_no_equipment_semantics.sql).
  *
@@ -381,8 +380,7 @@ export type SafetyScreeningResult = {
 };
 
 /**
- * Submits raw yes/no answers for deterministic server-side derivation —
- * calls the `submit_safety_screening` RPC (`security definer`), which is
+ * Submits raw yes/no answers for deterministic server-side derivation, * calls the `submit_safety_screening` RPC (`security definer`), which is
  * the only writer of `health_screenings.requires_clearance`/
  * `restriction_flags`; the authenticated client role has no direct INSERT
  * grant on that table (docs/IMPLEMENTATION_PLAN.md Phase 3 §15).
@@ -480,7 +478,7 @@ export async function hasGrantedBodyScanConsent(
 /**
  * Creates the `body_scans` row for a new baseline capture, so its id is
  * known up front and can be used to build each image's user-scoped storage
- * path (`{user_id}/{scan_id}/...`) before uploading — see
+ * path (`{user_id}/{scan_id}/...`) before uploading, see
  * `src/services/onboarding/bodyscan-upload.ts`, which orchestrates the
  * upload + this insert + `insertBodyScanImageRecord` below as one flow.
  */
@@ -528,12 +526,12 @@ export type CompleteOnboardingError = {
 };
 
 /**
- * Calls the `complete_onboarding` RPC (`security definer`) — the sole
+ * Calls the `complete_onboarding` RPC (`security definer`), the sole
  * writer of `profiles.onboarding_completed_at`; the authenticated client
  * role has no column-level UPDATE grant on it
  * (docs/IMPLEMENTATION_PLAN.md Phase 3 §20). Derives identity from the
  * caller's JWT server-side; never accepts a client-supplied profile id.
- * Safe to call more than once — a profile that is already complete gets
+ * Safe to call more than once, a profile that is already complete gets
  * its existing programme back rather than a duplicate.
  */
 export async function completeOnboarding(

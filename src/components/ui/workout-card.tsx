@@ -24,7 +24,7 @@ export type WorkoutCardProps = {
   onPress?: () => void;
 };
 
-/** Plan/Today workout summary card — duration, focus, status. */
+/** Plan/Today workout summary card, duration, focus, status. */
 export function WorkoutCard({
   dayLabel,
   title,

@@ -20,8 +20,8 @@ export type GoalProgressCardProps = {
 };
 
 /**
- * Goal Journey row. Trajectory is always one of the defined categorical
- * states — never a fabricated precise percentage (MASTER_SPEC.md §26.1).
+ * Goal Progress row. Trajectory is always one of the defined categorical
+ * states, never a fabricated precise percentage (MASTER_SPEC.md §26.1).
  */
 export function GoalProgressCard({
   goalLabel,

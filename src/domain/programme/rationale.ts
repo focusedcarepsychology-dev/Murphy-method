@@ -50,7 +50,7 @@ export function isBodyweightOnly(equipmentKeys: string[]): boolean {
 }
 
 /**
- * "Why this plan?" — one bullet per real input the engine used. Returns an
+ * "Why this plan?", one bullet per real input the engine used. Returns an
  * empty list when the version predates exercise selection, so the screen
  * can say so instead of implying reasoning that never happened.
  */

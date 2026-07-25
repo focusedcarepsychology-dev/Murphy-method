@@ -23,11 +23,11 @@ export default function VerifyEmailScreen() {
   const [messageTone, setMessageTone] = useState<'positive' | 'critical'>('positive');
 
   // Reflects the outcome of a tapped confirmation link (the session itself is
-  // established elsewhere, in AuthProvider's incoming-link handler — success
+  // established elsewhere, in AuthProvider's incoming-link handler, success
   // routes the user onward via the route guard before this would matter, so
   // only the failure case is surfaced here). Malformed, expired, and
   // already-used links all land here with the same safe, generic copy
-  // (docs/IMPLEMENTATION_PLAN.md Phase 2 §17) — never the underlying reason.
+  // (docs/IMPLEMENTATION_PLAN.md Phase 2 §17), never the underlying reason.
   //
   // Reacts to `deepLinkNotice` changing during render (not in an effect) per
   // React's "adjusting state when a prop changes" pattern, since the update
@@ -76,7 +76,7 @@ export default function VerifyEmailScreen() {
       await refreshSession();
       // If verification completed, AuthProvider's state flips to signed_in
       // and the route guards (src/app/_layout.tsx) redirect automatically.
-      // If not, there's nothing to redirect to yet — say so plainly.
+      // If not, there's nothing to redirect to yet, say so plainly.
       setMessageTone('critical');
       setMessage('Not verified yet. Check your inbox and tap the link, then try again.');
     } finally {
@@ -124,7 +124,7 @@ export default function VerifyEmailScreen() {
 
         <View style={{ gap: spacing.two, width: '100%' }}>
           <PrimaryButton
-            label="I've verified — Continue"
+            label="I have verified my email"
             onPress={handleCheckVerified}
             loading={checking}
           />

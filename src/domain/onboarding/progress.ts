@@ -4,7 +4,7 @@ import type { OnboardingSnapshot } from '@/domain/onboarding/types';
 /**
  * Per-step "is this required step's minimum data present" predicate.
  * Deliberately mirrors, but does not call, `complete_onboarding`'s
- * server-side validation (supabase/migrations) — this is a client-side UX
+ * server-side validation (supabase/migrations), this is a client-side UX
  * convenience for the forward-navigation guard and resume logic
  * (`ROUTES.md` §3 rule 2), not the authoritative completion check, which
  * always happens server-side.
@@ -25,7 +25,7 @@ const stepCompletionChecks: Record<string, (snapshot: OnboardingSnapshot) => boo
  * Returns the first required step (in onboarding order) whose minimum
  * input is not yet persisted, or `null` if every required step is
  * satisfied (the user may still be part-way through optional steps or
- * sitting on Programme Preview/Complete — this function only ever
+ * sitting on Programme Preview/Complete, this function only ever
  * constrains *required* steps).
  */
 export function computeFirstIncompleteRequiredStep(

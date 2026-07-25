@@ -9,14 +9,13 @@ export type BodySilhouetteProps = {
 };
 
 /**
- * Neutral, faceless human-body silhouette — an original flat-vector shape,
+ * Neutral, faceless human-body silhouette, an original flat-vector shape,
  * not a photo or a licensed asset. Deliberately abstract (no skin tone, no
  * facial features, no gendered markers) so it reads as an inclusive,
  * non-photorealistic stand-in for "a body" rather than a specific person
  * (docs/SCREEN_SPECIFICATIONS.md §2). Every piece shares one flat fill and
  * has no stroke, so overlapping limb/torso shapes merge into a single
- * silhouette with no visible seams. Front and back use the same shape —
- * the two views only differ in which region overlays are shown on top of
+ * silhouette with no visible seams. Front and back use the same shape, * the two views only differ in which region overlays are shown on top of
  * it (`body-map.tsx`).
  */
 export function BodySilhouette({ fill }: BodySilhouetteProps) {

@@ -129,8 +129,8 @@ export default function NewBodyScanScreen() {
         <Card style={{ gap: spacing.two }}>
           <AppText style={{ flexShrink: 1 }}>
             BodyScan stores optional progress photos in a private Supabase bucket. Photos are used
-            only for your own timeline and comparisons. This version performs no AI analysis and
-            makes no body-fat or medical assessment.
+            only for your own timeline and comparisons. This version performs no automated analysis
+            and makes no body-fat or medical assessment.
           </AppText>
           <Caption style={{ flexShrink: 1 }}>
             You can decline by going back. Nothing is captured or uploaded until you actively take

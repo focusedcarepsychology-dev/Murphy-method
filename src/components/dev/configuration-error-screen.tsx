@@ -7,7 +7,7 @@ import { useTheme } from '@/hooks/use-theme';
 
 /**
  * Shown instead of the app when Supabase isn't configured
- * (src/config/env.ts) — never a silent fallback to a fake backend
+ * (src/config/env.ts), never a silent fallback to a fake backend
  * (docs/IMPLEMENTATION_PLAN.md Phase 2 §3). The message is the same in
  * development and production: a missing/malformed configuration is a
  * deployment problem, not something the app can route around.

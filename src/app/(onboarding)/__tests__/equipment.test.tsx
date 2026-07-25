@@ -25,7 +25,7 @@ describe('Equipment screen (docs/SCREEN_SPECIFICATIONS.md §2 "Available Equipme
     // Seed every required step before "equipment" as already complete, so
     // the forward-navigation guard (src/hooks/use-onboarding-guard.ts)
     // does not redirect this direct deep link away from the screen under
-    // test — it only allows landing exactly on the true first incomplete
+    // test, it only allows landing exactly on the true first incomplete
     // required step.
     mockBackend.seedProfile(USER_ID, {
       date_of_birth: '1990-01-01',

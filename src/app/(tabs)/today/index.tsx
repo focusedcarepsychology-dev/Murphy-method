@@ -234,7 +234,7 @@ export default function TodayScreen() {
 
           <View style={{ gap: spacing.two }}>
             <SectionHeader
-              title="Goal journey"
+              title="Goal progress"
               actionLabel="See all"
               onActionPress={() => router.push('/(tabs)/progress/goal-journey')}
             />
