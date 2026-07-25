@@ -1,1 +1,0 @@
-Verify the hosted Supabase staging schema after deployment of reviewed source 146eee2877e3a36949d3397dba63138ac85578b2. Verification nonce: post-deploy-1.
