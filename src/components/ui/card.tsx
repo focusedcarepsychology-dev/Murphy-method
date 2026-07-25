@@ -4,26 +4,45 @@ import { Pressable, View, type PressableProps, type StyleProp, type ViewStyle } 
 import { Icon } from '@/components/ui/icon';
 import { useTheme } from '@/hooks/use-theme';
 
+export type CardVariant = 'standard' | 'hero' | 'quiet';
+
 export type CardProps = PropsWithChildren<{
   style?: StyleProp<ViewStyle>;
   elevated?: boolean;
+  variant?: CardVariant;
 }>;
 
 /** Standard raised surface used across Today/Progress/Plan cards. */
-export function Card({ children, style, elevated = true }: CardProps) {
+export function Card({ children, style, elevated, variant = 'standard' }: CardProps) {
   const { colors, radius, spacing, elevation } = useTheme();
+  const shouldElevate = elevated ?? variant === 'standard';
+  const variantStyle: ViewStyle =
+    variant === 'hero'
+      ? {
+          backgroundColor: colors.brand.primarySubtle,
+          borderColor: colors.border.subtle,
+          borderWidth: 1,
+        }
+      : variant === 'quiet'
+        ? {
+            backgroundColor: colors.background.subtle,
+            borderWidth: 0,
+          }
+        : {
+            backgroundColor: colors.surface.raised,
+            borderColor: colors.border.subtle,
+            borderWidth: 1,
+          };
 
   return (
     <View
       style={[
         {
-          backgroundColor: colors.surface.raised,
-          borderRadius: radius.lg,
+          borderRadius: variant === 'hero' ? radius.lg : radius.md,
           padding: spacing.four,
-          borderWidth: 1,
-          borderColor: colors.border.subtle,
         },
-        elevated ? elevation.level1 : null,
+        variantStyle,
+        shouldElevate ? elevation.level1 : null,
         style,
       ]}
     >
@@ -37,6 +56,7 @@ export type InteractiveCardProps = PropsWithChildren<
     style?: StyleProp<ViewStyle>;
     showChevron?: boolean;
     accessibilityLabel: string;
+    variant?: Exclude<CardVariant, 'hero'>;
   }
 >;
 
@@ -47,9 +67,11 @@ export function InteractiveCard({
   showChevron = true,
   accessibilityLabel,
   disabled,
+  variant = 'standard',
   ...pressableProps
 }: InteractiveCardProps) {
-  const { colors, radius, spacing, elevation } = useTheme();
+  const { colors, radius, spacing, elevation, motion } = useTheme();
+  const quiet = variant === 'quiet';
 
   return (
     <Pressable
@@ -60,17 +82,18 @@ export function InteractiveCard({
       disabled={disabled}
       style={({ pressed }) => [
         {
-          backgroundColor: colors.surface.raised,
-          borderRadius: radius.lg,
+          backgroundColor: quiet ? colors.background.subtle : colors.surface.raised,
+          borderRadius: radius.md,
           padding: spacing.four,
-          borderWidth: 1,
+          borderWidth: quiet ? 0 : 1,
           borderColor: colors.border.subtle,
-          opacity: disabled ? 0.5 : pressed ? 0.9 : 1,
+          opacity: disabled ? 0.5 : pressed ? 0.92 : 1,
+          transform: [{ scale: pressed ? motion.pressScale : 1 }],
           flexDirection: 'row',
           alignItems: 'center',
           gap: spacing.three,
         },
-        elevation.level1,
+        quiet ? null : elevation.level1,
         style,
       ]}
     >
