@@ -31,13 +31,13 @@ export function SetLogger({
   const canComplete = reps > 0 && !saving;
 
   return (
-    <Card style={{ gap: spacing.four }}>
+    <Card variant="hero" elevated={false} style={{ gap: spacing.three }}>
       <View style={{ gap: spacing.three }}>
         <Stepper label="Weight" unit="kg" value={weightKg} onChange={onChangeWeight} step={2.5} />
         <Stepper label="Reps" value={reps} onChange={onChangeReps} step={1} />
       </View>
       <PrimaryButton
-        label={reps > 0 ? 'Complete Set' : 'Add at least one rep'}
+        label={reps > 0 ? 'Complete set' : 'Add at least one rep'}
         size="large"
         onPress={onCompleteSet}
         icon="check"
@@ -45,8 +45,7 @@ export function SetLogger({
         disabled={!canComplete}
       />
       <AppText color="tertiary" align="center" variant="caption" style={{ flexShrink: 1 }}>
-        Completed sets are saved securely to your account. Full offline workout persistence is not
-        yet available, so keep the app connected while logging.
+        Sets save securely when connected. Keep this screen open until the save completes.
       </AppText>
     </Card>
   );
@@ -81,7 +80,7 @@ function Stepper({
         />
         <AppText variant="title" style={{ textAlign: 'center', flexShrink: 1 }}>
           {value}
-          {unit ?? ''}
+          {unit ? ` ${unit}` : ''}
         </AppText>
         <IconButton
           icon="plus"
