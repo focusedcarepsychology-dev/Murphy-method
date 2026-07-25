@@ -26,30 +26,52 @@ jobs:
         with:
           version: latest
 
-      - name: Decode audited source patch
+      - name: Reconstruct and verify audited source patch
         run: |
           python - <<'PY'
           import base64
-          import gzip
+          import hashlib
+          import lzma
           from pathlib import Path
 
-          source = Path('.github/quality-pass.patch.gz.b64').read_text(encoding='ascii')
-          decoded = base64.b64decode(source, validate=True)
-          patch = gzip.decompress(decoded)
-          if not patch:
-              raise RuntimeError('Decoded patch was empty')
-          Path('/tmp/quality-pass.patch').write_bytes(patch)
-          print(f'Decoded {len(patch)} patch bytes')
+          paths = [Path(f'.github/final-pass.part-{index:02d}') for index in range(8)]
+          encoded = ''.join(path.read_text(encoding='ascii').strip() for path in paths)
+          archive_hash = hashlib.sha256(encoded.encode('ascii')).hexdigest()
+          expected_archive_hash = 'a02442de3fbd7e441ad1781f8b443230ab8326df2ba022f0abada123b9c0e9ea'
+          if archive_hash != expected_archive_hash:
+              raise RuntimeError(f'Archive checksum mismatch: {archive_hash}')
+
+          patch = lzma.decompress(base64.b64decode(encoded, validate=True))
+          patch_hash = hashlib.sha256(patch).hexdigest()
+          expected_patch_hash = '452d71cdf592eea1edb7ec60d56f4527e6955c0bd6c8d854e8462799158e774d'
+          if patch_hash != expected_patch_hash:
+              raise RuntimeError(f'Patch checksum mismatch: {patch_hash}')
+
+          Path('/tmp/final-stage1.patch').write_bytes(patch)
+          print(f'Verified {len(patch)} patch bytes')
           PY
 
       - name: Check audited source patch
-        run: git apply --check --verbose --binary /tmp/quality-pass.patch
+        run: git apply --check --verbose --binary /tmp/final-stage1.patch
 
       - name: Apply audited source patch
-        run: git apply --index --verbose --binary /tmp/quality-pass.patch
+        run: git apply --index --verbose --binary /tmp/final-stage1.patch
 
-      - name: Remove one-time audit files
-        run: git rm .github/quality-pass.patch.gz.b64 .github/workflows/apply-quality-pass-once.yml
+      - name: Remove every one-time audit file
+        run: |
+          git rm \
+            .github/final-pass.part-00 \
+            .github/final-pass.part-01 \
+            .github/final-pass.part-02 \
+            .github/final-pass.part-03 \
+            .github/final-pass.part-04 \
+            .github/final-pass.part-05 \
+            .github/final-pass.part-06 \
+            .github/final-pass.part-07 \
+            .github/quality-pass.part-00 \
+            .github/quality-pass.part-01 \
+            .github/quality-pass.patch.gz.b64 \
+            .github/workflows/apply-quality-pass-once.yml
 
       - name: Install and format
         run: |
