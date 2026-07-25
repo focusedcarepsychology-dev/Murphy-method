@@ -1,0 +1,36 @@
+name: Format Stage 2 report once
+
+on:
+  push:
+    branches:
+      - agent/murphy-method-complete-remediation
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/murphy-method-complete-remediation
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx prettier --write docs/REMEDIATION_TRACEABILITY_REPORT.md
+      - run: git diff --check
+
+      - name: Commit formatted report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/REMEDIATION_TRACEABILITY_REPORT.md
+          git diff --cached --quiet && exit 0
+          git commit -m "Format remediation traceability report"
+          git push origin HEAD:agent/murphy-method-complete-remediation
