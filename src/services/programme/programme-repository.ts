@@ -38,6 +38,13 @@ export type CurrentProgramme = ProgrammeVersionSummary & {
   parsedStructure: ProgrammeStructure;
 };
 
+export type RegeneratedProgramme = {
+  programmeId: string;
+  versionId: string;
+  previousVersionId: string;
+  versionNumber: number;
+};
+
 /** The caller's most recently created programme and its current version. */
 export async function getCurrentProgramme(
   client: MurphySupabaseClient,
@@ -90,6 +97,45 @@ export async function ensureRealProgramme(
   if (error) fail('prepare your programme', error);
 
   return getCurrentProgramme(client, userId);
+}
+
+/**
+ * Creates a new programme version from the caller's current settings while
+ * preserving the previous version in history.
+ */
+export async function regenerateCurrentProgramme(
+  client: MurphySupabaseClient,
+): Promise<RegeneratedProgramme> {
+  const { data, error } = await client.rpc('regenerate_current_programme');
+  if (error) {
+    if (error.message.includes('active_workout_in_progress')) {
+      throw new ProgrammeRepositoryError(
+        'Finish your active workout before restructuring the programme.',
+        error,
+      );
+    }
+    fail('restructure your programme', error);
+  }
+
+  const result = data as Record<string, unknown> | null;
+  if (
+    !result ||
+    typeof result.programmeId !== 'string' ||
+    typeof result.versionId !== 'string' ||
+    typeof result.previousVersionId !== 'string' ||
+    typeof result.versionNumber !== 'number'
+  ) {
+    throw new ProgrammeRepositoryError(
+      "The programme was updated, but the app couldn't verify the new version.",
+    );
+  }
+
+  return {
+    programmeId: result.programmeId,
+    versionId: result.versionId,
+    previousVersionId: result.previousVersionId,
+    versionNumber: result.versionNumber,
+  };
 }
 
 export async function listProgrammeVersionHistory(

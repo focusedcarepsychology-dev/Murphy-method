@@ -18,10 +18,9 @@ import type { Database } from '@/types/database';
 
 /**
  * `src/types/database.ts` is hand-maintained until the hosted schema type
- * generation workflow is introduced. Keep the equipment replacement RPC in
- * this narrow client augmentation so the exercise/programme additions and
- * the no-equipment atomic writer are both typed without weakening the rest
- * of the Supabase client to `any`.
+ * generation workflow is introduced. Keep newly introduced RPCs in this
+ * narrow augmentation so the rest of the Supabase client remains strongly
+ * typed without weakening it to `any`.
  */
 type MurphyDatabase = Omit<Database, 'public'> & {
   public: Omit<Database['public'], 'Functions'> & {
@@ -29,6 +28,10 @@ type MurphyDatabase = Omit<Database, 'public'> & {
       set_user_equipment: {
         Args: { p_equipment_ids: string[] };
         Returns: Database['public']['Tables']['user_equipment']['Row'][];
+      };
+      regenerate_current_programme: {
+        Args: Record<string, never>;
+        Returns: Database['public']['Functions']['complete_onboarding']['Returns'];
       };
     };
   };
