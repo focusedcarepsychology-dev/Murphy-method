@@ -180,6 +180,52 @@ export class FakeOnboardingBackend {
       return { data: created, error: null };
     }
 
+    if (name === 'set_user_equipment') {
+      const requestedIds = (args.p_equipment_ids as string[]) ?? [];
+      if (requestedIds.length === 0) {
+        return { data: null, error: { message: 'at_least_one_equipment_required' } };
+      }
+      const requested = requestedIds.map((id) => this.tables.equipment.find((e) => e.id === id));
+      if (requested.some((row) => !row)) {
+        return { data: null, error: { message: 'unknown_equipment_id' } };
+      }
+      // Mutual exclusion, exactly as the real function resolves it: real
+      // equipment wins over the "bodyweight" no-equipment sentinel.
+      const realEquipment = requested.filter((row) => row!.key !== 'bodyweight');
+      const resolved = (realEquipment.length > 0 ? realEquipment : requested).map(
+        (row) => row!.id as string,
+      );
+
+      for (const equipmentId of resolved) {
+        const existing = this.tables.user_equipment.find(
+          (row) => row.profile_id === userId && row.equipment_id === equipmentId,
+        );
+        if (existing) {
+          existing.available = true;
+        } else {
+          this.tables.user_equipment.push({
+            id: generateId(),
+            profile_id: userId,
+            equipment_id: equipmentId,
+            available: true,
+            created_at: generateTimestamp(),
+          });
+        }
+      }
+      this.tables.user_equipment.forEach((row) => {
+        if (row.profile_id === userId && !resolved.includes(row.equipment_id as string)) {
+          row.available = false;
+        }
+      });
+
+      return {
+        data: this.tables.user_equipment.filter(
+          (row) => row.profile_id === userId && row.available,
+        ),
+        error: null,
+      };
+    }
+
     if (name === 'submit_safety_screening') {
       const version = args.p_screening_version as string;
       const responses = args.p_responses as Record<string, unknown>;

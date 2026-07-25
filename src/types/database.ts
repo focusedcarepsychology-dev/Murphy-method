@@ -1518,6 +1518,11 @@ export type Database = {
         Args: Record<string, never>;
         Returns: Json;
       };
+      // supabase/migrations/20260725090000_equipment_no_equipment_semantics.sql
+      set_user_equipment: {
+        Args: { p_equipment_ids: string[] };
+        Returns: Database['public']['Tables']['user_equipment']['Row'][];
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

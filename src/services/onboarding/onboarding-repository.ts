@@ -350,48 +350,25 @@ export async function hasEquipmentSelection(
 }
 
 /**
- * Idempotently sets the caller's full equipment availability set: an
- * upsert on the unique `(profile_id, equipment_id)` constraint marks
- * selected items `available = true`, and any previously-selected item not
- * in `equipmentIds` is marked `available = false` (kept, not deleted, so
- * re-enabling later doesn't need a fresh row — docs/DATABASE_SCHEMA.md §3).
+ * Replaces the caller's available equipment set via the
+ * `set_user_equipment` RPC (`security definer`), which is the only writer
+ * of `user_equipment` — the authenticated client role has no
+ * INSERT/UPDATE/DELETE grant on that table
+ * (supabase/migrations/20260725090000_equipment_no_equipment_semantics.sql).
+ *
+ * Doing the replacement server-side in one call is what makes the
+ * no-equipment sentinel unambiguous: the previous two-statement
+ * upsert-then-disable could briefly leave "bodyweight" and real equipment
+ * both marked available, and any read landing in that window saw a
+ * contradictory answer.
  */
 export async function setUserEquipment(
   client: MurphySupabaseClient,
-  userId: string,
+  _userId: string,
   equipmentIds: string[],
 ): Promise<void> {
-  const { data: existing, error: selectError } = await client
-    .from('user_equipment')
-    .select('id, equipment_id')
-    .eq('profile_id', userId);
-  if (selectError) fail('save your equipment', selectError);
-
-  const selected = new Set(equipmentIds);
-  const toDisable = (existing ?? []).filter((row) => !selected.has(row.equipment_id));
-
-  if (equipmentIds.length > 0) {
-    const { error } = await client.from('user_equipment').upsert(
-      equipmentIds.map((equipmentId) => ({
-        profile_id: userId,
-        equipment_id: equipmentId,
-        available: true,
-      })),
-      { onConflict: 'profile_id,equipment_id' },
-    );
-    if (error) fail('save your equipment', error);
-  }
-
-  if (toDisable.length > 0) {
-    const { error } = await client
-      .from('user_equipment')
-      .update({ available: false })
-      .in(
-        'id',
-        toDisable.map((row) => row.id),
-      );
-    if (error) fail('save your equipment', error);
-  }
+  const { error } = await client.rpc('set_user_equipment', { p_equipment_ids: equipmentIds });
+  if (error) fail('save your equipment', error);
 }
 
 // --- Safety screening --------------------------------------------------

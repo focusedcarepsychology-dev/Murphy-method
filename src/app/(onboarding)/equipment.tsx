@@ -8,6 +8,11 @@ import { ErrorState } from '@/components/ui/error-state';
 import { LoadingState } from '@/components/ui/loading-state';
 import { SectionHeader } from '@/components/ui/section-header';
 import { SelectionCard } from '@/components/ui/selection-card';
+import {
+  isNoEquipmentSelection,
+  normaliseEquipmentSelection,
+  toggleEquipmentSelection,
+} from '@/domain/onboarding/equipment-selection';
 import { useAuthenticatedClient } from '@/hooks/use-authenticated-client';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -55,7 +60,7 @@ export default function EquipmentScreen() {
     Promise.all([listEquipment(client), loadSelectedEquipmentIds(client, userId)])
       .then(([equipmentOptions, selected]) => {
         setOptions(equipmentOptions);
-        setSelectedIds(selected);
+        setSelectedIds(normaliseEquipmentSelection(equipmentOptions, selected));
         setStatus('ready');
       })
       .catch(() => setStatus('error'));
@@ -69,9 +74,7 @@ export default function EquipmentScreen() {
   useEffect(load, [client, userId]);
 
   function toggle(id: string) {
-    setSelectedIds((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
-    );
+    setSelectedIds((current) => toggleEquipmentSelection(options, current, id));
   }
 
   async function handleNext() {
@@ -126,6 +129,12 @@ export default function EquipmentScreen() {
     >
       <View style={{ gap: spacing.four }}>
         {submitError ? <AppText color="critical">{submitError}</AppText> : null}
+        {isNoEquipmentSelection(options, selectedIds) ? (
+          <AppText color="secondary">
+            You will get exercises that need no equipment at all. Pick anything else and this option
+            clears.
+          </AppText>
+        ) : null}
         {CATEGORY_ORDER.map((category) => {
           const items = options.filter((option) => option.category === category);
           if (items.length === 0) return null;

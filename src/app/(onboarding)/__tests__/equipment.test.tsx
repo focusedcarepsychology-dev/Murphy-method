@@ -68,6 +68,38 @@ describe('Equipment screen (docs/SCREEN_SPECIFICATIONS.md §2 "Available Equipme
     );
   });
 
+  it('clears real equipment when "no equipment" is chosen, so the answer is unambiguous', async () => {
+    await renderRouter('src/app', { initialUrl: '/(onboarding)/equipment' });
+
+    await act(async () => fireEvent.press(await screen.findByLabelText('Dumbbells')));
+    await act(async () => fireEvent.press(await screen.findByLabelText('Bodyweight only')));
+    await act(async () => fireEvent.press(await screen.findByRole('button', { name: 'Next' })));
+
+    await waitFor(() => {
+      const available = mockBackend.tables.user_equipment.filter(
+        (row) => row.profile_id === USER_ID && row.available,
+      );
+      expect(available).toHaveLength(1);
+      expect(available[0].equipment_id).toBe('equip-bodyweight');
+    });
+  });
+
+  it('clears "no equipment" when real equipment is chosen afterwards', async () => {
+    await renderRouter('src/app', { initialUrl: '/(onboarding)/equipment' });
+
+    await act(async () => fireEvent.press(await screen.findByLabelText('Bodyweight only')));
+    await act(async () => fireEvent.press(await screen.findByLabelText('Barbell')));
+    await act(async () => fireEvent.press(await screen.findByRole('button', { name: 'Next' })));
+
+    await waitFor(() => {
+      const available = mockBackend.tables.user_equipment.filter(
+        (row) => row.profile_id === USER_ID && row.available,
+      );
+      expect(available).toHaveLength(1);
+      expect(available[0].equipment_id).toBe('equip-barbell');
+    });
+  });
+
   it('disables Next until at least one item is selected', async () => {
     await renderRouter('src/app', { initialUrl: '/(onboarding)/equipment' });
     await screen.findByLabelText('Bodyweight only');

@@ -107,8 +107,8 @@ describe('setUserEquipment (idempotent equipment writes)', () => {
     const backend = new FakeOnboardingBackend();
     const client = makeClient(backend, USER_A);
 
-    await setUserEquipment(client, USER_A, ['equip-bodyweight', 'equip-dumbbell']);
-    await setUserEquipment(client, USER_A, ['equip-bodyweight', 'equip-dumbbell']);
+    await setUserEquipment(client, USER_A, ['equip-barbell', 'equip-dumbbell']);
+    await setUserEquipment(client, USER_A, ['equip-barbell', 'equip-dumbbell']);
 
     expect(backend.tables.user_equipment.filter((r) => r.profile_id === USER_A)).toHaveLength(2);
   });
@@ -117,13 +117,26 @@ describe('setUserEquipment (idempotent equipment writes)', () => {
     const backend = new FakeOnboardingBackend();
     const client = makeClient(backend, USER_A);
 
-    await setUserEquipment(client, USER_A, ['equip-bodyweight', 'equip-dumbbell']);
-    await setUserEquipment(client, USER_A, ['equip-bodyweight']);
+    await setUserEquipment(client, USER_A, ['equip-barbell', 'equip-dumbbell']);
+    await setUserEquipment(client, USER_A, ['equip-barbell']);
 
     const rows = backend.tables.user_equipment.filter((r) => r.profile_id === USER_A);
     expect(rows).toHaveLength(2);
     expect(rows.find((r) => r.equipment_id === 'equip-dumbbell')?.available).toBe(false);
-    expect(await loadSelectedEquipmentIds(client, USER_A)).toEqual(['equip-bodyweight']);
+    expect(await loadSelectedEquipmentIds(client, USER_A)).toEqual(['equip-barbell']);
+  });
+
+  it('resolves a contradictory selection in favour of the real equipment', async () => {
+    // "I have no equipment, and also dumbbells" cannot both be true. The
+    // server-side RPC keeps the equipment the user actually named, so a
+    // bodyweight-only programme is never generated for someone who has
+    // equipment (and vice versa).
+    const backend = new FakeOnboardingBackend();
+    const client = makeClient(backend, USER_A);
+
+    await setUserEquipment(client, USER_A, ['equip-bodyweight', 'equip-dumbbell']);
+
+    expect(await loadSelectedEquipmentIds(client, USER_A)).toEqual(['equip-dumbbell']);
   });
 });
 
