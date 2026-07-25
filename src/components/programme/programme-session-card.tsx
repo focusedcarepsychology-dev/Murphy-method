@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
 import { AppText, Caption, Heading } from '@/components/ui/app-text';
@@ -16,6 +17,8 @@ export type ProgrammeSessionCardProps = {
   starting?: boolean;
   startLabel?: string;
   maxExercises?: number;
+  modeSelector?: ReactNode;
+  emphasis?: 'standard' | 'hero';
 };
 
 function targetLabel(
@@ -41,16 +44,20 @@ export function ProgrammeSessionCard({
   starting,
   startLabel = 'Start session',
   maxExercises,
+  modeSelector,
+  emphasis = 'standard',
 }: ProgrammeSessionCardProps) {
   const { spacing } = useTheme();
   const visibleExercises =
     maxExercises === undefined ? session.exercises : session.exercises.slice(0, maxExercises);
   const hiddenCount = session.exercises.length - visibleExercises.length;
+  const isHero = emphasis === 'hero';
 
   return (
     <View style={{ gap: spacing.two }}>
-      <Card style={{ gap: spacing.two }}>
+      <Card variant={isHero ? 'hero' : 'standard'} elevated={!isHero} style={{ gap: spacing.three }}>
         <View style={{ gap: spacing.one }}>
+          {isHero ? <Caption color="brand">NEXT SESSION</Caption> : null}
           {session.dayOfWeek ? <Caption>{session.dayOfWeek.toUpperCase()}</Caption> : null}
           <Heading variant="title" style={{ flexShrink: 1 }}>
             {session.name}
@@ -69,6 +76,7 @@ export function ProgrammeSessionCard({
               .join(' · ')}
           </Caption>
         </View>
+        {modeSelector}
         {onStart ? <PrimaryButton label={startLabel} onPress={onStart} loading={starting} /> : null}
       </Card>
 
