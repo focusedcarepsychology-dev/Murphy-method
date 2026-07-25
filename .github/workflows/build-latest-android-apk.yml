@@ -40,6 +40,9 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
           packager: npm
 
+      - name: Install project dependencies
+        run: npm ci
+
       - name: Find latest completed preview build
         run: |
           eas build:list \
