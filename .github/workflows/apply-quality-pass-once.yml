@@ -263,6 +263,9 @@ jobs:
 
       - name: Commit verified quality pass
         run: |
+          git restore --source=HEAD --staged --worktree .github
+          git add -A
+          git diff --cached --check
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "Complete product quality, privacy, offline and gamification pass"
