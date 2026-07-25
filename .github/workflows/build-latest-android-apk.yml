@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - agent/android-release-finishing-pass
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
