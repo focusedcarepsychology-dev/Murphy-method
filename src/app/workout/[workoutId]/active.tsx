@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { ExerciseVisual } from '@/components/ui/exercise-visual';
 import { LoadingState } from '@/components/ui/loading-state';
+import { ProgressBar } from '@/components/ui/progress-bar';
 import { Screen } from '@/components/ui/screen';
 import { ScrollScreen } from '@/components/ui/scroll-screen';
 import { StatChip } from '@/components/ui/stat-chip';
@@ -111,6 +112,12 @@ export default function ActiveWorkoutScreen() {
   const detail = data.details.get(exercise.exerciseId);
   const totalSets = exercise.targetSets;
   const isLastExercise = exerciseIndex >= workout.exercises.length - 1;
+  const allTargetSets = workout.exercises.reduce((total, item) => total + item.targetSets, 0);
+  const completedBeforeCurrentExercise = workout.exercises
+    .slice(0, exerciseIndex)
+    .reduce((total, item) => total + item.targetSets, 0);
+  const completedSetPosition = completedBeforeCurrentExercise + Math.max(0, setNumber - 1);
+  const workoutProgress = allTargetSets > 0 ? completedSetPosition / allTargetSets : 0;
 
   async function handleCompleteSet() {
     if (reps <= 0 || savingSet) return;
@@ -173,19 +180,27 @@ export default function ActiveWorkoutScreen() {
 
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <IconButton icon="close" accessibilityLabel="Leave workout" onPress={confirmStopWorkout} />
-        <Caption>
-          EXERCISE {exerciseIndex + 1} OF {workout.exercises.length}
-        </Caption>
-        <View style={{ width: 44 }} />
+      <View style={{ gap: spacing.two }}>
+        <View
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+        >
+          <IconButton icon="close" accessibilityLabel="Leave workout" onPress={confirmStopWorkout} />
+          <Caption>
+            EXERCISE {exerciseIndex + 1} OF {workout.exercises.length}
+          </Caption>
+          <View style={{ width: 44 }} />
+        </View>
+        <ProgressBar
+          value={workoutProgress}
+          accessibilityLabel={`${completedSetPosition} of ${allTargetSets} planned sets reached`}
+        />
       </View>
 
       <View style={{ flex: 1, gap: spacing.three, justifyContent: 'center' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.three }}>
-          {detail?.visualKey ? <ExerciseVisual poseKey={detail.visualKey} size={88} /> : null}
-          <View style={{ flex: 1, minWidth: 0, gap: spacing.one }}>
-            <Heading variant="hero" style={{ flexShrink: 1 }}>
+        <View style={{ alignItems: 'center', gap: spacing.two }}>
+          {detail?.visualKey ? <ExerciseVisual poseKey={detail.visualKey} size={112} /> : null}
+          <View style={{ width: '100%', minWidth: 0, gap: spacing.one, alignItems: 'center' }}>
+            <Heading variant="hero" align="center" style={{ flexShrink: 1 }}>
               {detail?.name ?? exercise.name}
             </Heading>
             <AppText color="secondary">
@@ -195,12 +210,19 @@ export default function ActiveWorkoutScreen() {
         </View>
 
         {detail?.description ? (
-          <AppText color="secondary" style={{ flexShrink: 1 }}>
+          <AppText color="secondary" align="center" style={{ flexShrink: 1 }}>
             {detail.description}
           </AppText>
         ) : null}
 
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.two }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            gap: spacing.two,
+          }}
+        >
           <StatChip
             label={`Target: ${exercise.targetRepRangeLow}–${exercise.targetRepRangeHigh} reps`}
             icon="checkCircle"
@@ -219,6 +241,7 @@ export default function ActiveWorkoutScreen() {
         <SecondaryButton
           label="View instructions"
           fullWidth={false}
+          containerStyle={{ alignSelf: 'center' }}
           onPress={() =>
             router.push({
               pathname: '/workout/[workoutId]/exercise/[workoutExerciseId]',
@@ -231,13 +254,18 @@ export default function ActiveWorkoutScreen() {
         />
 
         {saveError ? (
-          <AppText color="critical" style={{ flexShrink: 1 }}>
+          <AppText
+            color="critical"
+            align="center"
+            accessibilityLiveRegion="polite"
+            style={{ flexShrink: 1 }}
+          >
             {saveError}
           </AppText>
         ) : null}
 
         {resting ? (
-          <Card>
+          <Card variant="hero" elevated={false}>
             <RestTimer
               totalSeconds={DEFAULT_REST_SECONDS}
               onComplete={() => {
