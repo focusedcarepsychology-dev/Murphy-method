@@ -26,11 +26,20 @@ jobs:
         with:
           version: latest
 
-      - name: Apply audited source patch
+      - name: Decode audited source patch
         run: |
+          set -euxo pipefail
           base64 --decode .github/quality-pass.patch.gz.b64 | gzip --decompress > /tmp/quality-pass.patch
-          git apply --index --binary /tmp/quality-pass.patch
-          git rm .github/quality-pass.patch.gz.b64 .github/workflows/apply-quality-pass-once.yml
+          test -s /tmp/quality-pass.patch
+
+      - name: Check audited source patch
+        run: git apply --check --verbose --binary /tmp/quality-pass.patch
+
+      - name: Apply audited source patch
+        run: git apply --index --verbose --binary /tmp/quality-pass.patch
+
+      - name: Remove one-time audit files
+        run: git rm .github/quality-pass.patch.gz.b64 .github/workflows/apply-quality-pass-once.yml
 
       - name: Install and format
         run: |
