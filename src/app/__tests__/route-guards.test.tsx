@@ -18,15 +18,11 @@ beforeEach(() => {
 });
 
 describe('route guards (docs/ROUTES.md §3)', () => {
-  it(
-    'redirects an unauthenticated user away from a private tab to Welcome',
-    async () => {
-      await renderRouter('src/app', { initialUrl: '/(tabs)/today' });
+  it('redirects an unauthenticated user away from a private tab to Welcome', async () => {
+    await renderRouter('src/app', { initialUrl: '/(tabs)/today' });
 
-      expect(await screen.findByText(/Your body\./i)).toBeTruthy();
-    },
-    15_000,
-  );
+    expect(await screen.findByText(/Your body\./i)).toBeTruthy();
+  }, 15_000);
 
   it('redirects an unauthenticated user away from an onboarding route to Welcome', async () => {
     await renderRouter('src/app', { initialUrl: '/(onboarding)/introduction' });
