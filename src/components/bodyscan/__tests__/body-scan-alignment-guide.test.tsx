@@ -3,16 +3,22 @@ import { renderWithProviders } from '@/test-utils/render-with-providers';
 
 describe('BodyScanAlignmentGuide', () => {
   it('renders the front, side and back positioning guides', async () => {
-    for (const angle of ['front', 'side', 'back'] as const) {
-      const { unmount } = await renderWithProviders(<BodyScanAlignmentGuide angle={angle} />);
-      unmount();
-    }
+    const rendered = await renderWithProviders(
+      <>
+        {(['front', 'side', 'back'] as const).map((angle) => (
+          <BodyScanAlignmentGuide key={angle} angle={angle} />
+        ))}
+      </>,
+    );
+
+    await rendered.unmount();
   });
 
   it('renders as a transparent overlay without becoming accessible noise', async () => {
-    const { unmount } = await renderWithProviders(
+    const rendered = await renderWithProviders(
       <BodyScanAlignmentGuide angle="front" transparent />,
     );
-    expect(() => unmount()).not.toThrow();
+
+    await rendered.unmount();
   });
 });
