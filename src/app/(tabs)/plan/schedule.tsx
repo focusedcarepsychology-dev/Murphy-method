@@ -1,44 +1,59 @@
 import { View } from 'react-native';
 
-import { AppText, Caption } from '@/components/ui/app-text';
+import { AppText, Caption, Heading } from '@/components/ui/app-text';
 import { Card } from '@/components/ui/card';
 import { ErrorState } from '@/components/ui/error-state';
 import { LoadingState } from '@/components/ui/loading-state';
 import { ScrollScreen } from '@/components/ui/scroll-screen';
+import type { ProgrammeSession } from '@/domain/programme/structure';
 import { useAuthenticatedData } from '@/hooks/use-authenticated-data';
 import { useTheme } from '@/hooks/use-theme';
+import { ensureRealProgramme } from '@/services/programme/programme-repository';
 import { loadViewerProfile } from '@/services/training/training-repository';
 
-const DAY_ORDER = [
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-  'sunday',
+const DAYS = [
+  { key: 'mon', label: 'Monday' },
+  { key: 'tue', label: 'Tuesday' },
+  { key: 'wed', label: 'Wednesday' },
+  { key: 'thu', label: 'Thursday' },
+  { key: 'fri', label: 'Friday' },
+  { key: 'sat', label: 'Saturday' },
+  { key: 'sun', label: 'Sunday' },
 ] as const;
 
-function label(day: string): string {
-  return day.charAt(0).toUpperCase() + day.slice(1);
+function normaliseDay(value: string | null): string | null {
+  if (!value) return null;
+  const lower = value.toLowerCase();
+  const aliases: Record<string, string> = {
+    monday: 'mon',
+    tuesday: 'tue',
+    wednesday: 'wed',
+    thursday: 'thu',
+    friday: 'fri',
+    saturday: 'sat',
+    sunday: 'sun',
+  };
+  return aliases[lower] ?? lower.slice(0, 3);
 }
 
-/**
- * The week as the user actually described it during onboarding
- * (`profiles.available_training_days`). Days they did not pick are shown
- * as rest days, and no session title or duration is claimed for a day
- * until a real generated session exists for it.
- */
+function sessionForDay(sessions: ProgrammeSession[], day: string): ProgrammeSession | null {
+  return sessions.find((session) => normaliseDay(session.dayOfWeek) === day) ?? null;
+}
+
 export default function WeeklyScheduleScreen() {
   const { spacing } = useTheme();
-  const { status, data, reload } = useAuthenticatedData((client, userId) =>
-    loadViewerProfile(client, userId),
-  );
+  const { status, data, reload } = useAuthenticatedData(async (client, userId) => {
+    const [profile, programme] = await Promise.all([
+      loadViewerProfile(client, userId),
+      ensureRealProgramme(client, userId),
+    ]);
+    return { profile, programme };
+  });
 
   if (status === 'loading') {
     return (
       <ScrollScreen>
-        <LoadingState accessibilityLabel="Loading your weekly schedule" rows={4} />
+        <LoadingState accessibilityLabel="Loading your weekly schedule" rows={7} />
       </ScrollScreen>
     );
   }
@@ -53,23 +68,59 @@ export default function WeeklyScheduleScreen() {
     );
   }
 
-  const availableDays = new Set(data.availableTrainingDays.map((day) => day.toLowerCase()));
+  const availableDays = new Set(
+    data.profile.availableTrainingDays.map((day) => normaliseDay(day)).filter(Boolean),
+  );
+  const sessions = data.programme?.parsedStructure.sessions ?? [];
 
   return (
     <ScrollScreen>
-      <View style={{ gap: spacing.three }}>
-        {DAY_ORDER.map((day) => (
-          <View key={day} style={{ gap: 2 }}>
-            <Caption>{label(day).toUpperCase()}</Caption>
-            <Caption color="tertiary">
-              {availableDays.has(day) ? 'Available to train' : 'Rest day'}
-            </Caption>
-          </View>
-        ))}
+      <View style={{ gap: spacing.one }}>
+        <Heading variant="title">Weekly schedule</Heading>
+        <Caption style={{ flexShrink: 1 }}>
+          Sessions are matched to the days you selected. Rest days remain unassigned.
+        </Caption>
       </View>
-      <AppText color="secondary">
-        Sessions appear against your available days once your exercise programme is generated.
-      </AppText>
+
+      <View style={{ gap: spacing.three }}>
+        {DAYS.map((day) => {
+          const session = sessionForDay(sessions, day.key);
+          const available = availableDays.has(day.key);
+          return (
+            <Card key={day.key} style={{ gap: spacing.one }}>
+              <Caption>{day.label.toUpperCase()}</Caption>
+              {session ? (
+                <>
+                  <AppText variant="bodyEmphasis" style={{ flexShrink: 1 }}>
+                    {session.name}
+                  </AppText>
+                  <Caption>
+                    {[
+                      session.estimatedMinutes ? `${session.estimatedMinutes} min` : null,
+                      `${session.exercises.length} ${
+                        session.exercises.length === 1 ? 'exercise' : 'exercises'
+                      }`,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </Caption>
+                  {session.focus ? (
+                    <AppText color="secondary" style={{ flexShrink: 1 }}>
+                      {session.focus}
+                    </AppText>
+                  ) : null}
+                </>
+              ) : available ? (
+                <AppText color="secondary" style={{ flexShrink: 1 }}>
+                  Available to train, but no eligible session was generated for this day.
+                </AppText>
+              ) : (
+                <Caption color="tertiary">Rest day</Caption>
+              )}
+            </Card>
+          );
+        })}
+      </View>
     </ScrollScreen>
   );
 }
