@@ -29,14 +29,14 @@ jobs:
       - name: Reconstruct and verify audited source patch
         run: |
           set -euxo pipefail
-          cat .github/quality-pass.xz.b64.part00 \
-              .github/quality-pass.xz.b64.part01 \
-              .github/quality-pass.xz.b64.part02 \
-              .github/quality-pass.xz.b64.part03 \
-              .github/quality-pass.xz.b64.part04 \
-              .github/quality-pass.xz.b64.part05 \
-              .github/quality-pass.xz.b64.part06 \
-              .github/quality-pass.xz.b64.part07 > /tmp/quality-pass.xz.b64
+          cat .github/final-pass.part-00 \
+              .github/final-pass.part-01 \
+              .github/final-pass.part-02 \
+              .github/final-pass.part-03 \
+              .github/final-pass.part-04 \
+              .github/final-pass.part-05 \
+              .github/final-pass.part-06 \
+              .github/final-pass.part-07 > /tmp/quality-pass.xz.b64
           python - <<'PY'
           import base64, hashlib, lzma
           from pathlib import Path
@@ -58,14 +58,14 @@ jobs:
         run: |
           git rm .github/workflows/apply-quality-pass-once.yml
           git rm .github/quality-pass.patch.gz.b64 || true
-          git rm .github/quality-pass.xz.b64.part00
-          git rm .github/quality-pass.xz.b64.part01
-          git rm .github/quality-pass.xz.b64.part02
-          git rm .github/quality-pass.xz.b64.part03
-          git rm .github/quality-pass.xz.b64.part04
-          git rm .github/quality-pass.xz.b64.part05
-          git rm .github/quality-pass.xz.b64.part06
-          git rm .github/quality-pass.xz.b64.part07
+          git rm .github/final-pass.part-00
+          git rm .github/final-pass.part-01
+          git rm .github/final-pass.part-02
+          git rm .github/final-pass.part-03
+          git rm .github/final-pass.part-04
+          git rm .github/final-pass.part-05
+          git rm .github/final-pass.part-06
+          git rm .github/final-pass.part-07
 
       - name: Install dependencies
         run: npm ci
