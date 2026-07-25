@@ -40,45 +40,47 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
           packager: npm
 
-      - name: Find completed APK build
+      - name: Find latest completed preview build
         run: |
           eas build:list \
             --platform android \
             --status finished \
-            --distribution internal \
             --build-profile preview \
-            --git-commit-hash 420f8193002e310fcb858a97921d7e9d05225428 \
-            --limit 1 \
+            --limit 10 \
             --json \
             --non-interactive \
             > eas-build-list.json
 
-      - name: Extract completed APK link
+      - name: Select newest APK build
         shell: bash
         run: |
           node <<'NODE'
           const fs = require('fs');
           const parsed = JSON.parse(fs.readFileSync('eas-build-list.json', 'utf8'));
-          const build = Array.isArray(parsed) ? parsed[0] : parsed;
-          if (!build?.id) throw new Error('The completed EAS build could not be found.');
-          const apkUrl =
-            build.artifacts?.applicationArchiveUrl ||
-            build.artifacts?.buildUrl ||
-            build.artifactUrl ||
-            '';
-          if (!apkUrl) throw new Error('The completed build did not include an APK link.');
-          const detailsUrl =
-            build.buildDetailsPageUrl ||
-            `https://expo.dev/accounts/focusedcares-team/projects/murphy-method/builds/${build.id}`;
-          fs.writeFileSync('apk-url.txt', apkUrl);
-          fs.writeFileSync('build-details-url.txt', detailsUrl);
+          const builds = Array.isArray(parsed) ? parsed : [parsed];
+          const build = builds.find((item) =>
+            item?.id &&
+            (item.artifacts?.applicationArchiveUrl || item.artifacts?.buildUrl || item.artifactUrl)
+          );
+          if (!build) throw new Error('No completed Android preview APK was found.');
           fs.writeFileSync('build-id.txt', build.id);
+          fs.writeFileSync(
+            'build-details-url.txt',
+            build.buildDetailsPageUrl ||
+              `https://expo.dev/accounts/focusedcares-team/projects/murphy-method/builds/${build.id}`,
+          );
           NODE
 
-      - name: Download APK
+      - name: Download completed APK with EAS
         shell: bash
         run: |
-          curl --fail --location "$(cat apk-url.txt)" --output Murphy-Method-latest.apk
+          mkdir -p downloaded-apk
+          cd downloaded-apk
+          eas build:download --build-id "$(cat ../build-id.txt)" --non-interactive
+          APK_PATH="$(find . -type f -name '*.apk' -print -quit)"
+          test -n "$APK_PATH"
+          cp "$APK_PATH" ../Murphy-Method-latest.apk
+          cd ..
           test -s Murphy-Method-latest.apk
 
       - name: Add build links to run summary
