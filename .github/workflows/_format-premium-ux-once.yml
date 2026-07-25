@@ -1,0 +1,57 @@
+name: Format premium UX pass once
+
+on:
+  push:
+    branches:
+      - agent/murphy-method-complete-remediation
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/murphy-method-complete-remediation
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - name: Format premium UX files
+        run: |
+          npx prettier --write \
+            src/constants/theme.ts \
+            src/hooks/use-theme.ts \
+            src/components/ui/card.tsx \
+            src/components/ui/button.tsx \
+            src/components/ui/segmented-control.tsx \
+            src/components/ui/value-slider.tsx \
+            src/components/ui/momentum-card.tsx \
+            src/components/ui/__tests__/segmented-control.test.tsx \
+            src/components/ui/__tests__/value-slider.test.tsx \
+            src/components/programme/programme-session-card.tsx \
+            src/components/workout/set-logger.tsx \
+            'src/app/(tabs)/_layout.tsx' \
+            'src/app/(tabs)/today/index.tsx' \
+            'src/app/(tabs)/plan/index.tsx' \
+            'src/app/(tabs)/progress/index.tsx' \
+            'src/app/(tabs)/progress/bodyscan/compare.tsx' \
+            'src/app/(tabs)/coach/index.tsx' \
+            'src/app/(tabs)/profile/index.tsx' \
+            'src/app/workout/[workoutId]/active.tsx'
+      - run: git diff --check
+
+      - name: Commit formatted UX pass
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src
+          git diff --cached --quiet && exit 0
+          git commit -m "Format premium UX pass"
+          git push origin HEAD:agent/murphy-method-complete-remediation
