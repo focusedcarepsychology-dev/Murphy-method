@@ -74,7 +74,14 @@ export default function ProgressScreen() {
             accessibilityLabel={section.label}
             onPress={() => router.push(section.href)}
           >
-            <View style={{ minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.three }}>
+            <View
+              style={{
+                minWidth: 0,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: spacing.three,
+              }}
+            >
               <Icon name={section.icon} color={colors.text.secondary} size={20} />
               <Heading variant="bodyEmphasis" style={{ flexShrink: 1 }}>
                 {section.label}
@@ -86,7 +93,9 @@ export default function ProgressScreen() {
           accessibilityLabel="Personal records"
           onPress={() => router.push('/(tabs)/progress/records')}
         >
-          <View style={{ minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.three }}>
+          <View
+            style={{ minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.three }}
+          >
             <Icon name="trophy" color={colors.text.secondary} size={20} />
             <Heading variant="bodyEmphasis" style={{ flexShrink: 1 }}>
               Personal records
