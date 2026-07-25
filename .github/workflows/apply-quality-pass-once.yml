@@ -28,50 +28,44 @@ jobs:
 
       - name: Reconstruct and verify audited source patch
         run: |
+          set -euxo pipefail
+          cat .github/quality-pass.xz.b64.part00 \
+              .github/quality-pass.xz.b64.part01 \
+              .github/quality-pass.xz.b64.part02 \
+              .github/quality-pass.xz.b64.part03 \
+              .github/quality-pass.xz.b64.part04 \
+              .github/quality-pass.xz.b64.part05 \
+              .github/quality-pass.xz.b64.part06 \
+              .github/quality-pass.xz.b64.part07 > /tmp/quality-pass.xz.b64
           python - <<'PY'
-          import base64
-          import hashlib
-          import lzma
+          import base64, hashlib, lzma
           from pathlib import Path
-
-          paths = [Path(f'.github/final-pass.part-{index:02d}') for index in range(8)]
-          encoded = ''.join(path.read_text(encoding='ascii').strip() for path in paths)
-          archive_hash = hashlib.sha256(encoded.encode('ascii')).hexdigest()
-          expected_archive_hash = 'a02442de3fbd7e441ad1781f8b443230ab8326df2ba022f0abada123b9c0e9ea'
-          if archive_hash != expected_archive_hash:
-              raise RuntimeError(f'Archive checksum mismatch: {archive_hash}')
-
-          patch = lzma.decompress(base64.b64decode(encoded, validate=True))
-          patch_hash = hashlib.sha256(patch).hexdigest()
-          expected_patch_hash = '452d71cdf592eea1edb7ec60d56f4527e6955c0bd6c8d854e8462799158e774d'
-          if patch_hash != expected_patch_hash:
-              raise RuntimeError(f'Patch checksum mismatch: {patch_hash}')
-
-          Path('/tmp/final-stage1.patch').write_bytes(patch)
-          print(f'Verified {len(patch)} patch bytes')
+          encoded = Path('/tmp/quality-pass.xz.b64').read_text()
+          archive = base64.b64decode(encoded, validate=True)
+          assert hashlib.sha256(archive).hexdigest() == '347c3a5d9e692bc42b770ce8ec0b7b2d0953558fcd20c1ff91b9801dcfd2a699'
+          patch = lzma.decompress(archive)
+          assert hashlib.sha256(patch).hexdigest() == '452d71cdf592eea1edb7ec60d56f4527e6955c0bd6c8d854e8462799158e774d'
+          Path('/tmp/quality-pass.patch').write_bytes(patch)
           PY
 
       - name: Check audited source patch
-        run: git apply --check --verbose --binary /tmp/final-stage1.patch
+        run: git apply --check --verbose --binary /tmp/quality-pass.patch
 
       - name: Apply audited source patch
-        run: git apply --index --verbose --binary /tmp/final-stage1.patch
+        run: git apply --index --verbose --binary /tmp/quality-pass.patch
 
       - name: Remove every one-time audit file
         run: |
-          git rm \
-            .github/final-pass.part-00 \
-            .github/final-pass.part-01 \
-            .github/final-pass.part-02 \
-            .github/final-pass.part-03 \
-            .github/final-pass.part-04 \
-            .github/final-pass.part-05 \
-            .github/final-pass.part-06 \
-            .github/final-pass.part-07 \
-            .github/quality-pass.part-00 \
-            .github/quality-pass.part-01 \
-            .github/quality-pass.patch.gz.b64 \
-            .github/workflows/apply-quality-pass-once.yml
+          git rm .github/workflows/apply-quality-pass-once.yml
+          git rm .github/quality-pass.patch.gz.b64 || true
+          git rm .github/quality-pass.xz.b64.part00
+          git rm .github/quality-pass.xz.b64.part01
+          git rm .github/quality-pass.xz.b64.part02
+          git rm .github/quality-pass.xz.b64.part03
+          git rm .github/quality-pass.xz.b64.part04
+          git rm .github/quality-pass.xz.b64.part05
+          git rm .github/quality-pass.xz.b64.part06
+          git rm .github/quality-pass.xz.b64.part07
 
       - name: Install dependencies
         run: npm ci
@@ -81,9 +75,30 @@ jobs:
           npm run format
           git add -A
           git diff --cached --check
+          git diff --cached --binary > /tmp/formatted-quality-pass.patch
 
-      - name: Typecheck
-        run: npm run typecheck
+      - name: Typecheck with diagnostics
+        id: typecheck
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run typecheck 2>&1 | tee /tmp/typecheck.log
+
+      - name: Upload TypeScript diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-pass-typescript-diagnostics
+          path: |
+            /tmp/typecheck.log
+            /tmp/formatted-quality-pass.patch
+          if-no-files-found: error
+          retention-days: 2
+
+      - name: Enforce TypeScript gate
+        if: steps.typecheck.outcome != 'success'
+        run: exit 1
 
       - name: Lint
         run: npm run lint
