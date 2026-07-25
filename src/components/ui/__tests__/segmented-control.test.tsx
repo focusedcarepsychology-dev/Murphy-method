@@ -1,10 +1,15 @@
 import { fireEvent, screen } from '@testing-library/react-native';
 
 import { SegmentedControl } from '@/components/ui/segmented-control';
+import { selectionFeedback } from '@/services/feedback/haptics';
 import { renderWithProviders } from '@/test-utils/render-with-providers';
 
+jest.mock('@/services/feedback/haptics', () => ({
+  selectionFeedback: jest.fn().mockResolvedValue(undefined),
+}));
+
 describe('SegmentedControl', () => {
-  it('announces the selected option and changes selection', async () => {
+  it('announces the selected option and changes selection with restrained feedback', async () => {
     const onChange = jest.fn();
 
     await renderWithProviders(
@@ -25,6 +30,7 @@ describe('SegmentedControl', () => {
 
     await fireEvent.press(screen.getByRole('tab', { name: 'Quick' }));
 
+    expect(selectionFeedback).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith('quick');
   });
 });
