@@ -47,7 +47,7 @@ function seedCompletedOnboarding(overrides: Record<string, unknown> = {}) {
     instructions: ['Lower with control.', 'Stand back up.'],
     coaching_cues: ['Keep your chest lifted.'],
     common_mistakes: ['Letting the knees collapse inward.'],
-    movement_patterns: { key: 'squat', label: 'Squat' },
+    movement_pattern_id: 'movement-squat',
     active: true,
   });
   backend.tables.programmes.push({

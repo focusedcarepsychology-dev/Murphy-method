@@ -116,6 +116,7 @@ export class FakeOnboardingBackend {
     workout_exercises: [],
     set_logs: [],
     exercises: [],
+    movement_patterns: [{ id: 'movement-squat', key: 'squat', label: 'Squat' }],
     muscles: [],
     exercise_muscles: [],
     exercise_equipment: [],
