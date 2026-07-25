@@ -1,0 +1,106 @@
+name: Build latest Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/android-release-finishing-pass
+
+permissions:
+  contents: read
+
+concurrency:
+  group: latest-android-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - name: Check out latest finishing branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/android-release-finishing-pass
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+          packager: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate app source
+        run: |
+          npm run typecheck
+          npm run lint
+          npm run format:check
+          npm test -- --ci
+
+      - name: Build installable preview APK
+        run: |
+          eas build \
+            --platform android \
+            --profile preview \
+            --non-interactive \
+            --wait \
+            --json \
+            --message "Latest Murphy Method Android test build" \
+            > eas-build.json
+
+      - name: Extract build details and download APK
+        id: build_details
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const parsed = JSON.parse(fs.readFileSync('eas-build.json', 'utf8'));
+          const build = Array.isArray(parsed) ? parsed[0] : parsed;
+          const id = build.id || '';
+          const apkUrl = build.artifacts?.buildUrl || build.artifactUrl || '';
+          const detailsUrl = build.buildDetailsPageUrl || build.url || '';
+          if (!id) throw new Error('EAS build id was not returned.');
+          if (!apkUrl) throw new Error('EAS APK URL was not returned.');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `build_id=${id}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `apk_url=${apkUrl}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `details_url=${detailsUrl}\n`);
+          NODE
+          curl --fail --location "${{ steps.build_details.outputs.apk_url }}" --output Murphy-Method-latest.apk
+
+      - name: Add build links to run summary
+        run: |
+          {
+            echo "## Murphy Method APK"
+            echo
+            echo "Built from commit \`${GITHUB_SHA}\` on \`agent/android-release-finishing-pass\`."
+            echo
+            echo "[Open the EAS build page](${{ steps.build_details.outputs.details_url }})"
+            echo
+            echo "The installable APK is also attached below as the GitHub artifact named \`Murphy-Method-latest-APK\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload APK to GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: Murphy-Method-latest-APK
+          path: Murphy-Method-latest.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload EAS build record
+        uses: actions/upload-artifact@v4
+        with:
+          name: Murphy-Method-EAS-build-record
+          path: eas-build.json
+          if-no-files-found: error
+          retention-days: 14
