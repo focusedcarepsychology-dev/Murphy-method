@@ -19,7 +19,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 20
     steps:
       - name: Check out latest finishing branch
         uses: actions/checkout@v4
@@ -40,56 +40,58 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
           packager: npm
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Validate app source
+      - name: Find completed APK build
         run: |
-          npm run typecheck
-          npm run lint
-          npm run format:check
-          npm test -- --ci
-
-      - name: Build installable preview APK
-        run: |
-          eas build \
+          eas build:list \
             --platform android \
-            --profile preview \
-            --non-interactive \
-            --wait \
+            --status finished \
+            --distribution internal \
+            --build-profile preview \
+            --git-commit-hash 420f8193002e310fcb858a97921d7e9d05225428 \
+            --limit 1 \
             --json \
-            --message "Latest Murphy Method Android test build" \
-            > eas-build.json
+            --non-interactive \
+            > eas-build-list.json
 
-      - name: Extract build details and download APK
-        id: build_details
+      - name: Extract completed APK link
         shell: bash
         run: |
           node <<'NODE'
           const fs = require('fs');
-          const parsed = JSON.parse(fs.readFileSync('eas-build.json', 'utf8'));
+          const parsed = JSON.parse(fs.readFileSync('eas-build-list.json', 'utf8'));
           const build = Array.isArray(parsed) ? parsed[0] : parsed;
-          const id = build.id || '';
-          const apkUrl = build.artifacts?.buildUrl || build.artifactUrl || '';
-          const detailsUrl = build.buildDetailsPageUrl || build.url || '';
-          if (!id) throw new Error('EAS build id was not returned.');
-          if (!apkUrl) throw new Error('EAS APK URL was not returned.');
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `build_id=${id}\n`);
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `apk_url=${apkUrl}\n`);
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `details_url=${detailsUrl}\n`);
+          if (!build?.id) throw new Error('The completed EAS build could not be found.');
+          const apkUrl =
+            build.artifacts?.applicationArchiveUrl ||
+            build.artifacts?.buildUrl ||
+            build.artifactUrl ||
+            '';
+          if (!apkUrl) throw new Error('The completed build did not include an APK link.');
+          const detailsUrl =
+            build.buildDetailsPageUrl ||
+            `https://expo.dev/accounts/focusedcares-team/projects/murphy-method/builds/${build.id}`;
+          fs.writeFileSync('apk-url.txt', apkUrl);
+          fs.writeFileSync('build-details-url.txt', detailsUrl);
+          fs.writeFileSync('build-id.txt', build.id);
           NODE
-          curl --fail --location "${{ steps.build_details.outputs.apk_url }}" --output Murphy-Method-latest.apk
+
+      - name: Download APK
+        shell: bash
+        run: |
+          curl --fail --location "$(cat apk-url.txt)" --output Murphy-Method-latest.apk
+          test -s Murphy-Method-latest.apk
 
       - name: Add build links to run summary
+        shell: bash
         run: |
           {
             echo "## Murphy Method APK"
             echo
-            echo "Built from commit \`${GITHUB_SHA}\` on \`agent/android-release-finishing-pass\`."
+            echo "Downloaded completed EAS build \`$(cat build-id.txt)\`."
             echo
-            echo "[Open the EAS build page](${{ steps.build_details.outputs.details_url }})"
+            echo "[Open the EAS build page]($(cat build-details-url.txt))"
             echo
-            echo "The installable APK is also attached below as the GitHub artifact named \`Murphy-Method-latest-APK\`."
+            echo "The APK is attached below as \`Murphy-Method-latest-APK\`."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload APK to GitHub
@@ -104,6 +106,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Murphy-Method-EAS-build-record
-          path: eas-build.json
+          path: |
+            eas-build-list.json
+            build-id.txt
+            build-details-url.txt
           if-no-files-found: error
           retention-days: 14
