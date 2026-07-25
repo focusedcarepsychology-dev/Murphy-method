@@ -28,17 +28,6 @@ jobs:
       - name: Create diagnostic directory
         run: mkdir -p ci-artifacts
 
-      - name: Package source audit snapshot
-        run: git archive --format=zip --output=ci-artifacts/murphy-method-source.zip HEAD
-
-      - name: Upload source audit snapshot
-        uses: actions/upload-artifact@v4
-        with:
-          name: murphy-method-source-audit
-          path: ci-artifacts/murphy-method-source.zip
-          if-no-files-found: error
-          retention-days: 1
-
       - name: Typecheck
         run: set -o pipefail; npm run typecheck 2>&1 | tee ci-artifacts/typecheck.log
 
