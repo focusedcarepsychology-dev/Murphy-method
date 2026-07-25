@@ -4,7 +4,7 @@ import { View } from 'react-native';
 
 import { ProgrammeSessionCard } from '@/components/programme/programme-session-card';
 import { AppText, Caption, Heading } from '@/components/ui/app-text';
-import { SecondaryButton } from '@/components/ui/button';
+import { PrimaryButton, SecondaryButton } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
@@ -18,13 +18,14 @@ import { useAuthenticatedClient } from '@/hooks/use-authenticated-client';
 import { useAuthenticatedData } from '@/hooks/use-authenticated-data';
 import { useGreeting } from '@/hooks/use-greeting';
 import { useTheme } from '@/hooks/use-theme';
-import { loadSelectedGoals } from '@/services/onboarding/onboarding-repository';
 import { getExercisesByIds } from '@/services/exercises/exercise-repository';
+import { loadSelectedGoals } from '@/services/onboarding/onboarding-repository';
 import { ensureRealProgramme } from '@/services/programme/programme-repository';
 import {
   loadTrainingHistorySummary,
   loadViewerProfile,
 } from '@/services/training/training-repository';
+import { loadActiveWorkout } from '@/services/workouts/active-workout-repository';
 import { startWorkout, type WorkoutMode } from '@/services/workouts/workout-repository';
 
 function nextSessionForToday(sessions: ProgrammeSession[]): ProgrammeSession | null {
@@ -45,10 +46,11 @@ export default function TodayScreen() {
   const [startError, setStartError] = useState<string | null>(null);
 
   const { status, data, reload } = useAuthenticatedData(async (authClient, userId) => {
-    const [profile, programme, goals] = await Promise.all([
+    const [profile, programme, goals, activeWorkout] = await Promise.all([
       loadViewerProfile(authClient, userId),
       ensureRealProgramme(authClient, userId),
       loadSelectedGoals(authClient, userId),
+      loadActiveWorkout(authClient, userId),
     ]);
     const structure = programme?.parsedStructure ?? null;
     const history = await loadTrainingHistorySummary(
@@ -61,14 +63,26 @@ export default function TodayScreen() {
         session.exercises.map((exercise) => exercise.exerciseId),
       ) ?? [];
     const exerciseDetails = await getExercisesByIds(authClient, exerciseIds);
-    return { profile, programme, goals, history, exerciseDetails };
+    return { profile, programme, goals, history, exerciseDetails, activeWorkout };
   });
 
   const structure = data?.programme?.parsedStructure ?? null;
   const nextSession = structure ? nextSessionForToday(structure.sessions) : null;
   const blockedByClearance = structure?.requiresClearance === true;
 
+  function resumeActiveWorkout() {
+    if (!data?.activeWorkout) return;
+    router.push({
+      pathname: '/workout/[workoutId]/active',
+      params: { workoutId: data.activeWorkout.id },
+    });
+  }
+
   async function handleStart(mode: WorkoutMode) {
+    if (data?.activeWorkout) {
+      resumeActiveWorkout();
+      return;
+    }
     if (!data?.programme || !nextSession || blockedByClearance || startingMode) return;
     setStartError(null);
     setStartingMode(mode);
@@ -129,6 +143,19 @@ export default function TodayScreen() {
         </Card>
       ) : (
         <>
+          {data.activeWorkout ? (
+            <Card style={{ gap: spacing.two }}>
+              <View style={{ gap: spacing.one }}>
+                <Heading variant="bodyEmphasis">Workout in progress</Heading>
+                <AppText color="secondary" style={{ flexShrink: 1 }}>
+                  Resume your {data.activeWorkout.mode} session before starting another workout. All
+                  completed sets remain saved.
+                </AppText>
+              </View>
+              <PrimaryButton label="Resume workout" onPress={resumeActiveWorkout} />
+            </Card>
+          ) : null}
+
           {blockedByClearance ? (
             <Card style={{ gap: spacing.one }}>
               <Heading variant="bodyEmphasis">Clearance required before training</Heading>
@@ -158,12 +185,14 @@ export default function TodayScreen() {
                 params: { exerciseId },
               })
             }
-            onStart={blockedByClearance ? undefined : () => handleStart('full')}
+            onStart={
+              blockedByClearance || data.activeWorkout ? undefined : () => handleStart('full')
+            }
             starting={startingMode === 'full'}
             startLabel="Start full session"
           />
 
-          {!blockedByClearance ? (
+          {!blockedByClearance && !data.activeWorkout ? (
             <View style={{ gap: spacing.two }}>
               <SecondaryButton
                 label="Start quick version"

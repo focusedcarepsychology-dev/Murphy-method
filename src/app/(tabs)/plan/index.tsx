@@ -4,6 +4,7 @@ import { View } from 'react-native';
 
 import { ProgrammeSessionCard } from '@/components/programme/programme-session-card';
 import { AppText, Caption, Heading } from '@/components/ui/app-text';
+import { PrimaryButton } from '@/components/ui/button';
 import { Card, InteractiveCard } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
@@ -17,6 +18,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { getExercisesByIds } from '@/services/exercises/exercise-repository';
 import { ensureRealProgramme } from '@/services/programme/programme-repository';
 import { loadViewerProfile } from '@/services/training/training-repository';
+import { loadActiveWorkout } from '@/services/workouts/active-workout-repository';
 import { startWorkout } from '@/services/workouts/workout-repository';
 
 export default function PlanScreen() {
@@ -27,16 +29,17 @@ export default function PlanScreen() {
   const [startError, setStartError] = useState<string | null>(null);
 
   const { status, data, reload } = useAuthenticatedData(async (authClient, userId) => {
-    const [profile, programme] = await Promise.all([
+    const [profile, programme, activeWorkout] = await Promise.all([
       loadViewerProfile(authClient, userId),
       ensureRealProgramme(authClient, userId),
+      loadActiveWorkout(authClient, userId),
     ]);
     const exerciseIds =
       programme?.parsedStructure.sessions.flatMap((session) =>
         session.exercises.map((exercise) => exercise.exerciseId),
       ) ?? [];
     const exerciseDetails = await getExercisesByIds(authClient, exerciseIds);
-    return { profile, programme, exerciseDetails };
+    return { profile, programme, exerciseDetails, activeWorkout };
   });
 
   const structure = data?.programme?.parsedStructure ?? null;
@@ -44,7 +47,19 @@ export default function PlanScreen() {
     structure?.trainingDays.length ?? data?.profile.availableTrainingDays.length ?? 0;
   const blockedByClearance = structure?.requiresClearance === true;
 
+  function resumeActiveWorkout() {
+    if (!data?.activeWorkout) return;
+    router.push({
+      pathname: '/workout/[workoutId]/active',
+      params: { workoutId: data.activeWorkout.id },
+    });
+  }
+
   async function handleStart(sessionIndex: number) {
+    if (data?.activeWorkout) {
+      resumeActiveWorkout();
+      return;
+    }
     if (!data?.programme || blockedByClearance || startingSession !== null) return;
     setStartError(null);
     setStartingSession(sessionIndex);
@@ -105,6 +120,18 @@ export default function PlanScreen() {
         </Card>
       ) : (
         <>
+          {data.activeWorkout ? (
+            <Card style={{ gap: spacing.two }}>
+              <View style={{ gap: spacing.one }}>
+                <Heading variant="bodyEmphasis">Workout in progress</Heading>
+                <AppText color="secondary" style={{ flexShrink: 1 }}>
+                  Resume your {data.activeWorkout.mode} session before starting another workout.
+                </AppText>
+              </View>
+              <PrimaryButton label="Resume workout" onPress={resumeActiveWorkout} />
+            </Card>
+          ) : null}
+
           {blockedByClearance ? (
             <Card style={{ gap: spacing.one }}>
               <Heading variant="bodyEmphasis">Training is paused pending clearance</Heading>
@@ -135,7 +162,11 @@ export default function PlanScreen() {
                     params: { exerciseId },
                   })
                 }
-                onStart={blockedByClearance ? undefined : () => handleStart(session.sessionIndex)}
+                onStart={
+                  blockedByClearance || data.activeWorkout
+                    ? undefined
+                    : () => handleStart(session.sessionIndex)
+                }
                 starting={startingSession === session.sessionIndex}
               />
             ))}
