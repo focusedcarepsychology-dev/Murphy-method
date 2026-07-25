@@ -1,0 +1,102 @@
+name: Fix remediation Jest fixtures once
+
+on:
+  push:
+    branches:
+      - agent/murphy-method-complete-remediation
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/murphy-method-complete-remediation
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Bring test doubles in line with production queries
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected one match in {path}, found {count}: {old[:100]!r}")
+              file.write_text(text.replace(old, new, 1))
+
+          fake = 'src/test-utils/fake-onboarding-backend.ts'
+          replace_once(
+              fake,
+              "type FilterOp = { col: string; val: unknown; op?: 'eq' | 'in' | 'gte' | 'lte' };",
+              "type FilterOp = { col: string; val: unknown; op?: 'eq' | 'in' | 'gte' | 'lte' | 'lt' };",
+          )
+          replace_once(
+              fake,
+              "  private singleResult = false;\n  private orderCol?: string;",
+              "  private singleResult = false;\n  private maybeSingleResult = false;\n  private orderCol?: string;",
+          )
+          replace_once(
+              fake,
+              "  lte(col: string, val: unknown) {\n    this.filters.push({ col, val, op: 'lte' });\n    return this;\n  }\n  order(col: string, opts?: { ascending?: boolean }) {",
+              "  lte(col: string, val: unknown) {\n    this.filters.push({ col, val, op: 'lte' });\n    return this;\n  }\n  lt(col: string, val: unknown) {\n    this.filters.push({ col, val, op: 'lt' });\n    return this;\n  }\n  order(col: string, opts?: { ascending?: boolean }) {",
+          )
+          replace_once(
+              fake,
+              "  single() {\n    this.singleResult = true;\n    return this;\n  }\n  insert(payload: Row | Row[]) {",
+              "  single() {\n    this.singleResult = true;\n    return this;\n  }\n  maybeSingle() {\n    this.maybeSingleResult = true;\n    return this;\n  }\n  insert(payload: Row | Row[]) {",
+          )
+          replace_once(
+              fake,
+              "      if (f.op === 'gte') return value !== null && String(value) >= String(f.val);\n      if (f.op === 'lte') return value !== null && String(value) <= String(f.val);\n      return value === f.val;",
+              "      if (f.op === 'gte') return value !== null && String(value) >= String(f.val);\n      if (f.op === 'lte') return value !== null && String(value) <= String(f.val);\n      if (f.op === 'lt') return value !== null && String(value) < String(f.val);\n      return value === f.val;",
+          )
+          replace_once(
+              fake,
+              "    if (this.singleResult) {\n      if (result.length !== 1) {\n        return { data: null, error: { message: 'no rows', code: 'PGRST116' } };\n      }\n      return { data: result[0], error: null };\n    }\n    if (this.countExact) {",
+              "    if (this.maybeSingleResult) {\n      if (result.length > 1) {\n        return { data: null, error: { message: 'multiple rows', code: 'PGRST116' } };\n      }\n      return { data: result[0] ?? null, error: null };\n    }\n    if (this.singleResult) {\n      if (result.length !== 1) {\n        return { data: null, error: { message: 'no rows', code: 'PGRST116' } };\n      }\n      return { data: result[0], error: null };\n    }\n    if (this.countExact) {",
+          )
+          replace_once(
+              fake,
+              "          upload: async (_path: string, _body: unknown, _opts: unknown) => ({\n            data: { path: _path },\n            error: null,\n          }),",
+              "          upload: async (_path: string, _body: unknown, _opts: unknown) => ({\n            data: { path: _path },\n            error: null,\n          }),\n          remove: async (_paths: string[]) => ({ data: _paths, error: null }),\n          createSignedUrl: async (_path: string) => ({\n            data: { signedUrl: `https://signed.example/${_path}` },\n            error: null,\n          }),",
+          )
+
+          zero_state = 'src/app/__tests__/new-user-zero-state.test.tsx'
+          replace_once(
+              zero_state,
+              "  mockClient = createFakeOnboardingClient(backend, USER_ID);\n}",
+              "  const exerciseId = 'exercise-bodyweight-squat';\n  const programmeId = 'programme-real';\n  const versionId = 'programme-version-real';\n  backend.tables.exercises.push({\n    id: exerciseId,\n    name: 'Bodyweight Squat',\n    slug: 'bodyweight-squat',\n    description: 'A squat using only your bodyweight.',\n    visual_key: 'pose_squat',\n    starting_position: 'Stand with your feet about shoulder-width apart.',\n    instructions: ['Lower with control.', 'Stand back up.'],\n    coaching_cues: ['Keep your chest lifted.'],\n    common_mistakes: ['Letting the knees collapse inward.'],\n    movement_patterns: { key: 'squat', label: 'Squat' },\n    active: true,\n  });\n  backend.tables.programmes.push({\n    id: programmeId,\n    profile_id: USER_ID,\n    status: 'active',\n    current_version_id: versionId,\n    created_at: '2026-01-01T00:00:01.000Z',\n  });\n  backend.tables.programme_versions.push({\n    id: versionId,\n    programme_id: programmeId,\n    version_number: 1,\n    structure: {\n      engineVersion: 'deterministic-v1',\n      weeklyFrequencyDays: ['monday', 'wednesday', 'friday'],\n      sessionDurationMinutes: 40,\n      requiresClearance: false,\n      restrictionFlags: [],\n      limitationNotes: [],\n      sessions: [\n        {\n          sessionIndex: 0,\n          label: 'Full Body A',\n          focusSummary: 'A balanced full-body session.',\n          exercises: [\n            {\n              exerciseId,\n              orderIndex: 0,\n              targetSets: 3,\n              targetRepRangeLow: 8,\n              targetRepRangeHigh: 12,\n              whyIncluded: 'Matches your bodyweight-only starting plan.',\n            },\n          ],\n        },\n      ],\n    },\n    change_level: 0,\n    change_reason: 'Initial real programme.',\n    engine_version: 'deterministic-v1',\n    exercise_dataset_version: '1',\n    created_at: '2026-01-01T00:00:02.000Z',\n  });\n  mockClient = createFakeOnboardingClient(backend, USER_ID);\n}",
+          )
+
+          audit = 'src/__tests__/no-fictional-user-data.test.ts'
+          replace_once(
+              audit,
+              "    const offenders = AUTHENTICATED_SOURCE.filter((file) =>\n      /preview-workout|PREVIEW_WORKOUT_ID/.test(readFileSync(file, 'utf8')),\n    ).map(relative);",
+              "    const offenders = AUTHENTICATED_SOURCE.filter((file) =>\n      /preview-workout|PREVIEW_WORKOUT_ID/.test(\n        stripCommentsAndImports(readFileSync(file, 'utf8')),\n      ),\n    ).map(relative);",
+          )
+          PY
+
+      - name: Format patched source
+        run: |
+          npm ci
+          npm run format
+          git diff --check
+
+      - name: Commit fixture and regression fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Align Jest fixtures with real programme queries"
+          git push origin HEAD:agent/murphy-method-complete-remediation
