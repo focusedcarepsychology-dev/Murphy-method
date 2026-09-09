@@ -1,0 +1,73 @@
+name: Murphy Method maintenance and security
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'src/**'
+      - 'app/**'
+      - '.github/workflows/maintenance-security.yml'
+  schedule:
+    - cron: '23 4 * * 4'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  app-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Secret guard
+        run: npm run check:secrets
+      - name: TypeScript check
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+
+  trivy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy filesystem scan
+        id: trivy
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          output: trivy-report.txt
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+      - name: Save Trivy report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: murphy-trivy-${{ github.run_number }}
+          path: trivy-report.txt
+          retention-days: 30
+          if-no-files-found: ignore
+      - name: Report findings
+        if: steps.trivy.outcome != 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="[Security] Murphy Method findings"
+          BODY="Trivy found a HIGH/CRITICAL vulnerability, possible exposed secret, or misconfiguration. Review: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          EXISTING="$(gh issue list --state open --search "$TITLE in:title" --json number,title --jq '.[] | select(.title == "'"$TITLE"'") | .number' | head -n1)"
+          if [ -z "$EXISTING" ]; then gh issue create --title "$TITLE" --body "$BODY"; else gh issue comment "$EXISTING" --body "$BODY"; fi
