@@ -40,8 +40,7 @@ export default function ForgotPasswordScreen() {
         setFormError(result.error);
         return;
       }
-      // Same confirmation regardless of whether the email is registered —
-      // never reveal account existence (docs/SCREEN_SPECIFICATIONS.md §1).
+      // Same confirmation regardless of whether the email is registered, // never reveal account existence (docs/SCREEN_SPECIFICATIONS.md §1).
       setSent(true);
     } finally {
       setSubmitting(false);

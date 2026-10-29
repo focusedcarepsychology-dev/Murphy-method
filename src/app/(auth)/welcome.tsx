@@ -40,7 +40,7 @@ export default function WelcomeScreen() {
             style={{ maxWidth: 320 }}
             accessibilityLabel="A training plan that learns what works for you, and adapts as you progress."
           >
-            A training plan that learns what works for you — and adapts as you progress.
+            A training plan that responds to what works for you and adapts as you progress.
           </AppText>
         </View>
 

@@ -32,7 +32,7 @@ const ANGLES: { key: BodyScanAngle; label: string; guidance: string }[] = [
 
 /**
  * Consent is checked before any capture UI is shown at all
- * (docs/IMPLEMENTATION_PLAN.md Phase 3 §18) — declining/skipping consent
+ * (docs/IMPLEMENTATION_PLAN.md Phase 3 §18), declining/skipping consent
  * on the previous screen means this screen never offers capture, only
  * Skip.
  */
@@ -149,7 +149,7 @@ export default function BodyScanBaselineScreen() {
     <OnboardingScaffold
       stepIndex={12}
       title="Capture your baseline"
-      description="Guided front, side, and back photos. Fully skippable — you can add these later from Progress."
+      description="Guided front, side and back photos. You can skip this and add them later from Progress."
       nextLabel={capturedCount > 0 ? 'Save & Continue' : 'Skip for now'}
       onBack={() => router.back()}
       onNext={handleNext}

@@ -21,7 +21,7 @@ type LoadStatus = 'loading' | 'ready' | 'error';
 /**
  * Multi-select from the fixed goal list (docs/MASTER_SPEC.md §7). Saves
  * immediately on Next, in selection order, via the same
- * `set_user_goal_priorities` RPC Goal Prioritisation refines — so data
+ * `set_user_goal_priorities` RPC Goal Prioritisation refines, so data
  * survives even if the user abandons before reaching that screen.
  */
 export default function MainGoalScreen() {
@@ -103,7 +103,7 @@ export default function MainGoalScreen() {
     <OnboardingScaffold
       stepIndex={2}
       title="What would you like to achieve?"
-      description="Select everything that applies — you'll prioritise them next."
+      description="Select everything that applies. You will prioritise them next."
       onBack={() => router.back()}
       onNext={handleNext}
       nextDisabled={selectedKeys.length === 0}

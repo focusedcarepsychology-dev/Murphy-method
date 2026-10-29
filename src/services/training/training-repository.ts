@@ -4,14 +4,12 @@
  * Every authenticated screen that used to render `src/dev/previewData`
  * fixtures reads from here instead. The rule this module exists to enforce
  * is simple: it only ever returns rows that genuinely belong to the
- * calling user, and it returns `null`/`[]`/`0` when there is nothing —
- * never a plausible-looking stand-in (CLAUDE.md, "never fake
+ * calling user, and it returns `null`/`[]`/`0` when there is nothing, * never a plausible-looking stand-in (CLAUDE.md, "never fake
  * functionality").
  *
  * Reads go straight to RLS-protected tables. Anything that *derives*
  * programme content lives server-side instead
- * (`src/services/training/programme-repository.ts` wraps those RPCs) —
- * the client is never the programme authority.
+ * (`src/services/training/programme-repository.ts` wraps those RPCs), * the client is never the programme authority.
  */
 import type { CoachingStyle } from '@/domain/onboarding/types';
 import type { MurphySupabaseClient } from '@/services/supabase/client';
@@ -58,7 +56,7 @@ export function todayIsoDate(reference: Date = new Date()): string {
 export type ViewerProfile = {
   /**
    * `profiles.display_name`, normalised: whitespace trimmed, and empty
-   * treated as absent. Never substituted with a placeholder name — an
+   * treated as absent. Never substituted with a placeholder name, an
    * absent name means the UI drops the name, not that it invents one.
    */
   displayName: string | null;
@@ -455,7 +453,7 @@ export type WorkoutDetail = {
 /**
  * One real workout belonging to the caller. RLS already scopes `workouts`
  * to `auth.uid()`, so an id belonging to somebody else simply returns no
- * row and this resolves to `null` — the screen then says the workout could
+ * row and this resolves to `null`, the screen then says the workout could
  * not be found rather than rendering a stand-in.
  */
 export async function loadWorkoutDetail(

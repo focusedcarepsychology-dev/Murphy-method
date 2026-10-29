@@ -1,7 +1,6 @@
 /**
  * Canonical Interactive Body Goal Map regions (`MASTER_SPEC.md` §7.1,
- * `DATABASE_SCHEMA.md` §2 `body_area_goals.body_area_key` check constraint —
- * supabase/migrations/20260723090700_body_area_goals.sql). This is the one
+ * `DATABASE_SCHEMA.md` §2 `body_area_goals.body_area_key` check constraint, * supabase/migrations/20260723090700_body_area_goals.sql). This is the one
  * place the 13-key list is defined on the client; the body map, the
  * accessible list-selector, and the screen all read it from here rather
  * than each hard-coding a second copy that could drift from the database

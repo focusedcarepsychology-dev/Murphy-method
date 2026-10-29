@@ -55,7 +55,7 @@ function seedThroughSafetyScreening(backend: FakeOnboardingBackend) {
   });
 }
 
-describe('Optional Baseline BodyScan — consent gating (docs/IMPLEMENTATION_PLAN.md Phase 3 §18)', () => {
+describe('Optional Baseline BodyScan, consent gating (docs/IMPLEMENTATION_PLAN.md Phase 3 §18)', () => {
   beforeEach(() => {
     mockBackend = new FakeOnboardingBackend();
     seedThroughSafetyScreening(mockBackend);
@@ -68,7 +68,7 @@ describe('Optional Baseline BodyScan — consent gating (docs/IMPLEMENTATION_PLA
     expect(screen.queryByText('Capture')).toBeNull();
     expect(screen.queryByLabelText('Front')).toBeNull();
 
-    // No consent, no upload path exists on this screen at all — nothing in
+    // No consent, no upload path exists on this screen at all, nothing in
     // body_scan_images could have been written.
     expect(mockBackend.tables.body_scan_images).toHaveLength(0);
   });

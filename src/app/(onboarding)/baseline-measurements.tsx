@@ -30,7 +30,7 @@ const FIELDS: { metric: BaselineMetric; label: string }[] = [
 
 /**
  * Fully optional (docs/SCREEN_SPECIFICATIONS.md §2 "Baseline
- * Measurements") — no field here can ever block onboarding. Only values
+ * Measurements"), no field here can ever block onboarding. Only values
  * the user actually typed are written; empty fields are simply skipped.
  */
 export default function BaselineMeasurementsScreen() {
@@ -115,7 +115,7 @@ export default function BaselineMeasurementsScreen() {
     <OnboardingScaffold
       stepIndex={10}
       title="Baseline measurements"
-      description={`Every field is optional — there's no scale requirement. Enter in ${unitLabel}, or skip entirely.`}
+      description={`Every field is optional. There is no scale requirement. Enter values in ${unitLabel}, or skip this step.`}
       onBack={() => router.back()}
       onNext={handleNext}
       nextLabel={Object.values(values).some(Boolean) ? 'Save & Continue' : 'Skip for now'}

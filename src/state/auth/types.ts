@@ -19,7 +19,7 @@ export type AuthState =
        * `onboarding_completed_at` read from the user's own profiles row
        * (docs/ROUTES.md §3 rule 2). `profileStatus` is tracked separately
        * from `status` so a slow/failed profile read never gets confused
-       * with "not signed in" — a route guard sees signed_in immediately,
+       * with "not signed in", a route guard sees signed_in immediately,
        * and can render its own loading/error state for the profile read
        * specifically (docs/IMPLEMENTATION_PLAN.md Phase 2 §17 "profile-loading failure").
        */
@@ -32,7 +32,7 @@ export type AuthState =
        * Opening a password-recovery link establishes a real Supabase
        * session (Supabase emits `PASSWORD_RECOVERY`, not `SIGNED_IN`), but
        * that session is scoped to setting a new password, not to using the
-       * app as this user — it must never be treated as an ordinary
+       * app as this user, it must never be treated as an ordinary
        * `signed_in` session by the route guard (docs/ROUTES.md §3), or the
        * guard would route the user straight into the app before they've
        * set a new password. Kept as its own status for exactly that reason.
@@ -47,7 +47,7 @@ export type SignUpResult = AuthResult & { needsVerification: boolean };
 /**
  * The outcome of the most recent auth email link (signup confirmation or
  * password recovery) this provider processed, for the relevant screen to
- * react to — e.g. Verify Email showing "that link is invalid or expired"
+ * react to, e.g. Verify Email showing "that link is invalid or expired"
  * when `kind: 'signup'` fails. `null` once acknowledged
  * (`acknowledgeDeepLinkNotice`) or before any link has been processed.
  */
@@ -81,7 +81,7 @@ export type AuthContextValue = {
   retryProfileLoad: () => void;
   /**
    * Re-checks the current session (Verify Email's "I've verified" action,
-   * docs/SCREEN_SPECIFICATIONS.md §1) — a verification link opened as a
+   * docs/SCREEN_SPECIFICATIONS.md §1), a verification link opened as a
    * deep link already establishes the session via the app's incoming-link
    * handler (`state/auth/process-auth-deep-link.ts`) as soon as it's
    * tapped; this covers the case where the user verified via a browser and

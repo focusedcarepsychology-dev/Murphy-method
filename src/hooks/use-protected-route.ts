@@ -10,11 +10,11 @@ const ONBOARDING_GROUP = '(onboarding)';
  * Central route guard (docs/ROUTES.md §3). Lives once at the app root
  * rather than duplicated per route-group `_layout.tsx`, so there is a
  * single source of truth for "where should this session be routed right
- * now?" — the exact thing that makes redirect loops possible if two
+ * now?", the exact thing that makes redirect loops possible if two
  * layouts disagree.
  *
  * Deliberately does nothing while `status === 'initialising'` or
- * `profileStatus !== 'ready'` — redirecting on incomplete information is
+ * `profileStatus !== 'ready'`, redirecting on incomplete information is
  * what causes both redirect flicker and incorrect routing (Phase 2 §5, §8).
  */
 export function useProtectedRoute() {
@@ -31,7 +31,7 @@ export function useProtectedRoute() {
 
     if (state.status === 'password_recovery') {
       // Deliberately does not fall through to the signed_in branches below
-      // — a recovery session must never route into (tabs)/(onboarding), it
+      //, a recovery session must never route into (tabs)/(onboarding), it
       // only ever goes to the reset-password screen (docs/ROUTES.md §3
       // correction, Phase 2A).
       const onResetPassword =

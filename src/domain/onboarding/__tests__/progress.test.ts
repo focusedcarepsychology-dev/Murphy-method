@@ -74,7 +74,7 @@ describe('computeFirstIncompleteRequiredStep (docs/ROUTES.md §3 rule 2)', () =>
 
   it('never blocks on optional data (body-area goals, measurements, BodyScan)', () => {
     // COMPLETE_SNAPSHOT never sets anything body-area/measurement/BodyScan
-    // related in the first place — optional steps have no representation
+    // related in the first place, optional steps have no representation
     // in OnboardingSnapshot at all, which is itself the guarantee that
     // they can never gate this calculation.
     expect(computeFirstIncompleteRequiredStep(COMPLETE_SNAPSHOT)).toBeNull();

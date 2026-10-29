@@ -26,7 +26,7 @@ type Phase = 'form' | 'clearance_notice';
 
 /**
  * Safety-critical, cannot be skipped (docs/MASTER_SPEC.md §8.1). The client
- * only collects raw yes/no answers — `requires_clearance`/
+ * only collects raw yes/no answers, `requires_clearance`/
  * `restriction_flags` are always derived server-side
  * (`submit_safety_screening` RPC), never computed or trusted from here.
  */
@@ -69,7 +69,7 @@ export default function SafetyScreeningScreen() {
     if (!userId || submitting) return;
 
     // Re-screening isn't required if already complete this session/on
-    // resume — proceeding is safe either way, but avoid an unnecessary
+    // resume, proceeding is safe either way, but avoid an unnecessary
     // duplicate immutable row when nothing changed.
     if (alreadyScreened && !complete) {
       router.push('/(onboarding)/baseline-measurements');
@@ -140,12 +140,12 @@ export default function SafetyScreeningScreen() {
             <Icon name="info" color={colors.status.warning} size={22} />
             <AppText color="secondary" style={{ flex: 1 }}>
               Based on your answers, we recommend confirming with a qualified professional before
-              starting certain training content. We&apos;ll still build a starting structure for you
-              — exercise selection will respect this once that&apos;s confirmed.
+              starting certain training content. We&apos;ll still build a starting structure for
+              you, exercise selection will respect this once that&apos;s confirmed.
             </AppText>
           </View>
           <Caption>
-            This isn&apos;t a diagnosis — Murphy Method is fitness and wellness software, not a
+            This isn&apos;t a diagnosis, Murphy Method is fitness and wellness software, not a
             medical service.
           </Caption>
         </View>
@@ -157,7 +157,7 @@ export default function SafetyScreeningScreen() {
     <OnboardingScaffold
       stepIndex={9}
       title="A few safety questions"
-      description="This helps us build a programme that's appropriate for you — it can't be skipped. Answer honestly; if you're ever unsure, answer yes."
+      description="This helps us build a programme that is appropriate for you. It cannot be skipped. Answer honestly. When unsure, answer yes."
       onBack={() => router.back()}
       onNext={handleNext}
       nextDisabled={!complete && !alreadyScreened}
@@ -166,7 +166,7 @@ export default function SafetyScreeningScreen() {
       <View style={{ gap: spacing.three }}>
         {submitError ? <AppText color="critical">{submitError}</AppText> : null}
         <Caption>
-          Murphy Method is fitness and wellness software — this is not a medical diagnosis. If
+          Murphy Method is fitness and wellness software, this is not a medical diagnosis. If
           anything here feels uncertain, a qualified professional is always the safer call.
         </Caption>
 

@@ -1,5 +1,5 @@
 /**
- * Exercise ontology reads (remediation Part 7). Read-only — the ontology
+ * Exercise ontology reads (remediation Part 7). Read-only, the ontology
  * is content-governed reference data (docs/DATABASE_SCHEMA.md §5), never
  * client-writable.
  */
@@ -40,7 +40,7 @@ export type ExerciseDetail = {
   equipment: ExerciseEquipmentRequirement[];
 };
 
-/** Batch fetch — one query per related table, keyed by exercise id, for however many ids a screen needs at once. */
+/** Batch fetch, one query per related table, keyed by exercise id, for however many ids a screen needs at once. */
 export async function getExercisesByIds(
   client: MurphySupabaseClient,
   exerciseIds: string[],

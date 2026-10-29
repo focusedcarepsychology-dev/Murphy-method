@@ -1,6 +1,6 @@
 /**
  * Shared onboarding domain types (docs/IMPLEMENTATION_PLAN.md Phase 3 §2).
- * Kept independent of any single screen's local form state — screens
+ * Kept independent of any single screen's local form state, screens
  * translate this domain shape to/from their own inputs, they don't define it.
  */
 
@@ -26,7 +26,7 @@ export const SESSION_DURATION_OPTIONS_MINUTES = [15, 30, 45, 60, 75, 90] as cons
 
 /**
  * Snapshot of exactly the persisted state the onboarding guard/resume logic
- * needs to determine progress — a narrow read, not a full profile export.
+ * needs to determine progress, a narrow read, not a full profile export.
  */
 export type OnboardingSnapshot = {
   dateOfBirth: string | null;

@@ -16,7 +16,7 @@ export type PlaceholderScreenProps = {
  * Route-group shell placeholder (docs/IMPLEMENTATION_PLAN.md Phase 1):
  * every route in docs/ROUTES.md exists and is navigable, but screens not
  * explicitly designed in docs/SCREEN_SPECIFICATIONS.md for this phase get a
- * themed placeholder rather than a fully built UI — that UI lands in the
+ * themed placeholder rather than a fully built UI, that UI lands in the
  * phase that wires it to real data.
  */
 export function PlaceholderScreen({ title, description, icon = 'info' }: PlaceholderScreenProps) {

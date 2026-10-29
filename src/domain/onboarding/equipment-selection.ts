@@ -44,7 +44,7 @@ export function toggleEquipmentSelection(
 
 /**
  * Resolves an already-persisted selection that is ambiguous (both the
- * sentinel and real equipment marked available — possible for rows
+ * sentinel and real equipment marked available, possible for rows
  * written before this rule existed). Real equipment wins: the user
  * demonstrably has some, so "no equipment" is the false half.
  */

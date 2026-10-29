@@ -180,7 +180,7 @@ export function parseGamificationLeaderboard(value: unknown): GamificationLeader
 
 export function validateTournamentAlias(value: string): string | null {
   const alias = value.trim();
-  if (alias.length < 3 || alias.length > 24) return 'Use 3–24 characters for your public alias.';
+  if (alias.length < 3 || alias.length > 24) return 'Use 3 to 24 characters for your public alias.';
   if (!/^[\p{L}\p{N}][\p{L}\p{N} _-]{2,23}$/u.test(alias)) {
     return 'Use letters, numbers, spaces, hyphens or underscores only.';
   }

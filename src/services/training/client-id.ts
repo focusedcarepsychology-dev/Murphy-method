@@ -1,7 +1,6 @@
 /**
  * Idempotency keys for offline-safe writes (`workouts.client_generated_id`,
- * `workout_exercises.client_generated_id`, `set_logs.client_generated_id` —
- * docs/ARCHITECTURE.md §5). Replaying the same queued mutation must
+ * `workout_exercises.client_generated_id`, `set_logs.client_generated_id`, * docs/ARCHITECTURE.md §5). Replaying the same queued mutation must
  * produce the row once, so the key is generated at the moment the user
  * acts and reused for every retry of that same action.
  */

@@ -98,7 +98,7 @@ export default function WorkoutOverviewScreen() {
               key={exercise.workoutExerciseId}
               name={detail?.name ?? exercise.name}
               targetSets={exercise.targetSets}
-              targetReps={`${exercise.targetRepRangeLow}–${exercise.targetRepRangeHigh} reps`}
+              targetReps={`${exercise.targetRepRangeLow} to ${exercise.targetRepRangeHigh} reps`}
               previous={
                 exercise.previous
                   ? formatPerformance(exercise.previous.weightKg, exercise.previous.reps)

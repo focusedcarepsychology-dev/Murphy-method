@@ -16,7 +16,7 @@ export const PASSWORD_RECOVERY_REDIRECT_PATH = 'reset-password';
 export type AuthDeepLinkKind = 'signup' | 'recovery';
 
 export type AuthDeepLinkResult =
-  /** The URL isn't one of this app's auth email links — nothing to do. */
+  /** The URL isn't one of this app's auth email links, nothing to do. */
   | { outcome: 'ignored' }
   /** A session was established from the link's tokens/code. */
   | { outcome: 'established'; kind: AuthDeepLinkKind; session: Session }
@@ -24,7 +24,7 @@ export type AuthDeepLinkResult =
    * The link matched an auth path but couldn't establish a session:
    * Supabase reported an error (expired/already-used link), the tokens/code
    * were missing (malformed/truncated link), or the exchange itself failed.
-   * Deliberately carries no error detail — callers show generic, safe copy
+   * Deliberately carries no error detail, callers show generic, safe copy
    * (docs/IMPLEMENTATION_PLAN.md Phase 2 §17), never the raw reason.
    */
   | { outcome: 'failed'; kind: AuthDeepLinkKind };
@@ -64,7 +64,7 @@ function pathMatches(url: string, path: string): boolean {
  * link takes; the token path is kept for defensiveness and is what this
  * function is exercised against in tests.
  *
- * Never logs the URL or any extracted token/code — only the classified
+ * Never logs the URL or any extracted token/code, only the classified
  * outcome is returned.
  */
 export async function processAuthDeepLink(
@@ -114,7 +114,6 @@ export async function processAuthDeepLink(
     return { outcome: 'established', kind, session: data.session };
   }
 
-  // Matched a known auth path but carried none of the expected params —
-  // missing-token/malformed link.
+  // Matched a known auth path but carried none of the expected params, // missing-token/malformed link.
   return { outcome: 'failed', kind };
 }

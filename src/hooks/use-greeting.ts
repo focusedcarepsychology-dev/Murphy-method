@@ -7,7 +7,7 @@ function greetingForHour(hour: number) {
 }
 
 /**
- * Time-of-day greeting. Starts neutral and resolves after mount — like
+ * Time-of-day greeting. Starts neutral and resolves after mount, like
  * `useColorScheme` (`use-color-scheme.web.ts`), this avoids a hydration
  * mismatch on static web export, where the server-prerendered hour and the
  * client's actual hour at load time can differ.

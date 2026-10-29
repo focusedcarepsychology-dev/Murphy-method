@@ -345,7 +345,7 @@ export default function ActiveWorkoutScreen() {
           }}
         >
           <StatChip
-            label={`Target: ${exercise.targetRepRangeLow}–${exercise.targetRepRangeHigh} reps`}
+            label={`Target: ${exercise.targetRepRangeLow} to ${exercise.targetRepRangeHigh} reps`}
             icon="checkCircle"
           />
           {exercise.previous ? (

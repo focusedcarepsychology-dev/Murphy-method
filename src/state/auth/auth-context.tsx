@@ -43,7 +43,7 @@ async function fetchOnboardingStatus(
 export function AuthProvider({ children, client: injectedClient }: AuthProviderProps) {
   // Lazy initializer so this only ever runs once per mount (React 19 +
   // React Compiler flag reading a ref's `.current` during render, since
-  // ref access is meant for effects/handlers, not render — a state lazy
+  // ref access is meant for effects/handlers, not render, a state lazy
   // initializer is the correct tool for "compute once, never changes").
   const [client] = useState<MurphySupabaseClient>(() => injectedClient ?? getSupabaseClient());
   const [state, setState] = useState<AuthState>({ status: 'initialising' });
@@ -75,7 +75,7 @@ export function AuthProvider({ children, client: injectedClient }: AuthProviderP
   // Tracks which user's profile-routing state is currently loaded, so a
   // same-user re-emission of onAuthStateChange (e.g. TOKEN_REFRESHED, which
   // fires roughly hourly) updates the session object in place instead of
-  // resetting profileStatus to 'loading' — resetting it every refresh would
+  // resetting profileStatus to 'loading', resetting it every refresh would
   // flicker already-visible private content back to a loading state, which
   // docs/IMPLEMENTATION_PLAN.md Phase 2 §5 explicitly requires avoiding.
   const lastLoadedUserIdRef = useRef<string | null>(null);
@@ -110,7 +110,7 @@ export function AuthProvider({ children, client: injectedClient }: AuthProviderP
   );
 
   // Every URL this instance has already run through `handleAuthDeepLink`,
-  // by exact string — `Linking.getInitialURL()` and the `'url'` event can
+  // by exact string, `Linking.getInitialURL()` and the `'url'` event can
   // both deliver the same cold-start link on some platforms, and a Supabase
   // auth code/token is single-use: a second exchange attempt for a link
   // that already succeeded would come back as a (spurious) failure and
@@ -138,7 +138,7 @@ export function AuthProvider({ children, client: injectedClient }: AuthProviderP
       // result.outcome === 'established'. Set state directly here rather
       // than relying on `onAuthStateChange` to have classified it: calling
       // `setSession` (the implicit-token branch) always emits `SIGNED_IN`,
-      // never `PASSWORD_RECOVERY`, regardless of what the link was for — so
+      // never `PASSWORD_RECOVERY`, regardless of what the link was for, so
       // a recovery link must be routed to `password_recovery` explicitly, or
       // it would fall through into an ordinary authenticated session
       // (docs/ROUTES.md §3).
@@ -178,7 +178,7 @@ export function AuthProvider({ children, client: injectedClient }: AuthProviderP
       // A password-recovery link opened as a deep link: this session is
       // scoped to setting a new password, not to using the app as this
       // user (see AuthState['password_recovery'] and useProtectedRoute).
-      // Defensive fallback only — `handleAuthDeepLink` below is what
+      // Defensive fallback only, `handleAuthDeepLink` below is what
       // actually drives this transition for links this app opens.
       if (event === 'PASSWORD_RECOVERY' && session) {
         lastLoadedUserIdRef.current = null;
@@ -195,8 +195,7 @@ export function AuthProvider({ children, client: injectedClient }: AuthProviderP
         void handleAuthDeepLink(url);
       })
       .catch(() => {
-        // Cold-start URL retrieval failing isn't a boot-time auth error —
-        // the app just opens as if it had no incoming link.
+        // Cold-start URL retrieval failing isn't a boot-time auth error, // the app just opens as if it had no incoming link.
       });
     const linkingSubscription = Linking.addEventListener('url', ({ url }) => {
       void handleAuthDeepLink(url);
@@ -223,7 +222,7 @@ export function AuthProvider({ children, client: injectedClient }: AuthProviderP
         return { error: mapAuthErrorMessage(error), needsVerification: false };
       }
       // Supabase returns a null session when email confirmation is required
-      // (config.toml auth.email.enable_confirmations — on for this project).
+      // (config.toml auth.email.enable_confirmations, on for this project).
       // The session that confirmation eventually creates comes from
       // `handleAuthDeepLink` processing the tapped link, never from this
       // call directly.
@@ -260,8 +259,7 @@ export function AuthProvider({ children, client: injectedClient }: AuthProviderP
       if (error) {
         return { error: mapAuthErrorMessage(error) };
       }
-      // The recovery session's only purpose was setting this password —
-      // sign it out so the user lands back on Sign In with the new one,
+      // The recovery session's only purpose was setting this password, // sign it out so the user lands back on Sign In with the new one,
       // rather than leaving a recovery-scoped session live.
       await client.auth.signOut();
       return { error: null };

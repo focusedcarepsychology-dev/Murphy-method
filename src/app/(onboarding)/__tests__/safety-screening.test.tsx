@@ -47,7 +47,7 @@ function seedThroughDuration(backend: FakeOnboardingBackend) {
   });
 }
 
-describe('Safety Screening (safety-critical, cannot be skipped — MASTER_SPEC.md §8.1)', () => {
+describe('Safety Screening (safety-critical, cannot be skipped, MASTER_SPEC.md §8.1)', () => {
   beforeEach(() => {
     mockBackend = new FakeOnboardingBackend();
     seedThroughDuration(mockBackend);

@@ -81,7 +81,7 @@ export default function AvailabilityScreen() {
     <OnboardingScaffold
       stepIndex={7}
       title="When can you train?"
-      description="Pick the days you're realistically able to train — at least one is required."
+      description="Pick the days you can realistically train. At least one is required."
       onBack={() => router.back()}
       onNext={handleNext}
       nextDisabled={selectedDays.length === 0}

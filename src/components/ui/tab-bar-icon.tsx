@@ -12,7 +12,7 @@ export type TabBarIconProps = {
 
 /**
  * Active tabs must not rely on colour alone (docs/DESIGN_SYSTEM.md
- * accessibility requirements) — the active tab additionally gets a filled
+ * accessibility requirements), the active tab additionally gets a filled
  * pill behind its icon, so selection reads by shape even for users who
  * can't distinguish the active/inactive tint colours.
  */

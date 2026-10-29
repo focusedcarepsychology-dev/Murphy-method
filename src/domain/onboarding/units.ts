@@ -1,6 +1,5 @@
 /**
- * Canonical unit conversion (docs/DATABASE_SCHEMA.md Conventions —
- * "Canonical units and time"). Storage is always metric (kg / cm);
+ * Canonical unit conversion (docs/DATABASE_SCHEMA.md Conventions, * "Canonical units and time"). Storage is always metric (kg / cm);
  * `unit_preference` only changes what a screen displays/accepts as input.
  * Every function here is pure and side-effect-free so it is trivially unit
  * testable and safe to call from render.
@@ -9,12 +8,12 @@
 const KG_PER_LB = 0.45359237;
 const CM_PER_IN = 2.54;
 
-/** Rounds to 1 decimal place — matches `profiles.height_cm numeric(5,1)`. */
+/** Rounds to 1 decimal place, matches `profiles.height_cm numeric(5,1)`. */
 export function roundTo1Decimal(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-/** Rounds to 2 decimal places — matches `body_measurements.value numeric(6,2)`. */
+/** Rounds to 2 decimal places, matches `body_measurements.value numeric(6,2)`. */
 export function roundTo2Decimals(value: number): number {
   return Math.round(value * 100) / 100;
 }

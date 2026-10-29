@@ -103,7 +103,7 @@ export default function TrainingExperienceScreen() {
     <OnboardingScaffold
       stepIndex={5}
       title="Your training experience"
-      description="This sets a sensible starting point — it adapts from here based on how training actually goes."
+      description="This sets a sensible starting point. Your plan will adapt based on how training actually goes."
       onBack={() => router.back()}
       onNext={handleNext}
       nextDisabled={!selected}

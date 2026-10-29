@@ -14,7 +14,7 @@ export type AuthenticatedDataState<T> = {
  * loading/ready/error states every authenticated screen in this app is
  * required to render (docs/SCREEN_SPECIFICATIONS.md). `data` stays `null`
  * until a real response arrives, so a screen has nothing to render but a
- * truthful loading or empty state in the meantime — never a placeholder
+ * truthful loading or empty state in the meantime, never a placeholder
  * value that looks like the user's own data.
  *
  * `dependencies` are the values that should cause a refetch (a route

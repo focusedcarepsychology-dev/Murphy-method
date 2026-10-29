@@ -1,0 +1,118 @@
+name: Build latest Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/android-release-finishing-pass
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: latest-android-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out latest finishing branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/android-release-finishing-pass
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+          packager: npm
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Find latest completed preview build
+        run: |
+          eas build:list \
+            --platform android \
+            --status finished \
+            --build-profile preview \
+            --limit 10 \
+            --json \
+            --non-interactive \
+            > eas-build-list.json
+
+      - name: Select newest APK build
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const parsed = JSON.parse(fs.readFileSync('eas-build-list.json', 'utf8'));
+          const builds = Array.isArray(parsed) ? parsed : [parsed];
+          const build = builds.find((item) =>
+            item?.id &&
+            (item.artifacts?.applicationArchiveUrl || item.artifacts?.buildUrl || item.artifactUrl)
+          );
+          if (!build) throw new Error('No completed Android preview APK was found.');
+          const apkUrl =
+            build.artifacts?.applicationArchiveUrl ||
+            build.artifacts?.buildUrl ||
+            build.artifactUrl;
+          fs.writeFileSync('build-id.txt', build.id);
+          fs.writeFileSync('apk-url.txt', apkUrl);
+          fs.writeFileSync(
+            'build-details-url.txt',
+            build.buildDetailsPageUrl ||
+              `https://expo.dev/accounts/focusedcares-team/projects/murphy-method/builds/${build.id}`,
+          );
+          NODE
+
+      - name: Download completed APK
+        shell: bash
+        run: |
+          curl --fail --location "$(cat apk-url.txt)" --output Murphy-Method-latest.apk
+          test -s Murphy-Method-latest.apk
+
+      - name: Add build links to run summary
+        shell: bash
+        run: |
+          {
+            echo "## Murphy Method APK"
+            echo
+            echo "Downloaded completed EAS build \`$(cat build-id.txt)\`."
+            echo
+            echo "[Open the EAS build page]($(cat build-details-url.txt))"
+            echo
+            echo "The APK is attached below as \`Murphy-Method-latest-APK\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload APK to GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: Murphy-Method-latest-APK
+          path: Murphy-Method-latest.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload EAS build record
+        uses: actions/upload-artifact@v4
+        with:
+          name: Murphy-Method-EAS-build-record
+          path: |
+            eas-build-list.json
+            build-id.txt
+            build-details-url.txt
+          if-no-files-found: error
+          retention-days: 14

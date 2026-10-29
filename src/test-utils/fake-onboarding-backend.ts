@@ -5,12 +5,12 @@
  * `submit_safety_screening`, `complete_onboarding`) to unit-test
  * `src/services/onboarding/onboarding-repository.ts`, drive an
  * end-to-end onboarding data-flow test, and render authenticated screens
- * against genuinely empty tables — which is how the zero-state invariants
+ * against genuinely empty tables, which is how the zero-state invariants
  * (a brand-new user has no history, no records and no previous
  * performance) are asserted without a real database.
  *
  * This is a test double for this repository's own query patterns, not a
- * general PostgREST simulator — it only implements the operations the
+ * general PostgREST simulator, it only implements the operations the
  * onboarding repository actually performs. The authoritative behaviour of
  * the real RPCs is verified against real PostgreSQL by
  * `supabase/tests/database/13_onboarding_rpc_functions.sql` and the local
@@ -27,8 +27,7 @@ function generateId(): string {
   return `fake-id-${nextId++}`;
 }
 
-// A monotonically increasing fake clock, not `new Date().toISOString()` —
-// two rows created within the same real millisecond (routine in a fast
+// A monotonically increasing fake clock, not `new Date().toISOString()`, // two rows created within the same real millisecond (routine in a fast
 // test run) would otherwise get identical timestamps, making
 // `order('created_at', ...)` ties non-deterministic here even though real
 // Postgres timestamps (and this fake's own insertion order) are strictly
@@ -781,7 +780,7 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
  * repository calls. Also implements just enough of the `auth` namespace
  * (`getSession`/`onAuthStateChange`/`start|stopAutoRefresh`) to drive the
  * real `AuthProvider` (`src/state/auth/auth-context.tsx`) for full-app
- * `renderRouter` screen tests — `AuthProvider`'s own
+ * `renderRouter` screen tests, `AuthProvider`'s own
  * `fetchOnboardingStatus` read goes through the same `.from('profiles')`
  * query builder as every other table call here, so seeding a profile row
  * via `backend.seedProfile()` is enough for it to resolve correctly.

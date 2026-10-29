@@ -11,7 +11,7 @@ import { useAuth } from '@/state/auth/auth-context';
 /**
  * Brief success state (docs/SCREEN_SPECIFICATIONS.md §2 "Onboarding
  * Complete"). `onboarding_completed_at` was already set server-side when
- * Programme Preview called `complete_onboarding` — this screen's CTA
+ * Programme Preview called `complete_onboarding`, this screen's CTA
  * re-fetches that cached auth state (`retryProfileLoad`, which despite its
  * name is a general "refresh profile-routing fields" trigger, not just an
  * error-retry) so `useProtectedRoute` sees the completed state and takes
@@ -24,7 +24,7 @@ export default function OnboardingCompleteScreen() {
   const [requestedContinue, setRequestedContinue] = useState(false);
   // Derived, not stored: if the refresh this triggers ends in profileStatus
   // 'error', the spinner clears itself on the next render with no effect
-  // needed (docs/DESIGN_SYSTEM.md §7 — avoid syncing state that render can
+  // needed (docs/DESIGN_SYSTEM.md §7, avoid syncing state that render can
   // just compute).
   const continuing =
     requestedContinue && !(state.status === 'signed_in' && state.profileStatus === 'error');

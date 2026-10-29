@@ -11,7 +11,7 @@ export type ErrorStateProps = {
   onRetry: () => void;
 };
 
-/** Retry-capable inline error state — never a blank screen or raw crash. */
+/** Retry-capable inline error state, never a blank screen or raw crash. */
 export function ErrorState({
   title = 'Something went wrong',
   description = "That didn't work. You can try again.",

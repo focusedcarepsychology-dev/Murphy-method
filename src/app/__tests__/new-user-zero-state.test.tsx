@@ -6,7 +6,7 @@ import {
 } from '@/test-utils/fake-onboarding-backend';
 
 /**
- * INVARIANTS A–D: a brand-new authenticated user, rendered against
+ * INVARIANTS A to D: a brand-new authenticated user, rendered against
  * genuinely empty tables, must never see fictional history, fictional
  * previous performance, fictional records, or a name they did not enter.
  */

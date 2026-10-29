@@ -85,7 +85,7 @@ export default function WorkoutDurationScreen() {
     <OnboardingScaffold
       stepIndex={8}
       title="How long should sessions be?"
-      description="A target, not a hard limit — your programme sizes sessions around it."
+      description="This is a target, not a hard limit. Your programme sizes sessions around it."
       onBack={() => router.back()}
       onNext={handleNext}
       nextDisabled={!selected}

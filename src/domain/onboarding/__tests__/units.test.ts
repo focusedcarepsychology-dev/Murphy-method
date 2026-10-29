@@ -11,7 +11,7 @@ import {
   toCanonicalWeightKg,
 } from '@/domain/onboarding/units';
 
-describe('unit conversion (docs/DATABASE_SCHEMA.md Conventions — canonical metric storage)', () => {
+describe('unit conversion (docs/DATABASE_SCHEMA.md Conventions, canonical metric storage)', () => {
   it('converts kg <-> lb and round-trips within rounding tolerance', () => {
     expect(kgToLb(100)).toBeCloseTo(220.46, 1);
     expect(lbToKg(220.46)).toBeCloseTo(100, 1);

@@ -19,11 +19,11 @@ type ResumeCheck = 'checking' | 'introduction' | 'redirecting';
  * (docs/SCREEN_SPECIFICATIONS.md §2 "Introduction"): brief, becomes more
  * personalised over time, responses are editable later, fitness/wellness
  * framing with no exaggerated AI claims. No data write happens on this
- * screen — there's nothing to persist yet.
+ * screen, there's nothing to persist yet.
  *
  * This is also the entry point `useProtectedRoute` (`ROUTES.md` §3 rule 2)
  * always redirects an incomplete-onboarding session to, regardless of how
- * far they'd already gotten — so on mount, this screen itself checks
+ * far they'd already gotten, so on mount, this screen itself checks
  * whether real progress already exists and, if so, silently forwards to
  * the true first incomplete required step instead of showing Introduction
  * again ("resume after app restart", docs/IMPLEMENTATION_PLAN.md Phase 3
@@ -51,7 +51,7 @@ export default function IntroductionScreen() {
         }
       })
       .catch(() => {
-        // Best-effort resume check only — if it fails, fall back to
+        // Best-effort resume check only, if it fails, fall back to
         // showing Introduction rather than blocking the user entirely.
         setResumeCheck('introduction');
       });
@@ -71,13 +71,13 @@ export default function IntroductionScreen() {
     <OnboardingScaffold
       stepIndex={0}
       title="Let's build your plan"
-      description="A few quick questions about your goals, experience, and schedule — about 3–6 minutes — so we can build a starting programme around you."
+      description="A few questions about your goals, experience and schedule. This takes about 3 to 6 minutes and helps us build your starting programme."
       nextLabel="Get Started"
       onNext={() => router.push('/(onboarding)/basic-profile')}
     >
       <View style={{ gap: spacing.two }}>
         <AppText color="secondary">
-          Your programme gets more personalised over time as you train — this isn&apos;t a one-time
+          Your programme gets more personalised over time as you train, this isn&apos;t a one-time
           questionnaire.
         </AppText>
         <AppText color="secondary">

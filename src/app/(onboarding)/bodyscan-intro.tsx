@@ -14,7 +14,7 @@ import { recordBodyScanConsent } from '@/services/onboarding/onboarding-reposito
  * Explains BodyScan plainly and obtains explicit consent before any
  * capture (docs/SCREEN_SPECIFICATIONS.md §2 "BodyScan Introduction &
  * Consent"). A positive `consent_records` row is only written on
- * affirmative action — reaching this screen, or skipping it, never
+ * affirmative action, reaching this screen, or skipping it, never
  * creates one.
  */
 export default function BodyScanIntroScreen() {
@@ -55,7 +55,7 @@ export default function BodyScanIntroScreen() {
           publicly shared, and Murphy Method remains fully useful without it.
         </AppText>
         <AppText color="secondary">
-          It&apos;s comparison imagery for tracking visual change over time — not a medical body
+          It&apos;s comparison imagery for tracking visual change over time, not a medical body
           composition measurement.
         </AppText>
         <AppText color="tertiary" variant="supporting">

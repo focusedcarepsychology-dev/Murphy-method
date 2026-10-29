@@ -70,7 +70,7 @@ export default function LeagueScreen() {
               <View style={{ flex: 1, minWidth: 120, gap: spacing.one }}>
                 <Caption>YOUR RANK</Caption>
                 <Heading variant="hero">
-                  {data.dashboard.season.rank ? `#${data.dashboard.season.rank}` : '—'}
+                  {data.dashboard.season.rank ? `#${data.dashboard.season.rank}` : 'Not available'}
                 </Heading>
                 <Caption color="tertiary">
                   {data.dashboard.season.participants
@@ -85,7 +85,7 @@ export default function LeagueScreen() {
               </View>
             </View>
             <Caption color="tertiary">
-              {formatDate(data.leaderboard.season.startsOn)}–
+              {formatDate(data.leaderboard.season.startsOn)} to{' '}
               {formatDate(data.leaderboard.season.endsOn)}
             </Caption>
           </Card>

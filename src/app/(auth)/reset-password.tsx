@@ -15,7 +15,7 @@ import { useAuth } from '@/state/auth/auth-context';
  * points at (`auth-context.tsx`'s `PASSWORD_RECOVERY_REDIRECT_PATH`).
  * `useProtectedRoute` (docs/ROUTES.md §3) forces navigation here whenever
  * `state.status === 'password_recovery'` and blocks navigating away from it
- * otherwise — a stale/expired link (state never reaches
+ * otherwise, a stale/expired link (state never reaches
  * `password_recovery`) is the only case this screen has to explain itself,
  * since the guard would already have redirected an ordinary session
  * elsewhere.

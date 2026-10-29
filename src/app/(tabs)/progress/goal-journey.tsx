@@ -41,7 +41,7 @@ export default function GoalJourneyScreen() {
   if (status === 'loading') {
     return (
       <ScrollScreen>
-        <LoadingState accessibilityLabel="Loading your goal journey" rows={3} />
+        <LoadingState accessibilityLabel="Loading your goal progress" rows={3} />
       </ScrollScreen>
     );
   }

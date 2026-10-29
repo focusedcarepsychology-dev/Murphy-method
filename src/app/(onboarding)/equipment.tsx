@@ -41,7 +41,7 @@ const CATEGORY_ORDER: EquipmentOption['category'][] = [
 /**
  * Multi-select checklist grouped by category (docs/SCREEN_SPECIFICATIONS.md
  * §2 "Available Equipment"). The seeded `bodyweight` row is the
- * unambiguous "no equipment" choice — selecting only it is a fully valid,
+ * unambiguous "no equipment" choice, selecting only it is a fully valid,
  * required-satisfying answer, not a lesser fallback.
  */
 export default function EquipmentScreen() {

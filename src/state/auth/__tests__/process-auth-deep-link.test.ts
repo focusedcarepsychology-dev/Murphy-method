@@ -93,7 +93,7 @@ describe('processAuthDeepLink', () => {
       });
 
       // Deliberately at the *signup* path but declaring itself a recovery
-      // credential — `type` must win, since it's what Supabase says the
+      // credential, `type` must win, since it's what Supabase says the
       // credential is actually for (docs/ROUTES.md §3: a recovery session
       // must never be miscategorised as an ordinary signed-in one).
       const result = await processAuthDeepLink(

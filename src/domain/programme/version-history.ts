@@ -7,7 +7,7 @@
  * What this module does instead is derive the *displayed* description from
  * `engine_version`, which is the authoritative record of what actually ran:
  *
- *  - `phase3-stub-1` created a programme **structure** only — training
+ *  - `phase3-stub-1` created a programme **structure** only, training
  *    days, session length, goal priorities and safety state. It selected
  *    no exercises at all. Its stored reason ("Initial programme created
  *    from your onboarding responses") reads as though it did, so the UI

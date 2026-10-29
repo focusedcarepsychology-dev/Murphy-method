@@ -59,6 +59,6 @@ describe('gamification response parsing', () => {
   it('accepts readable aliases and rejects contact-like punctuation', () => {
     expect(validateTournamentAlias('Waterford-Mover_7')).toBeNull();
     expect(validateTournamentAlias('a@b.com')).toMatch(/letters, numbers/i);
-    expect(validateTournamentAlias('ab')).toMatch(/3–24/i);
+    expect(validateTournamentAlias('ab')).toMatch(/3 to 24/i);
   });
 });

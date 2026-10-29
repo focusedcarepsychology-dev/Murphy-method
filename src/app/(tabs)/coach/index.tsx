@@ -59,7 +59,7 @@ export default function CoachScreen() {
           <EmptyState
             icon="coach"
             title="Nothing to report yet"
-            description="Complete a session and the coach can reflect on what actually happened—without inventing progress or performance."
+            description="Complete a session and the coach can reflect on what actually happened, without inventing progress or performance."
             actionLabel="View today's session"
             onAction={() => router.push('/(tabs)/today')}
           />

@@ -70,7 +70,7 @@ export default function PlanWorkoutDetailScreen() {
             key={exercise.workoutExerciseId}
             name={exercise.name}
             targetSets={exercise.targetSets}
-            targetReps={`${exercise.targetRepRangeLow}–${exercise.targetRepRangeHigh}`}
+            targetReps={`${exercise.targetRepRangeLow} to ${exercise.targetRepRangeHigh}`}
             previous={
               exercise.previous
                 ? formatPerformance(exercise.previous.weightKg, exercise.previous.reps)

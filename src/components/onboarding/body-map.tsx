@@ -17,11 +17,10 @@ type RegionBox = { id: BodyAreaKey; x: number; y: number; width: number; height:
  * `BODY_VIEWBOX_WIDTH`/`BODY_VIEWBOX_HEIGHT`, so they can be drawn as SVG
  * overlays (scaling exactly with the silhouette) and, at the same
  * fractional position, as accessible `Pressable` hit-areas on top of it.
- * These are deliberately approximate soft zones, not anatomical outlines —
- * matching the "approximate regions" contract in
+ * These are deliberately approximate soft zones, not anatomical outlines, * matching the "approximate regions" contract in
  * docs/SCREEN_SPECIFICATIONS.md rather than implying precise targeting.
  * Ids are the canonical `BodyAreaKey`s (`src/domain/onboarding/body-areas.ts`)
- * — the exact set the database check constraint accepts, no aggregation.
+ *, the exact set the database check constraint accepts, no aggregation.
  */
 const regionsByView: Record<'front' | 'back', RegionBox[]> = {
   front: [
@@ -71,7 +70,7 @@ export function BodyMap({ view, selectedKeys, onToggle }: BodyMapProps) {
         }}
       >
         <BodySilhouette fill={colors.text.disabled} />
-        {/* Selection fill/outline — sits over the silhouette, scales with it via the shared viewBox. */}
+        {/* Selection fill/outline, sits over the silhouette, scales with it via the shared viewBox. */}
         <Svg
           viewBox={`0 0 ${BODY_VIEWBOX_WIDTH} ${BODY_VIEWBOX_HEIGHT}`}
           width="100%"

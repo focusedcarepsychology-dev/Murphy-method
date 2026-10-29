@@ -6,7 +6,7 @@ import type { MurphySupabaseClient } from '@/services/supabase/client';
  * screens: the shared Supabase client plus the current user id, or `null`
  * when a session isn't actually established yet. Every screen that uses
  * this is only ever reachable while signed in (route guards,
- * `src/hooks/use-protected-route.ts`) — the `null` case is a defensive
+ * `src/hooks/use-protected-route.ts`), the `null` case is a defensive
  * fallback for the brief window before that guard resolves, not an
  * expected steady state.
  */
