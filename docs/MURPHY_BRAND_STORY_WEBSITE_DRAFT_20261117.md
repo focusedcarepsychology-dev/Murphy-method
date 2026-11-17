@@ -22,58 +22,55 @@ Primary CTA: Get Your Personalised Plan
 Secondary CTA: Read the Story
 Microcopy: A conversation, not a commitment. We'll explore your goals and whether our approach is right for you.
 
-## The story: FROM THE WEIGHT OF THE PAST TO THE STRENGTH OF YOUR FUTURE
+## The story: THE DAY HE WOKE UP TO HIS OWN LIFE
 [HOLD FOR FOUNDER FACT-CHECK AND EXPLICIT CONSENT BEFORE PUBLISHING]
 
-There was a time when anger arrived before reason had even found its shoes.
+There was a time when anger was running his life. Not the ordinary frustration of a bad Monday — the sort of anger that gets behind the wheel before your better judgement has even found the car keys.
 
-One moment, the world felt manageable. The next, emotion roared through him like a runaway train — and the brakes, apparently, had taken annual leave. Anger could fill an entire room. And when it passed, it left consequences that couldn't simply be shouted away.
+His aggression had consequences. Serious ones. It led him to prison.
 
-His journey ultimately led to jail. The door closed. The noise stopped. But what came next wasn't peace.
+And prison didn't merely take away his freedom. As the world he knew fell apart, he lost much of what he had believed made him somebody: the things, the relationships, the certainty, the picture of a future he thought was guaranteed. He had spent so long trying to control the world around him that he had missed the one thing he needed to learn to manage — his own responses.
 
-It was shame. Regret. Guilt. The terrifying quiet in which the mind replays every decision and asks the same brutal question: *How did I get here?*
+There was nothing glamorous about it. Nothing to celebrate about the harm, the anger or the consequences. Behind the bravado sat shame, blame and regret. They followed him like an unwanted personal-training partner: always showing up, never helping with the heavy lifting.
 
-He carried a darkness that felt as if someone had poured a glass of tar into his chest — thick, black and impossible to shake loose. He could push himself physically, yet still feel pinned down by memories. The hardest weight in the room wasn't made of iron.
+Sometimes it felt as though someone had poured a glass of tar straight into his chest — dense, black, clinging to every thought. He could replay what he'd lost. He could blame the world. He could blame himself. Neither brought anything back.
 
-It was the one he carried inside.
+Then came the awakening.
 
-And then, slowly, something changed.
+Not a Hollywood montage. No inspiring soundtrack. No sudden beam of light through the clouds announcing that everything was fixed.
 
-Not with a cinematic thunderclap. Not with a magical sunrise and a choir appearing from nowhere. Healing rarely has the courtesy to follow a film script. Some days, progress looked less like a victory lap and more like getting out of bed, sitting with discomfort and choosing not to run from himself.
+One day, he began to see the choice in front of him: he couldn't recover yesterday by fighting it, and he couldn't become the person he wanted to be by carrying on as the person he'd been.
 
-He began to notice that anger often had other feelings beneath it. Hurt. Fear. Shame. The old conviction that he wasn't enough.
+**He had lost so much of what he thought mattered. Now he had to discover what actually did.**
 
-He could not rewrite what had happened. But he could begin to take responsibility for what happened next.
+That realisation didn't remove the guilt or instantly quiet the anger. It meant he could stop treating those emotions as commands. He could sit with discomfort instead of escaping it, take responsibility without deciding he was beyond redemption, and build new habits a decision at a time.
 
-Instead of treating pain as proof that he was beyond repair, he started to see it as something he could understand, work through and respond to differently. Rather than use every workout as punishment for the man he had been, he began training as an act of care for the man he wanted to become.
+Physical training became part of that process. At first, a weight was just a weight. But the discipline of turning up taught him something deeper: strength wasn't measured only in kilograms. It was the ability to pause instead of erupting. To tell the truth instead of hiding. To begin again even when the mirror showed someone he still struggled to forgive.
 
-The weights stayed. But the meaning changed.
+The weights didn't solve everything. They gave him somewhere to practise the qualities he wanted to bring back into everyday life.
 
-A session became a promise he could keep. A hard morning became an opportunity to practise consistency. A setback became information rather than a verdict. Little by little, he discovered a remarkable truth: strength isn't the absence of emotion. Sometimes it's having the courage to feel an emotion without allowing it to drive.
+Eventually that journey inspired The Murphy Method — a different way to think about coaching. Not another voice shouting, “NO EXCUSES!” at you over a motivational video. If being shouted at were the answer, rush-hour traffic would be the world's most successful self-improvement programme.
 
-That shift helped inspire The Murphy Method.
+**The Murphy Method starts with a more meaningful question: what is the life you actually want to build — and why?**
 
-Not another programme that simply tells you to lift heavier, eat less and 'want it more'. Because if motivation alone were the answer, we'd all have six-packs by Tuesday and nobody would ever miss leg day.
+Maybe you've made choices you regret. Maybe anger, fear, shame or the feeling of never being enough has cost you more than you want to admit. Maybe you simply feel stuck and want to trust yourself again.
 
-The Murphy Method asks a more important question.
+You do not need to have an extraordinary backstory to begin. You don't need to be broken to deserve support. And you don't need to punish yourself into change.
 
-**What are you building this strength *for*?**
+The Method brings together personalised physical training, one-to-one coaching, honest feedback and practical adaptations to help you build consistency, confidence, self-respect and purpose. A plan should fit your life, not ask you to pretend you have somebody else's.
 
-Perhaps you're rebuilding after a mistake. Perhaps self-doubt has quietly been making your decisions for years. Perhaps life has worn down your confidence, and you want to recognise yourself again.
+The goal isn't to erase who you've been. It's to take responsibility for the next choice, the next habit, the next chapter — and to keep building from there.
 
-You don't have to arrive feeling fearless. You don't have to have it all together. You don't have to pretend the past didn't hurt.
-
-You begin where you are.
-
-With practical training, honest conversation, personalised goals, ongoing feedback and a plan that changes as you do, the purpose is to help you move towards something bigger than the next number on a barbell.
-
-Not perfection. Not someone else's definition of success. A life in which you increasingly trust yourself to show up.
-
-You are already worthy of care. Growth isn't a punishment for falling short; it's something you deserve to give yourself.
-
-**Your story is still being written. And the next chapter belongs to you.**
+**He discovered that losing what he thought mattered could become the beginning of finding what truly did. Your beginning can be today.**
 
 CTA: Get Your Personalised Plan
+
+### Short homepage story teaser
+**He lost his freedom. Then he found a different kind of strength.**
+
+Anger and aggression led him to prison — and to the loss of much he once thought defined him. Facing shame, guilt and the wreckage of old choices, he reached a turning point: he couldn't control yesterday, but he could take responsibility for tomorrow. From that awakening came the philosophy behind The Murphy Method: physical training with a deeper purpose, built around self-respect, personal responsibility and lasting progress.
+
+CTA: Read the Full Story
 
 ## Method sections
 ### 01 — Find Your Why
